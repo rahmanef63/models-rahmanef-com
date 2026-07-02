@@ -2,7 +2,7 @@
 # the @rahmanef/models library), so the build context is the repo root and we build web/.
 # Convex stays on Convex Cloud — only the public URL is baked in (NEXT_PUBLIC_CONVEX_URL buildArg).
 FROM node:22-alpine AS base
-RUN corepack enable && apk add --no-cache libc6-compat
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate && apk add --no-cache libc6-compat
 WORKDIR /app
 
 FROM base AS deps
@@ -15,7 +15,7 @@ ENV NEXT_PUBLIC_CONVEX_URL=$NEXT_PUBLIC_CONVEX_URL
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY web/ ./
-RUN pnpm build
+RUN mkdir -p public && pnpm build
 
 FROM base AS runner
 ENV NODE_ENV=production
