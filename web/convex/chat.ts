@@ -38,6 +38,12 @@ const OPENAI_COMPAT: Record<string, string> = {
   "vercel-gateway": "https://ai-gateway.vercel.sh/v1",
 };
 
+// token-saver system prompts (ported concept from 9router) — cut output tokens.
+const CAVEMAN_PROMPT =
+  "Respond in terse 'smart caveman' style to save tokens. Keep ALL technical substance, code blocks, and exact error text unchanged. Drop articles (a/an/the), filler, pleasantries, and hedging. Fragments are fine. Short synonyms. Be correct and complete — just compressed.";
+const PONYTAIL_PROMPT =
+  "Answer like a lazy senior engineer: the simplest solution that actually works. Prefer stdlib > native platform feature > an existing dependency > one line > minimal code. Apply YAGNI (skip speculative abstractions). Never trade away input validation, security, error handling, or accessibility. Shortest working answer, no filler.";
+
 function modelFor(provider: string, model: string, apiKey: string) {
   switch (provider) {
     case "openai": return createOpenAI({ apiKey })(model);
@@ -67,6 +73,13 @@ export const chat = action({
     const row = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider });
     if (!row) throw new Error(`no credentials for "${provider}" — connect or add a key first`);
 
+    // token-savers: prepend a Caveman/Ponytail system prompt when the user has them on
+    const settings = await ctx.runQuery(internal.settings._getForChat, { userId });
+    const sys: string[] = [];
+    if (settings.cavemanEnabled) sys.push(CAVEMAN_PROMPT);
+    if (settings.ponytailEnabled) sys.push(PONYTAIL_PROMPT);
+    const messages = sys.length ? [{ role: "system", content: sys.join("\n\n") }, ...a.messages] : a.messages;
+
     const logUsage = (status: string, promptTokens: number, completionTokens: number) =>
       ctx.runMutation(internal.usage.log, { userId, provider, model: a.model, promptTokens, completionTokens, status });
 
@@ -86,7 +99,7 @@ export const chat = action({
             if (r2) bundle = JSON.parse(await decryptSecret(r2.ciphertext));
           }
         }
-        const res = await codexChat(bundle, model, a.messages);
+        const res = await codexChat(bundle, model, messages);
         text = res.text;
         promptTokens = res.promptTokens;
         completionTokens = res.completionTokens;
@@ -94,7 +107,7 @@ export const chat = action({
         const apiKey = await decryptSecret(row.ciphertext);
         const m = modelFor(provider, model, apiKey);
         if (!m) throw new Error(`unknown provider "${provider}"`);
-        const result = await generateText({ model: m, messages: a.messages as any });
+        const result = await generateText({ model: m, messages: messages as any });
         text = result.text || "(no text)";
         const u: any = result.usage ?? {};
         promptTokens = u.inputTokens ?? u.promptTokens ?? 0;

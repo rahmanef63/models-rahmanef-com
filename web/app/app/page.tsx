@@ -213,6 +213,8 @@ function Dashboard() {
 
       <ChatCard models={myModels} chat={chat} />
 
+      <TokenSaverCard />
+
       <UsageCard />
 
       {me?.isSuperAdmin && <AdminCard />}
@@ -254,6 +256,26 @@ function ByDayBars({ byDay }: { byDay: Record<string, number> }) {
         <div key={d} className="bar" style={{ height: `${Math.round(((byDay[d] ?? 0) / max) * 100)}%` }} title={`${d}: ${byDay[d] ?? 0}`} />
       ))}
     </div>
+  );
+}
+
+function TokenSaverCard() {
+  const s = useQuery(api.settings.mySettings);
+  const set = useMutation(api.settings.setSettings);
+  if (!s) return null;
+  return (
+    <section className="card">
+      <h2>Token savers</h2>
+      <p className="sub">Inject a system prompt to cut output tokens on every chat.</p>
+      <label className="toggle">
+        <input type="checkbox" checked={!!s.cavemanEnabled} onChange={(e) => void set({ cavemanEnabled: e.target.checked })} />
+        <span><strong>Caveman</strong> <span className="muted">— terse output, keeps all technical substance</span></span>
+      </label>
+      <label className="toggle">
+        <input type="checkbox" checked={!!s.ponytailEnabled} onChange={(e) => void set({ ponytailEnabled: e.target.checked })} />
+        <span><strong>Ponytail</strong> <span className="muted">— lazy / YAGNI, minimal answers</span></span>
+      </label>
+    </section>
   );
 }
 

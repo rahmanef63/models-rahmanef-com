@@ -30,6 +30,14 @@ export default defineSchema({
   })
     .index("by_user_at", ["userId", "at"])
     .index("by_at", ["at"]),
+  // per-user token-saver settings (Caveman/Ponytail system-prompt injection)
+  settings: defineTable({
+    userId: v.id("users"),
+    cavemanEnabled: v.optional(v.boolean()),
+    cavemanLevel: v.optional(v.string()),
+    ponytailEnabled: v.optional(v.boolean()),
+    ponytailLevel: v.optional(v.string()),
+  }).index("by_user", ["userId"]),
   // short-lived OAuth handshake state (PKCE verifier / device-code ids), keyed per user+provider
   oauthFlows: defineTable({
     userId: v.id("users"),
