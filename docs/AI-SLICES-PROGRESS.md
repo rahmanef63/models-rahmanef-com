@@ -18,7 +18,7 @@ Last updated: 2026-07-02.
 | **AI Admin** — console (8 tabs) | scaffold-only | 🟡 providers/models/audit + content totals | ~35% |
 | **AI Studio** — generation canvas | scaffold-only | ⬜ not started | 0% |
 | **shared/agentic** — the tool kit | implemented (lib) | 🟡 we use AI-SDK tools instead of the kit | ~25% |
-| **Create Your MCP** — MCP server | partial (templates) | 🟡 **bearer core live**; OAuth 5b next | ~35% |
+| **Create Your MCP** — MCP server | partial (templates) | 🟡 **bearer + OAuth 2.1 live**; rate-limit 5c next | ~70% |
 
 ---
 
@@ -123,10 +123,11 @@ Last updated: 2026-07-02.
 - ✅ Bearer auth — tokens stored as sha256, validated before any dispatch; 401 on missing/bad
 - ✅ Token console (issue / revoke, endpoint URL + client config) — dashboard **MCP** tab
 - ✅ Tool catalog: `list_providers`, `get_usage`, `chat` (runs as the token owner, BYOK, never leaks a key)
-- 🟡 `/oauth/authorize` consent + `/oauth/token` (PKCE) — **5b, next**
-- 🟡 `.well-known/oauth-authorization-server` + `oauth-protected-resource` — 5b
+- ✅ **OAuth 2.1** (5b): DCR + `/oauth/authorize` consent + `/oauth/token` — PKCE S256, single-use 60s codes, redirect_uri allowlist; **ChatGPT-connectable** (smoke-tested end-to-end incl. replay + wrong-verifier rejection)
+- ✅ `.well-known` AS + protected-resource metadata; `/mcp` 401 advertises the AS via `WWW-Authenticate`
+- ✅ **Hardened** (paranoid review caught pre-ship): app-wide `X-Frame-Options: DENY` + CSP `frame-ancestors 'none'` (anti-clickjacking) + consent shows the destination host & marks DCR names unverified (anti consent-phishing)
 - ⬜ More tools (`run_agent`, `list_models`, add/remove key)
-- ⬜ Rate limiting / anti-abuse — 5c
+- ⬜ Rate limiting / anti-abuse (open DCR) — **5c, next**
 
 ---
 
@@ -139,6 +140,6 @@ Last updated: 2026-07-02.
 
 ## What's next (loop order)
 - ✅ **AI Admin console** — providers/models/audit + content totals
-- 🟡 **Create Your MCP** — bearer core live (5a); OAuth 2.1 (5b) + rate-limit (5c) in progress
+- 🟡 **Create Your MCP** — bearer (5a) + OAuth 2.1 (5b) **live + ChatGPT-connectable**; rate-limit + revoke-all (5c) next
 6. **AI Studio** — generation canvas
 - backlog: chat Search mode, agent definitions + scheduling, cost($) tracking, public `/v1` router (🅿️), the 8-tab admin registries
