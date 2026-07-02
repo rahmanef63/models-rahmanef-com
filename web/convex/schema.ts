@@ -39,6 +39,19 @@ export default defineSchema({
     ponytailLevel: v.optional(v.string()),
     agentMode: v.optional(v.boolean()),
   }).index("by_user", ["userId"]),
+  // AI Agents: one row per task run. steps = a compact trace (assistant text + tool names per step).
+  agentRuns: defineTable({
+    userId: v.id("users"),
+    task: v.string(),
+    model: v.string(),
+    status: v.string(), // "running" | "done" | "error"
+    steps: v.optional(v.array(v.object({ text: v.string(), tools: v.array(v.string()) }))),
+    result: v.optional(v.string()),
+    error: v.optional(v.string()),
+    promptTokens: v.optional(v.number()),
+    completionTokens: v.optional(v.number()),
+    at: v.number(),
+  }).index("by_user_at", ["userId", "at"]),
   // short-lived OAuth handshake state (PKCE verifier / device-code ids), keyed per user+provider
   oauthFlows: defineTable({
     userId: v.id("users"),

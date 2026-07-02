@@ -56,6 +56,26 @@ function modelFor(provider: string, model: string, apiKey: string) {
   }
 }
 
+// tools that let a model inspect the caller's OWN gateway (agent mode + AI Agents). auth flows
+// through ctx.runQuery, so a tool only ever sees the authed user's data.
+function gatewayTools(ctx: any) {
+  const noArgs = jsonSchema({ type: "object", properties: {}, additionalProperties: false });
+  return {
+    list_my_providers: tool({ description: "List the AI providers the user has connected (BYOK).", inputSchema: noArgs, execute: async () => ctx.runQuery(api.credentials.listConfiguredProviders, {}) }),
+    get_my_usage: tool({ description: "Get the user's model usage stats (requests, tokens in/out, per-model, per-day).", inputSchema: noArgs, execute: async () => ctx.runQuery(api.usage.myUsage, {}) }),
+  };
+}
+
+// compact a Vercel AI SDK multi-step result into a serializable trace + token totals
+function traceOf(result: any): { steps: { text: string; tools: string[] }[]; promptTokens: number; completionTokens: number } {
+  const steps = (result.steps ?? []).map((s: any) => ({
+    text: (s.text ?? "").slice(0, 4000),
+    tools: (s.toolCalls ?? []).map((tc: any) => tc.toolName ?? "tool"),
+  }));
+  const u: any = result.usage ?? {};
+  return { steps, promptTokens: u.inputTokens ?? u.promptTokens ?? 0, completionTokens: u.outputTokens ?? u.completionTokens ?? 0 };
+}
+
 export const chat = action({
   args: {
     model: v.string(),
@@ -108,13 +128,7 @@ export const chat = action({
         const m = modelFor(provider, model, apiKey);
         if (!m) throw new Error(`unknown provider "${provider}"`);
         // agent mode: give the model tools to inspect the user's own gateway (needs a tool-capable model)
-        const noArgs = jsonSchema({ type: "object", properties: {}, additionalProperties: false });
-        const tools = settings.agentMode
-          ? {
-              list_my_providers: tool({ description: "List the AI providers the user has connected (BYOK).", inputSchema: noArgs, execute: async () => ctx.runQuery(api.credentials.listConfiguredProviders, {}) }),
-              get_my_usage: tool({ description: "Get the user's model usage stats (requests, tokens in/out, per-model, per-day).", inputSchema: noArgs, execute: async () => ctx.runQuery(api.usage.myUsage, {}) }),
-            }
-          : undefined;
+        const tools = settings.agentMode ? gatewayTools(ctx) : undefined;
         const result = await generateText({ model: m, messages: messages as any, ...(tools ? { tools, stopWhen: stepCountIs(5) } : {}) });
         text = result.text || "(no text)";
         const u: any = result.usage ?? {};
@@ -128,5 +142,40 @@ export const chat = action({
 
     await logUsage("ok", promptTokens, completionTokens);
     return { text };
+  },
+});
+
+// AI Agents: run a single task with tools + a multi-step loop, persisting a trace. Needs a
+// tool-capable API-key model (codex's ChatGPT-backend path has no tool support here).
+export const runAgent = action({
+  args: { task: v.string(), model: v.string() },
+  handler: async (ctx, a): Promise<{ runId: string; text: string }> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new Error("unauthenticated");
+
+    const i = a.model.indexOf("/");
+    if (i < 1 || i === a.model.length - 1) throw new Error('model must be "provider/model"');
+    const provider = a.model.slice(0, i);
+    const model = a.model.slice(i + 1);
+    if (provider === "openai-codex") throw new Error("agents need a tool-capable API-key model (not openai-codex)");
+
+    const row = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider });
+    if (!row) throw new Error(`no credentials for "${provider}" — connect or add a key first`);
+    const m = modelFor(provider, model, await decryptSecret(row.ciphertext));
+    if (!m) throw new Error(`unknown provider "${provider}"`);
+
+    const runId = await ctx.runMutation(internal.agents.create, { userId, task: a.task, model: a.model, at: Date.now() });
+    try {
+      const result = await generateText({ model: m, messages: [{ role: "user", content: a.task }], tools: gatewayTools(ctx), stopWhen: stepCountIs(8) });
+      const { steps, promptTokens, completionTokens } = traceOf(result);
+      const text = result.text || "(no text)";
+      await ctx.runMutation(internal.agents.finish, { runId, status: "done", steps, result: text, promptTokens, completionTokens });
+      await ctx.runMutation(internal.usage.log, { userId, provider, model: a.model, promptTokens, completionTokens, status: "ok" });
+      return { runId, text };
+    } catch (e: any) {
+      await ctx.runMutation(internal.agents.finish, { runId, status: "error", error: String(e?.message ?? e).slice(0, 500) });
+      await ctx.runMutation(internal.usage.log, { userId, provider, model: a.model, promptTokens: 0, completionTokens: 0, status: "error" });
+      throw e;
+    }
   },
 });

@@ -213,6 +213,8 @@ function Dashboard() {
 
       <ChatCard models={myModels} chat={chat} />
 
+      <AgentsCard models={myModels} />
+
       <TokenSaverCard />
 
       <UsageCard />
@@ -363,6 +365,61 @@ function ApiKeyForm({ setCredential }: { setCredential: (a: { provider: string; 
         </button>
       </div>
     </details>
+  );
+}
+
+type Run = { _id: string; task: string; model: string; status: string; steps?: { text: string; tools: string[] }[]; result?: string; error?: string };
+
+function AgentsCard({ models }: { models: string[] }) {
+  const runAgent = useAction(api.chat.runAgent);
+  const runs = useQuery(api.agents.myRuns) as Run[] | undefined;
+  const [model, setModel] = useState("");
+  const [task, setTask] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  return (
+    <section className="card">
+      <h2>AI Agents</h2>
+      <p className="sub">Give a tool-capable model a task — it runs a multi-step loop with tools and traces every step.</p>
+      <div className="row">
+        <input list="agentmodels" placeholder="provider/model" value={model} onChange={(e) => setModel(e.target.value)} />
+        <datalist id="agentmodels">{models.map((m) => <option key={m} value={m} />)}</datalist>
+      </div>
+      <textarea rows={2} placeholder="e.g. list which providers I've connected, then summarize my usage" value={task} onChange={(e) => setTask(e.target.value)} />
+      <button
+        className="btn accent"
+        disabled={!model || !task || busy}
+        onClick={async () => { setBusy(true); setErr(""); try { await runAgent({ model, task }); setTask(""); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); } }}
+      >
+        {busy ? "running…" : "Run agent"}
+      </button>
+      {err && <p className="err">{err}</p>}
+      {runs && runs.length > 0 && (
+        <ul className="runs">
+          {runs.map((r) => (
+            <li key={r._id}>
+              <details>
+                <summary>
+                  <span className="badge" style={r.status === "error" ? { color: "var(--danger)" } : undefined}>{r.status}</span>
+                  <span className="name">{r.task}</span>
+                  <span className="mono muted" style={{ fontSize: ".72rem" }}>{r.model}</span>
+                </summary>
+                <div className="trace">
+                  {(r.steps ?? []).map((s, i) => (
+                    <div key={i} className="step">
+                      {s.tools.length > 0 && <div className="tools">{s.tools.map((t, j) => <span key={j} className="badge">{t}</span>)}</div>}
+                      {s.text && <p>{s.text}</p>}
+                    </div>
+                  ))}
+                  {r.result && <pre>{r.result}</pre>}
+                  {r.error && <p className="err">{r.error}</p>}
+                </div>
+              </details>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
