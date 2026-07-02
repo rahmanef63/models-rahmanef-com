@@ -137,6 +137,7 @@ Last updated: 2026-07-02.
 - ✅ **Token savers** (Caveman / Ponytail system-prompt injection) — not in rr
 - ✅ models.dev auto-updating catalog + host-gating
 - ✅ Landing page, OG image, super-admin gate, dashboard sidebar
+- ✅ **Full-width UI** (landing + dashboard, 1520px fluid) · landing reflects every shipped feature (Chat / Agents / Providers / Usage / MCP / Admin) · Overview default with quick-links + connect nudge
 
 ## What's next (loop order)
 - ✅ **AI Admin console** — providers/models/audit + content totals

@@ -42,7 +42,7 @@ body::after {
 }
 a { color: inherit; text-decoration: none; }
 
-.wrap { max-width: 1080px; margin: 0 auto; padding: 0 1.5rem; }
+.wrap { max-width: 1520px; margin: 0 auto; padding: 0 clamp(1.25rem, 4vw, 3.5rem); }
 .mono { font-family: var(--font-mono); }
 .eyebrow {
   font-family: var(--font-mono); font-size: 0.72rem; letter-spacing: 0.22em; text-transform: uppercase;
@@ -128,10 +128,10 @@ footer { border-top: 1px solid var(--line); padding: 2.5rem 0; margin-top: 3rem;
 @media (prefers-reduced-motion: reduce) { .reveal, .marquee .track { animation: none; } .reveal { opacity: 1; transform: none; } }
 
 /* ========== dashboard (/app) ========== */
-.app-main { max-width: 1060px; margin: 0 auto; padding: 1.5rem 1.5rem 5rem; }
+.app-main { max-width: 1520px; margin: 0 auto; padding: 1.5rem clamp(1.25rem, 4vw, 3.5rem) 5rem; }
 .app-top { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0 1.5rem; border-bottom: 1px solid var(--line); margin-bottom: 1.75rem; }
 /* shell: left nav + content panel */
-.app-body { display: grid; grid-template-columns: 188px 1fr; gap: 1.75rem; align-items: start; }
+.app-body { display: grid; grid-template-columns: 208px 1fr; gap: 2.25rem; align-items: start; }
 .side { display: flex; flex-direction: column; gap: 0.12rem; position: sticky; top: 1.5rem; }
 .side-link { text-align: left; background: none; border: none; border-left: 2px solid transparent; color: var(--muted); font-family: var(--font-mono); font-size: 0.9rem; padding: 0.5rem 0.75rem; border-radius: 0 4px 4px 0; cursor: pointer; transition: 0.15s; }
 .side-link:hover { color: var(--fg); }
@@ -144,7 +144,8 @@ footer { border-top: 1px solid var(--line); padding: 2.5rem 0; margin-top: 3rem;
 .card { background: var(--bg-2); border: 1px solid var(--line); border-radius: 4px; padding: 1.5rem; margin: 1.1rem 0; }
 .card.narrow { max-width: 400px; margin: 3rem auto; }
 .card h2 { font-family: var(--font-display); font-weight: 500; font-size: 1.3rem; margin: 0 0 0.4rem; }
-.card .sub { color: var(--muted); font-size: 0.88rem; margin: 0 0 1.3rem; }
+.card .sub { color: var(--muted); font-size: 0.88rem; margin: 0 0 1.3rem; max-width: 72ch; }
+.card > p { max-width: 72ch; }
 input, select, textarea {
   font-family: var(--font-mono); font-size: 0.88rem; padding: 0.6rem 0.7rem; border-radius: 3px;
   border: 1px solid var(--line-2); background: var(--bg); color: var(--fg); width: 100%;
@@ -192,6 +193,11 @@ textarea { resize: vertical; margin: 0.6rem 0; }
 .ov-num { font-family: var(--font-display); font-size: 1.85rem; line-height: 1; color: var(--accent); letter-spacing: -0.02em; }
 .ov-lbl { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); margin-top: 0.4rem; text-transform: uppercase; letter-spacing: 0.1em; }
 @media (max-width: 520px) { .overview { grid-template-columns: repeat(2, 1fr); } }
+.quicklinks { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px, 1fr)); gap: 0.7rem; margin: 0 0 1.3rem; }
+.qlink { text-align: left; background: var(--bg-2); border: 1px solid var(--line); border-radius: 8px; padding: 0.9rem 1rem; cursor: pointer; transition: 0.16s; }
+.qlink:hover { border-color: var(--accent); background: var(--bg-3); }
+.qlink strong { display: block; font-family: var(--font-display); font-weight: 500; font-size: 1.02rem; color: var(--fg); }
+.qlink span { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); }
 .toggle { display: flex; align-items: center; gap: 0.7rem; padding: 0.5rem 0; cursor: pointer; font-size: 0.92rem; }
 .toggle input { width: auto; accent-color: var(--accent); transform: scale(1.15); }
 .runs { list-style: none; margin-top: 1.1rem; display: flex; flex-direction: column; gap: 0.5rem; }

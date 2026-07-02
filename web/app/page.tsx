@@ -1,15 +1,24 @@
 import Link from "next/link";
 
-const PROVIDERS = ["OpenAI", "Anthropic", "Google", "OpenRouter", "Groq", "xAI", "DeepSeek", "Mistral", "Moonshot"];
+const PROVIDERS = ["OpenAI", "Anthropic", "Google", "OpenRouter", "Groq", "xAI", "DeepSeek", "Mistral", "Moonshot", "Cohere", "Perplexity", "Together", "Fireworks", "Cerebras", "DeepInfra"];
 const GITHUB = "https://github.com/rahmanef63/models-rahmanef-com";
 
 const FEATURES = [
-  { t: "Sign in, don't paste", d: "OAuth with OpenAI (ChatGPT / Codex) or OpenRouter — no key to copy. Or paste one if you prefer." },
-  { t: "One call, any provider", d: "resolveModel('provider/model') → a ready client. Nine providers, one interface, host-gated keys." },
-  { t: "Catalog that updates itself", d: "Context windows, pricing and capabilities pulled live from models.dev, cached with an offline fallback." },
-  { t: "Per-user, encrypted", d: "Every tenant brings their own credentials. Stored AES-256-GCM at rest, keyed to your own auth." },
-  { t: "Ships as a library", d: "@rahmanef/models — zero-dependency ESM core, a CLI, and an injectable CredentialStore for any backend." },
-  { t: "Distilled, not guessed", d: "The catalog, host-gating and OAuth flows are lifted from how openclaw & hermes actually do it." },
+  { t: "Sign in, don't paste", d: "OAuth with OpenAI (ChatGPT / Codex), Claude (Pro / Max) or OpenRouter — use your subscription, no key to copy. Or paste one if you prefer." },
+  { t: "23 providers, one interface", d: "resolveModel('provider/model') → a ready client. OpenAI, Anthropic, Google and twenty more, host-gated, one call." },
+  { t: "Per-user, encrypted", d: "Every tenant brings their own credentials. Stored AES-256-GCM at rest, keyed to your own auth — never shared, never logged." },
+  { t: "Chat + autonomous agents", d: "A threaded, persisted workbench and a multi-step agent runner with full tool traces — both built in, over any model you connect." },
+  { t: "Your own MCP server", d: "Mint a token and expose your gateway as an MCP endpoint. Connect Claude Code, Cursor, or ChatGPT over OAuth 2.1. Each token acts as you." },
+  { t: "Also a library", d: "@rahmanef/models — zero-dependency ESM core, a CLI, and an injectable CredentialStore for any backend. The dashboard is just one consumer." },
+];
+
+const MODULES = [
+  { k: "chat / workbench", t: "Workbench", d: "Threaded, persisted conversations across any connected model. Agent mode and token savers apply." },
+  { k: "agents / runner", t: "Agents", d: "Give a model a task; watch a multi-step tool loop run with a full, expandable trace of every step." },
+  { k: "providers / byok", t: "Providers", d: "Connect over OAuth or paste a key. 23 providers, each connection scoped to you alone." },
+  { k: "usage / telemetry", t: "Usage", d: "Every call logged — requests, in/out tokens, top models, and a 14-day activity sparkline." },
+  { k: "mcp / server", t: "MCP server", d: "Mint tokens and expose chat + tools to Claude Code, Cursor or ChatGPT over OAuth 2.1." },
+  { k: "admin / console", t: "Admin", d: "Operator console — identities, connections and aggregate usage. Never a key or message content." },
 ];
 
 export default function Landing() {
@@ -25,13 +34,14 @@ export default function Landing() {
 
       <header className="hero">
         <div>
-          <div className="eyebrow reveal" style={{ ["--d" as string]: "0.05s" }}>byok · multi-tenant · self-host</div>
+          <div className="eyebrow reveal" style={{ ["--d" as string]: "0.05s" }}>byok · 23 providers · mcp</div>
           <h1 className="reveal" style={{ ["--d" as string]: "0.12s" }}>
             Every model.<br />Your keys.<br /><em>One dashboard.</em>
           </h1>
           <p className="lede reveal" style={{ ["--d" as string]: "0.22s" }}>
-            A bring-your-own-key gateway distilled from openclaw &amp; hermes. Sign in with OpenAI or
-            OpenRouter — or paste any key — then call any model.
+            A multi-tenant, bring-your-own-key AI gateway distilled from openclaw &amp; hermes. Sign in
+            with OpenAI, Claude or OpenRouter — or paste any key — then chat, run agents, and expose it
+            all as your own MCP server.
           </p>
           <div className="cta-row reveal" style={{ ["--d" as string]: "0.3s" }}>
             <Link className="btn accent" href="/app">Open dashboard →</Link>
@@ -41,9 +51,10 @@ export default function Landing() {
         <aside className="readout reveal" style={{ ["--d" as string]: "0.4s" }} aria-hidden>
           <div className="rhead"><span>~/models</span><span>online</span></div>
           <div className="rrow"><span><i className="dot" /> openai · chatgpt</span><span>oauth</span></div>
+          <div className="rrow"><span><i className="dot" /> claude · pro/max</span><span>oauth</span></div>
           <div className="rrow"><span><i className="dot" /> openrouter</span><span>oauth</span></div>
           <div className="rrow"><span><i className="dot" /> anthropic</span><span>key</span></div>
-          <div className="rrow"><span><i className="dot off" /> groq</span><span className="muted">—</span></div>
+          <div className="rrow"><span><i className="dot" /> mcp · /mcp</span><span>serving</span></div>
           <div className="rrow" style={{ borderTop: "1px solid var(--line)", marginTop: ".6rem", paddingTop: ".7rem" }}>
             <span className="accent">resolveModel()</span><span className="muted">→ 200</span>
           </div>
@@ -75,13 +86,29 @@ export default function Landing() {
 
       <section className="section">
         <div className="section-head">
+          <span className="eyebrow">inside the dashboard</span>
+          <h2>Everything, in one console.</h2>
+        </div>
+        <div className="steps">
+          {MODULES.map((m) => (
+            <div className="step" key={m.t}>
+              <div className="num">{m.k}</div>
+              <h3>{m.t}</h3>
+              <p>{m.d}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="section-head">
           <span className="eyebrow">how it works</span>
           <h2>Three steps to any model.</h2>
         </div>
         <div className="steps">
           <div className="step"><div className="num">01 / sign in</div><h3>Make an account</h3><p>Email + password. Your keys are scoped to you and no one else.</p></div>
-          <div className="step"><div className="num">02 / connect</div><h3>Add a provider</h3><p>Sign in with OpenAI or OpenRouter over OAuth, or paste an API key.</p></div>
-          <div className="step"><div className="num">03 / use</div><h3>Call any model</h3><p>Pick from the live catalog and chat — the right key is routed for you.</p></div>
+          <div className="step"><div className="num">02 / connect</div><h3>Add a provider</h3><p>Sign in with OpenAI, Claude or OpenRouter over OAuth, or paste an API key.</p></div>
+          <div className="step"><div className="num">03 / use</div><h3>Call any model</h3><p>Chat, run agents, or point an MCP client at your endpoint — the right key is routed for you.</p></div>
         </div>
       </section>
 
