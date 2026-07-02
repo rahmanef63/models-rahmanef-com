@@ -3,10 +3,10 @@
 // usage for the stats dashboard. Per-user key — NOT a server-held key. OpenAI-Codex keeps its
 // bespoke ChatGPT-backend path (codexLib); everyone else goes through the AI SDK.
 import { action } from "./_generated/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { generateText } from "ai";
+import { generateText, tool, jsonSchema, stepCountIs } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
@@ -107,7 +107,15 @@ export const chat = action({
         const apiKey = await decryptSecret(row.ciphertext);
         const m = modelFor(provider, model, apiKey);
         if (!m) throw new Error(`unknown provider "${provider}"`);
-        const result = await generateText({ model: m, messages: messages as any });
+        // agent mode: give the model tools to inspect the user's own gateway (needs a tool-capable model)
+        const noArgs = jsonSchema({ type: "object", properties: {}, additionalProperties: false });
+        const tools = settings.agentMode
+          ? {
+              list_my_providers: tool({ description: "List the AI providers the user has connected (BYOK).", inputSchema: noArgs, execute: async () => ctx.runQuery(api.credentials.listConfiguredProviders, {}) }),
+              get_my_usage: tool({ description: "Get the user's model usage stats (requests, tokens in/out, per-model, per-day).", inputSchema: noArgs, execute: async () => ctx.runQuery(api.usage.myUsage, {}) }),
+            }
+          : undefined;
+        const result = await generateText({ model: m, messages: messages as any, ...(tools ? { tools, stopWhen: stepCountIs(5) } : {}) });
         text = result.text || "(no text)";
         const u: any = result.usage ?? {};
         promptTokens = u.inputTokens ?? u.promptTokens ?? 0;

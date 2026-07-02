@@ -37,6 +37,7 @@ export default defineSchema({
     cavemanLevel: v.optional(v.string()),
     ponytailEnabled: v.optional(v.boolean()),
     ponytailLevel: v.optional(v.string()),
+    agentMode: v.optional(v.boolean()),
   }).index("by_user", ["userId"]),
   // short-lived OAuth handshake state (PKCE verifier / device-code ids), keyed per user+provider
   oauthFlows: defineTable({

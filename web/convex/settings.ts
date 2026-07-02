@@ -4,7 +4,7 @@ import { query, mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
-const DEFAULTS = { cavemanEnabled: false, cavemanLevel: "full", ponytailEnabled: false, ponytailLevel: "full" };
+const DEFAULTS = { cavemanEnabled: false, cavemanLevel: "full", ponytailEnabled: false, ponytailLevel: "full", agentMode: false };
 
 export const mySettings = query({
   args: {},
@@ -17,7 +17,7 @@ export const mySettings = query({
 });
 
 export const setSettings = mutation({
-  args: { cavemanEnabled: v.optional(v.boolean()), ponytailEnabled: v.optional(v.boolean()), cavemanLevel: v.optional(v.string()), ponytailLevel: v.optional(v.string()) },
+  args: { cavemanEnabled: v.optional(v.boolean()), ponytailEnabled: v.optional(v.boolean()), cavemanLevel: v.optional(v.string()), ponytailLevel: v.optional(v.string()), agentMode: v.optional(v.boolean()) },
   handler: async (ctx, a) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("unauthenticated");
