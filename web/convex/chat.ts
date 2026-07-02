@@ -22,6 +22,20 @@ const OPENAI_COMPAT: Record<string, string> = {
   xai: "https://api.x.ai/v1",
   mistral: "https://api.mistral.ai/v1",
   moonshotai: "https://api.moonshot.ai/v1",
+  // expanded provider set (all OpenAI-compatible chat/completions endpoints)
+  togetherai: "https://api.together.xyz/v1",
+  "fireworks-ai": "https://api.fireworks.ai/inference/v1",
+  cerebras: "https://api.cerebras.ai/v1",
+  perplexity: "https://api.perplexity.ai",
+  deepinfra: "https://api.deepinfra.com/v1/openai",
+  nebius: "https://api.studio.nebius.com/v1",
+  hyperbolic: "https://api.hyperbolic.xyz/v1",
+  sambanova: "https://api.sambanova.ai/v1",
+  novita: "https://api.novita.ai/v3/openai",
+  cohere: "https://api.cohere.ai/compatibility/v1",
+  glm: "https://api.z.ai/api/paas/v4",
+  "github-models": "https://models.github.ai/inference",
+  "vercel-gateway": "https://ai-gateway.vercel.sh/v1",
 };
 
 function modelFor(provider: string, model: string, apiKey: string) {

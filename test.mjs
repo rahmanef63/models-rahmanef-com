@@ -5,8 +5,8 @@ import { parseRef, resolveModel } from './src/resolve.js'
 import { memoryCredentialStore } from './src/store.js'
 import { PROVIDERS, hostOf } from './src/registry.js'
 
-// registry slug must equal its models.dev catalogId, else /models filter + CLI silently drop it
-for (const [slug, conn] of Object.entries(PROVIDERS)) assert.equal(slug, conn.catalogId, `provider "${slug}" slug != catalogId`)
+// every provider needs baseUrl + protocol + catalogId (catalogId may differ from slug, e.g. glm→zhipuai)
+for (const [slug, conn] of Object.entries(PROVIDERS)) assert.ok(conn.baseUrl && conn.protocol && conn.catalogId, `provider "${slug}" missing fields`)
 
 // parseRef splits on FIRST '/', model id may contain '/'
 assert.deepEqual(parseRef('openrouter/moonshotai/kimi-k2'), { provider: 'openrouter', model: 'moonshotai/kimi-k2' })

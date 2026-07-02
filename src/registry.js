@@ -13,6 +13,20 @@ export const PROVIDERS = {
   xai:        { baseUrl: 'https://api.x.ai/v1',                                protocol: 'openai',    envVars: ['XAI_API_KEY'],                   catalogId: 'xai' },
   mistral:    { baseUrl: 'https://api.mistral.ai/v1',                          protocol: 'openai',    envVars: ['MISTRAL_API_KEY'],               catalogId: 'mistral' },
   moonshotai: { baseUrl: 'https://api.moonshot.ai/v1',                         protocol: 'openai',    envVars: ['MOONSHOT_API_KEY'],              catalogId: 'moonshotai' },
+  // expanded OpenAI-compatible providers
+  togetherai:       { baseUrl: 'https://api.together.xyz/v1',            protocol: 'openai', envVars: ['TOGETHER_API_KEY'],   catalogId: 'togetherai' },
+  'fireworks-ai':   { baseUrl: 'https://api.fireworks.ai/inference/v1',  protocol: 'openai', envVars: ['FIREWORKS_API_KEY'],  catalogId: 'fireworks-ai' },
+  cerebras:         { baseUrl: 'https://api.cerebras.ai/v1',             protocol: 'openai', envVars: ['CEREBRAS_API_KEY'],   catalogId: 'cerebras' },
+  perplexity:       { baseUrl: 'https://api.perplexity.ai',              protocol: 'openai', envVars: ['PERPLEXITY_API_KEY'], catalogId: 'perplexity' },
+  deepinfra:        { baseUrl: 'https://api.deepinfra.com/v1/openai',    protocol: 'openai', envVars: ['DEEPINFRA_API_KEY'],  catalogId: 'deepinfra' },
+  nebius:           { baseUrl: 'https://api.studio.nebius.com/v1',       protocol: 'openai', envVars: ['NEBIUS_API_KEY'],     catalogId: 'nebius' },
+  hyperbolic:       { baseUrl: 'https://api.hyperbolic.xyz/v1',          protocol: 'openai', envVars: ['HYPERBOLIC_API_KEY'], catalogId: 'hyperbolic' },
+  sambanova:        { baseUrl: 'https://api.sambanova.ai/v1',            protocol: 'openai', envVars: ['SAMBANOVA_API_KEY'],  catalogId: 'sambanova' },
+  novita:           { baseUrl: 'https://api.novita.ai/v3/openai',        protocol: 'openai', envVars: ['NOVITA_API_KEY'],     catalogId: 'novita' },
+  cohere:           { baseUrl: 'https://api.cohere.ai/compatibility/v1', protocol: 'openai', envVars: ['COHERE_API_KEY', 'CO_API_KEY'], catalogId: 'cohere' },
+  glm:              { baseUrl: 'https://api.z.ai/api/paas/v4',           protocol: 'openai', envVars: ['GLM_API_KEY', 'ZHIPUAI_API_KEY'], catalogId: 'zhipuai' },
+  'github-models':  { baseUrl: 'https://models.github.ai/inference',     protocol: 'openai', envVars: ['GITHUB_TOKEN'],       catalogId: 'github-models' },
+  'vercel-gateway': { baseUrl: 'https://ai-gateway.vercel.sh/v1',        protocol: 'openai', envVars: ['AI_GATEWAY_API_KEY'], catalogId: 'vercel' },
 }
 
 export const hostOf = (u) => new URL(u).host

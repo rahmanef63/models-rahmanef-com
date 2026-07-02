@@ -17,6 +17,19 @@ const PROVIDER_LABEL: Record<string, string> = {
   xai: "xAI",
   mistral: "Mistral",
   moonshotai: "Moonshot",
+  togetherai: "Together AI",
+  "fireworks-ai": "Fireworks",
+  cerebras: "Cerebras",
+  perplexity: "Perplexity",
+  deepinfra: "DeepInfra",
+  nebius: "Nebius",
+  hyperbolic: "Hyperbolic",
+  sambanova: "SambaNova",
+  novita: "Novita",
+  cohere: "Cohere",
+  glm: "Zhipu GLM",
+  "github-models": "GitHub Models",
+  "vercel-gateway": "Vercel AI Gateway",
 };
 
 export default function AppPage() {
@@ -283,7 +296,7 @@ function ApiKeyForm({ setCredential }: { setCredential: (a: { provider: string; 
   const [provider, setProvider] = useState("anthropic");
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
-  const opts = ["anthropic", "openai", "google", "groq", "deepseek", "xai", "mistral", "moonshotai", "openrouter"];
+  const opts = ["anthropic", "openai", "google", "openrouter", "groq", "deepseek", "xai", "mistral", "moonshotai", "togetherai", "fireworks-ai", "cerebras", "perplexity", "deepinfra", "nebius", "hyperbolic", "sambanova", "novita", "cohere", "glm", "github-models", "vercel-gateway"];
   return (
     <details className="apikey">
       <summary>…or paste an API key</summary>
