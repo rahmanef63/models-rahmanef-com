@@ -68,7 +68,7 @@ export async function codexChat(
   bundle: CodexBundle,
   model: string,
   messages: { role: string; content: string }[],
-): Promise<string> {
+): Promise<{ text: string; promptTokens: number; completionTokens: number }> {
   const instructions = messages.filter((m) => m.role === "system").map((m) => m.content).join("\n\n");
   const input = messages
     .filter((m) => m.role !== "system")
@@ -90,6 +90,7 @@ export async function codexChat(
   const sse = await res.text();
   if (!res.ok) throw new Error(`codex responses ${res.status}: ${sse.slice(0, 200)}`);
   let out = "";
+  let promptTokens = 0, completionTokens = 0;
   for (const line of sse.split("\n")) {
     if (!line.startsWith("data:")) continue;
     const data = line.slice(5).trim();
@@ -97,9 +98,13 @@ export async function codexChat(
     try {
       const ev = JSON.parse(data);
       if (ev.type === "response.output_text.delta" && typeof ev.delta === "string") out += ev.delta;
+      if (ev.response?.usage) {
+        promptTokens = ev.response.usage.input_tokens ?? promptTokens;
+        completionTokens = ev.response.usage.output_tokens ?? completionTokens;
+      }
     } catch {
       /* ignore keep-alives / partial frames */
     }
   }
-  return out || "(no text in response)";
+  return { text: out || "(no text in response)", promptTokens, completionTokens };
 }

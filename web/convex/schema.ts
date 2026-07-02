@@ -18,6 +18,18 @@ export default defineSchema({
   })
     .index("by_user", ["userId"])
     .index("by_user_provider", ["userId", "provider"]),
+  // per-call usage log — powers the stats dashboard (like 9router's usageHistory)
+  usage: defineTable({
+    userId: v.id("users"),
+    provider: v.string(),
+    model: v.string(), // full "provider/model" ref
+    promptTokens: v.number(),
+    completionTokens: v.number(),
+    status: v.string(), // "ok" | "error"
+    at: v.number(),
+  })
+    .index("by_user_at", ["userId", "at"])
+    .index("by_at", ["at"]),
   // short-lived OAuth handshake state (PKCE verifier / device-code ids), keyed per user+provider
   oauthFlows: defineTable({
     userId: v.id("users"),

@@ -16,6 +16,7 @@ import type * as credentials from "../credentials.js";
 import type * as crypto from "../crypto.js";
 import type * as http from "../http.js";
 import type * as oauth from "../oauth.js";
+import type * as usage from "../usage.js";
 
 import type {
   ApiFromModules,
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   crypto: typeof crypto;
   http: typeof http;
   oauth: typeof oauth;
+  usage: typeof usage;
 }>;
 
 /**

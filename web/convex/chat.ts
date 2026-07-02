@@ -1,6 +1,5 @@
-// Call a model with the authed user's own credential. Host-gated: a provider's key/token is
-// only ever paired with that provider's endpoint. OpenAI Codex uses the ChatGPT Responses
-// backend (OAuth token); everyone else is a normal API key.
+// Call a model with the authed user's own credential + log usage for the stats dashboard.
+// Host-gated: a provider's key/token is only ever paired with that provider's endpoint.
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
@@ -38,48 +37,64 @@ export const chat = action({
     const row = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider });
     if (!row) throw new Error(`no credentials for "${provider}" — connect or add a key first`);
 
-    // OpenAI Codex (ChatGPT-account OAuth) → Responses backend
-    if (provider === "openai-codex") {
-      let bundle: CodexBundle = JSON.parse(await decryptSecret(row.ciphertext));
-      const marginMs = 120_000;
-      if (Date.now() >= bundle.expires - marginMs) {
-        // single-flight: only the lease winner spends the single-use refresh token
-        const claim = await ctx.runMutation(internal.credentials.claimRefresh, { userId, provider, marginMs });
-        if (claim.win) {
-          bundle = (await ensureFreshCodex(bundle)).bundle;
-          await ctx.runMutation(internal.credentials.store, { userId, provider, kind: "oauth", ciphertext: await encryptSecret(JSON.stringify(bundle)), expires: bundle.expires });
+    const logUsage = (status: string, promptTokens: number, completionTokens: number) =>
+      ctx.runMutation(internal.usage.log, { userId, provider, model: a.model, promptTokens, completionTokens, status });
+
+    let text = "", promptTokens = 0, completionTokens = 0;
+    try {
+      if (provider === "openai-codex") {
+        let bundle: CodexBundle = JSON.parse(await decryptSecret(row.ciphertext));
+        const marginMs = 120_000;
+        if (Date.now() >= bundle.expires - marginMs) {
+          const claim = await ctx.runMutation(internal.credentials.claimRefresh, { userId, provider, marginMs });
+          if (claim.win) {
+            bundle = (await ensureFreshCodex(bundle)).bundle;
+            await ctx.runMutation(internal.credentials.store, { userId, provider, kind: "oauth", ciphertext: await encryptSecret(JSON.stringify(bundle)), expires: bundle.expires });
+          } else {
+            await new Promise((r) => setTimeout(r, 1500));
+            const r2 = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider });
+            if (r2) bundle = JSON.parse(await decryptSecret(r2.ciphertext));
+          }
+        }
+        const res = await codexChat(bundle, model, a.messages);
+        text = res.text;
+        promptTokens = res.promptTokens;
+        completionTokens = res.completionTokens;
+      } else {
+        const conn = PROVIDERS[provider];
+        if (!conn) throw new Error(`unknown provider "${provider}"`);
+        const apiKey = await decryptSecret(row.ciphertext);
+
+        if (conn.protocol === "anthropic") {
+          const r = await fetch(`${conn.baseUrl}/v1/messages`, {
+            method: "POST",
+            headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+            body: JSON.stringify({ model, max_tokens: 1024, messages: a.messages }),
+          });
+          const j = await r.json();
+          if (!r.ok) throw new Error(typeof j?.error === "string" ? j.error : j?.error?.message || JSON.stringify(j));
+          text = (j.content || []).map((b: any) => b.text).filter(Boolean).join("") || "(no text)";
+          promptTokens = j.usage?.input_tokens ?? 0;
+          completionTokens = j.usage?.output_tokens ?? 0;
         } else {
-          // someone else is refreshing (or it's already fresh) — wait briefly, re-read
-          await new Promise((r) => setTimeout(r, 1500));
-          const r2 = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider });
-          if (r2) bundle = JSON.parse(await decryptSecret(r2.ciphertext));
+          const r = await fetch(`${conn.baseUrl}/chat/completions`, {
+            method: "POST",
+            headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
+            body: JSON.stringify({ model, messages: a.messages }),
+          });
+          const j = await r.json();
+          if (!r.ok) throw new Error(j?.error?.message || (typeof j?.error === "string" ? j.error : JSON.stringify(j)));
+          text = j.choices?.[0]?.message?.content ?? "(no text)";
+          promptTokens = j.usage?.prompt_tokens ?? 0;
+          completionTokens = j.usage?.completion_tokens ?? 0;
         }
       }
-      return { text: await codexChat(bundle, model, a.messages) };
+    } catch (e) {
+      await logUsage("error", 0, 0);
+      throw e;
     }
 
-    const conn = PROVIDERS[provider];
-    if (!conn) throw new Error(`unknown provider "${provider}"`);
-    const apiKey = await decryptSecret(row.ciphertext);
-
-    if (conn.protocol === "anthropic") {
-      const r = await fetch(`${conn.baseUrl}/v1/messages`, {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-        body: JSON.stringify({ model, max_tokens: 1024, messages: a.messages }),
-      });
-      const j = await r.json();
-      if (!r.ok) throw new Error(typeof j?.error === "string" ? j.error : j?.error?.message || JSON.stringify(j));
-      return { text: (j.content || []).map((b: any) => b.text).filter(Boolean).join("") || "(no text)" };
-    }
-
-    const r = await fetch(`${conn.baseUrl}/chat/completions`, {
-      method: "POST",
-      headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model, messages: a.messages }),
-    });
-    const j = await r.json();
-    if (!r.ok) throw new Error(j?.error?.message || (typeof j?.error === "string" ? j.error : JSON.stringify(j)));
-    return { text: j.choices?.[0]?.message?.content ?? "(no text)" };
+    await logUsage("ok", promptTokens, completionTokens);
+    return { text };
   },
 });
