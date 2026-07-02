@@ -1,24 +1,40 @@
-// Call a model with the authed user's own credential + log usage for the stats dashboard.
-// Host-gated: a provider's key/token is only ever paired with that provider's endpoint.
+"use node";
+// Call a model with the authed user's OWN credential (BYOK) via the Vercel AI SDK, and log
+// usage for the stats dashboard. Per-user key — NOT a server-held key. OpenAI-Codex keeps its
+// bespoke ChatGPT-backend path (codexLib); everyone else goes through the AI SDK.
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { generateText } from "ai";
+import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { encryptSecret, decryptSecret } from "./crypto";
 import { ensureFreshCodex, codexChat, type CodexBundle } from "./codexLib";
 
-// snapshot of ../../src/registry.js — keep in sync (openai-codex handled separately below)
-const PROVIDERS: Record<string, { baseUrl: string; protocol: "openai" | "anthropic" }> = {
-  openai: { baseUrl: "https://api.openai.com/v1", protocol: "openai" },
-  anthropic: { baseUrl: "https://api.anthropic.com", protocol: "anthropic" },
-  google: { baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai", protocol: "openai" },
-  openrouter: { baseUrl: "https://openrouter.ai/api/v1", protocol: "openai" },
-  groq: { baseUrl: "https://api.groq.com/openai/v1", protocol: "openai" },
-  deepseek: { baseUrl: "https://api.deepseek.com", protocol: "openai" },
-  xai: { baseUrl: "https://api.x.ai/v1", protocol: "openai" },
-  mistral: { baseUrl: "https://api.mistral.ai/v1", protocol: "openai" },
-  moonshotai: { baseUrl: "https://api.moonshot.ai/v1", protocol: "openai" },
+// provider slug -> a Vercel AI SDK model bound to the caller's key. openai-compatible providers
+// reuse the OpenAI provider with a baseURL. Keep in sync with ../../src/registry.js.
+const OPENAI_COMPAT: Record<string, string> = {
+  groq: "https://api.groq.com/openai/v1",
+  deepseek: "https://api.deepseek.com",
+  xai: "https://api.x.ai/v1",
+  mistral: "https://api.mistral.ai/v1",
+  moonshotai: "https://api.moonshot.ai/v1",
 };
+
+function modelFor(provider: string, model: string, apiKey: string) {
+  switch (provider) {
+    case "openai": return createOpenAI({ apiKey })(model);
+    case "anthropic": return createAnthropic({ apiKey })(model);
+    case "google": return createGoogleGenerativeAI({ apiKey })(model);
+    case "openrouter": return createOpenRouter({ apiKey })(model);
+    default:
+      if (OPENAI_COMPAT[provider]) return createOpenAI({ apiKey, baseURL: OPENAI_COMPAT[provider] })(model);
+      return null;
+  }
+}
 
 export const chat = action({
   args: {
@@ -61,33 +77,14 @@ export const chat = action({
         promptTokens = res.promptTokens;
         completionTokens = res.completionTokens;
       } else {
-        const conn = PROVIDERS[provider];
-        if (!conn) throw new Error(`unknown provider "${provider}"`);
         const apiKey = await decryptSecret(row.ciphertext);
-
-        if (conn.protocol === "anthropic") {
-          const r = await fetch(`${conn.baseUrl}/v1/messages`, {
-            method: "POST",
-            headers: { "content-type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-            body: JSON.stringify({ model, max_tokens: 1024, messages: a.messages }),
-          });
-          const j = await r.json();
-          if (!r.ok) throw new Error(typeof j?.error === "string" ? j.error : j?.error?.message || JSON.stringify(j));
-          text = (j.content || []).map((b: any) => b.text).filter(Boolean).join("") || "(no text)";
-          promptTokens = j.usage?.input_tokens ?? 0;
-          completionTokens = j.usage?.output_tokens ?? 0;
-        } else {
-          const r = await fetch(`${conn.baseUrl}/chat/completions`, {
-            method: "POST",
-            headers: { "content-type": "application/json", authorization: `Bearer ${apiKey}` },
-            body: JSON.stringify({ model, messages: a.messages }),
-          });
-          const j = await r.json();
-          if (!r.ok) throw new Error(j?.error?.message || (typeof j?.error === "string" ? j.error : JSON.stringify(j)));
-          text = j.choices?.[0]?.message?.content ?? "(no text)";
-          promptTokens = j.usage?.prompt_tokens ?? 0;
-          completionTokens = j.usage?.completion_tokens ?? 0;
-        }
+        const m = modelFor(provider, model, apiKey);
+        if (!m) throw new Error(`unknown provider "${provider}"`);
+        const result = await generateText({ model: m, messages: a.messages as any });
+        text = result.text || "(no text)";
+        const u: any = result.usage ?? {};
+        promptTokens = u.inputTokens ?? u.promptTokens ?? 0;
+        completionTokens = u.outputTokens ?? u.completionTokens ?? 0;
       }
     } catch (e) {
       await logUsage("error", 0, 0);

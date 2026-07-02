@@ -13,8 +13,13 @@
     "convex:deploy": "convex deploy"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^4.0.5",
+    "@ai-sdk/google": "^4.0.6",
+    "@ai-sdk/openai": "^4.0.5",
     "@auth/core": "^0.37.4",
     "@convex-dev/auth": "^0.0.91",
+    "@openrouter/ai-sdk-provider": "^2.10.0",
+    "ai": "^7.0.11",
     "convex": "^1.32.0",
     "next": "16.1.6",
     "react": "19.2.3",
