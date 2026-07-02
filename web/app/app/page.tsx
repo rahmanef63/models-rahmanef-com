@@ -34,8 +34,15 @@ export default function AppPage() {
 
 function TopRight({ authed }: { authed: boolean }) {
   const { signOut } = useAuthActions();
+  const me = useQuery(api.admin.me);
   if (!authed) return <span className="mono muted" style={{ fontSize: "0.8rem" }}>bring your own key</span>;
-  return <button className="link" onClick={() => void signOut()}>sign out</button>;
+  return (
+    <span className="account">
+      {me?.email && <span className="mono muted" style={{ fontSize: "0.8rem" }}>{me.email}</span>}
+      {me?.isSuperAdmin && <span className="badge oauth">SUPER</span>}
+      <button className="link" onClick={() => void signOut()}>sign out</button>
+    </span>
+  );
 }
 
 function SignIn() {
@@ -198,27 +205,30 @@ function Dashboard() {
 
 function AdminCard() {
   const stats = useQuery(api.admin.adminStats);
+  const users = useQuery(api.admin.adminUsers);
   return (
     <section className="card">
       <h2>Admin <span className="badge oauth">SUPER</span></h2>
-      <p className="sub">Aggregate stats — no keys, no per-user data.</p>
+      <p className="sub">Operator view — identities and counts only, never any key.</p>
       {stats === undefined ? (
         <p className="muted mono">…</p>
       ) : (
-        <>
-          <div className="row" style={{ gap: "2rem" }}>
-            <div><div className="mono accent" style={{ fontSize: "1.6rem" }}>{stats.users}</div><div className="muted mono" style={{ fontSize: ".75rem" }}>users</div></div>
-            <div><div className="mono accent" style={{ fontSize: "1.6rem" }}>{stats.connections}</div><div className="muted mono" style={{ fontSize: ".75rem" }}>connections</div></div>
-            <div><div className="mono accent" style={{ fontSize: "1.6rem" }}>{stats.oauth}</div><div className="muted mono" style={{ fontSize: ".75rem" }}>via oauth</div></div>
-          </div>
-          {Object.keys(stats.byProvider).length > 0 && (
-            <ul className="creds" style={{ marginTop: "1rem" }}>
-              {Object.entries(stats.byProvider).sort((a, b) => b[1] - a[1]).map(([p, n]) => (
-                <li key={p}><span className="name">{PROVIDER_LABEL[p] ?? p}</span><span className="mono muted">{n}</span></li>
-              ))}
-            </ul>
-          )}
-        </>
+        <div className="row" style={{ gap: "2.25rem" }}>
+          <div><div className="mono accent" style={{ fontSize: "1.6rem" }}>{stats.users}</div><div className="muted mono" style={{ fontSize: ".75rem" }}>users</div></div>
+          <div><div className="mono accent" style={{ fontSize: "1.6rem" }}>{stats.connections}</div><div className="muted mono" style={{ fontSize: ".75rem" }}>connections</div></div>
+          <div><div className="mono accent" style={{ fontSize: "1.6rem" }}>{stats.oauth}</div><div className="muted mono" style={{ fontSize: ".75rem" }}>via oauth</div></div>
+        </div>
+      )}
+      {users === undefined ? null : (
+        <ul className="creds" style={{ marginTop: "1.25rem" }}>
+          {users.map((u) => (
+            <li key={u.id}>
+              <span className="name mono" style={{ fontSize: ".85rem" }}>{u.email ?? u.name ?? u.id}</span>
+              <span className="mono muted" style={{ fontSize: ".72rem" }}>{new Date(u.createdAt).toISOString().slice(0, 10)}</span>
+              <span className="badge">{u.providers} {u.providers === 1 ? "provider" : "providers"}</span>
+            </li>
+          ))}
+        </ul>
       )}
     </section>
   );

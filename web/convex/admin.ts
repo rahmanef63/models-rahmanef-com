@@ -47,3 +47,19 @@ export const adminStats = query({
     return { users: users.length, connections: creds.length, oauth, byProvider };
   },
 });
+
+// Per-user list — SUPER-ADMIN ONLY. Returns identity (email/name) + how many providers each
+// has connected, but never any key/ciphertext.
+export const adminUsers = query({
+  args: {},
+  handler: async (ctx) => {
+    if (!(await isSuperAdmin(ctx))) throw new Error("forbidden");
+    const users = await ctx.db.query("users").collect();
+    const creds = await ctx.db.query("modelCreds").collect();
+    const count: Record<string, number> = {};
+    for (const c of creds) count[c.userId] = (count[c.userId] ?? 0) + 1;
+    return users
+      .map((u) => ({ id: u._id, email: u.email ?? null, name: u.name ?? null, createdAt: u._creationTime, providers: count[u._id] ?? 0 }))
+      .sort((a, b) => b.createdAt - a.createdAt);
+  },
+});
