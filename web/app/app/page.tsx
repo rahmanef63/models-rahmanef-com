@@ -166,9 +166,11 @@ function Dashboard() {
     <>
       {banner && <div className="banner">{banner}</div>}
 
+      <Overview providers={providers} />
+
       <section className="card">
         <h2>Connect a provider</h2>
-        <p className="sub">Sign in over OAuth, or paste a key. Each connection is yours only.</p>
+        <p className="sub">{SUPPORTED} providers supported — sign in over OAuth, or paste a key. Each connection is yours only.</p>
         <div className="connect-grid">
           <button className="provider-btn" onClick={connectCodex} disabled={!!codexFlow}>
             <strong>Sign in with OpenAI</strong>
@@ -219,6 +221,27 @@ function Dashboard() {
 }
 
 const fmt = (n: number) => (n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, "") + "k" : String(n));
+const SUPPORTED = 23; // openai, anthropic, google, openrouter + 18 openai-compatible + openai-codex (oauth)
+
+function Overview({ providers }: { providers: Cred[] | undefined }) {
+  const u = useQuery(api.usage.myUsage);
+  const tiles = [
+    { n: providers === undefined ? "—" : String(providers.length), l: "connected" },
+    { n: u ? fmt(u.requests) : "—", l: "requests" },
+    { n: u ? fmt(u.totalTokens) : "—", l: "tokens" },
+    { n: String(SUPPORTED), l: "providers" },
+  ];
+  return (
+    <section className="overview">
+      {tiles.map((t) => (
+        <div className="ov-tile" key={t.l}>
+          <div className="ov-num">{t.n}</div>
+          <div className="ov-lbl">{t.l}</div>
+        </div>
+      ))}
+    </section>
+  );
+}
 
 function ByDayBars({ byDay }: { byDay: Record<string, number> }) {
   const days: string[] = [];
