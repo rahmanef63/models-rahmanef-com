@@ -6,6 +6,7 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { encryptSecret, decryptSecret } from "./crypto";
 import { CODEX, decodeAccountId, codexModels, type CodexBundle } from "./codexLib";
+import { claudePkce, claudeAuthUrl, claudeExchange, claudeModels, type ClaudeBundle } from "./claudeLib";
 
 // ---- flow state (short-lived PKCE verifier / device ids) ----
 export const _setFlow = internalMutation({
@@ -143,5 +144,48 @@ export const finishOpenRouterConnect = action({
     await ctx.runMutation(internal.credentials.store, { userId, provider: "openrouter", kind: "api_key", ciphertext: await encryptSecret(key) });
     await ctx.runMutation(internal.oauth._clearFlow, { userId, provider: "openrouter" });
     return { ok: true };
+  },
+});
+
+// ---------- Anthropic / Claude (Pro/Max PKCE, manual paste) ----------
+// User opens the authorize URL, approves, and pastes the "code#state" the callback page shows.
+export const startClaudeConnect = action({
+  args: {},
+  handler: async (ctx): Promise<{ url: string }> => {
+    const userId = await requireUser(ctx);
+    const { verifier, challenge } = await claudePkce();
+    await ctx.runMutation(internal.oauth._setFlow, { userId, provider: "anthropic-oauth", verifier });
+    return { url: claudeAuthUrl(verifier, challenge) };
+  },
+});
+
+export const finishClaudeConnect = action({
+  args: { pasted: v.string() },
+  handler: async (ctx, a): Promise<{ ok: boolean }> => {
+    const userId = await requireUser(ctx);
+    const flow = await ctx.runQuery(internal.oauth._getFlow, { userId, provider: "anthropic-oauth" });
+    if (!flow?.verifier) throw new Error("no pending Claude connect");
+    const [code, state = flow.verifier] = a.pasted.trim().split("#");
+    if (!code) throw new Error("paste the full code#state from the Claude page");
+    const bundle: ClaudeBundle = await claudeExchange(code, state, flow.verifier);
+    await ctx.runMutation(internal.credentials.store, { userId, provider: "anthropic-oauth", kind: "oauth", ciphertext: await encryptSecret(JSON.stringify(bundle)), expires: bundle.expires });
+    await ctx.runMutation(internal.oauth._clearFlow, { userId, provider: "anthropic-oauth" });
+    return { ok: true };
+  },
+});
+
+// Best-effort model refs for the picker, e.g. "anthropic-oauth/claude-sonnet-4-5". Read-only.
+export const claudeModelList = action({
+  args: {},
+  handler: async (ctx): Promise<string[]> => {
+    const userId = await requireUser(ctx);
+    const row = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider: "anthropic-oauth" });
+    if (!row || row.kind !== "oauth") return [];
+    try {
+      const bundle: ClaudeBundle = JSON.parse(await decryptSecret(row.ciphertext));
+      return (await claudeModels(bundle)).map((id) => `anthropic-oauth/${id}`);
+    } catch {
+      return [];
+    }
   },
 });

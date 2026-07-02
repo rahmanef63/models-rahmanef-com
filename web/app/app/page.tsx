@@ -8,6 +8,7 @@ import { api } from "@/convex/_generated/api";
 
 const PROVIDER_LABEL: Record<string, string> = {
   "openai-codex": "OpenAI · ChatGPT / Codex",
+  "anthropic-oauth": "Claude · Pro / Max",
   openrouter: "OpenRouter",
   openai: "OpenAI API",
   anthropic: "Anthropic",
@@ -102,10 +103,16 @@ function Dashboard() {
   const pollCodex = useAction(api.oauth.pollCodexLogin);
   const startOpenRouter = useAction(api.oauth.startOpenRouterConnect);
   const codexModelList = useAction(api.oauth.codexModelList);
+  const startClaude = useAction(api.oauth.startClaudeConnect);
+  const finishClaude = useAction(api.oauth.finishClaudeConnect);
+  const claudeModelList = useAction(api.oauth.claudeModelList);
 
   const [catalog, setCatalog] = useState<Catalog>({});
   const [codexModels, setCodexModels] = useState<string[]>([]);
+  const [claudeModels, setClaudeModels] = useState<string[]>([]);
   const [codexFlow, setCodexFlow] = useState<{ url: string; code: string } | null>(null);
+  const [claudeFlow, setClaudeFlow] = useState(false);
+  const [claudeInput, setClaudeInput] = useState("");
   const [banner, setBanner] = useState("");
   const [section, setSection] = useState("chat");
 
@@ -118,20 +125,25 @@ function Dashboard() {
   }, []);
 
   const hasCodex = !!providers?.some((p) => p.provider === "openai-codex");
+  const hasClaude = !!providers?.some((p) => p.provider === "anthropic-oauth");
   useEffect(() => {
     if (hasCodex) codexModelList().then(setCodexModels).catch(() => {});
     else setCodexModels([]);
   }, [hasCodex]);
+  useEffect(() => {
+    if (hasClaude) claudeModelList().then(setClaudeModels).catch(() => {});
+    else setClaudeModels([]);
+  }, [hasClaude]);
 
   const myModels = useMemo(() => {
     const mine = new Set((providers ?? []).map((p) => p.provider));
-    const out: string[] = [...codexModels];
+    const out: string[] = [...codexModels, ...claudeModels];
     for (const [pid, p] of Object.entries(catalog)) {
       if (!mine.has(pid)) continue;
       for (const mid of Object.keys(p.models ?? {})) out.push(`${pid}/${mid}`);
     }
     return out.sort();
-  }, [catalog, providers, codexModels]);
+  }, [catalog, providers, codexModels, claudeModels]);
 
   async function connectCodex() {
     setBanner("");
@@ -160,6 +172,28 @@ function Dashboard() {
   async function connectOpenRouter() {
     const { url } = await startOpenRouter();
     window.location.href = url;
+  }
+
+  async function connectClaude() {
+    setBanner("");
+    try {
+      const { url } = await startClaude();
+      window.open(url, "_blank", "noopener");
+      setClaudeFlow(true);
+    } catch (e) {
+      setBanner("⚠ " + (e instanceof Error ? e.message : String(e)));
+    }
+  }
+
+  async function submitClaude() {
+    try {
+      await finishClaude({ pasted: claudeInput });
+      setClaudeFlow(false);
+      setClaudeInput("");
+      setBanner("✓ Claude connected");
+    } catch (e) {
+      setBanner("⚠ " + (e instanceof Error ? e.message : String(e)));
+    }
   }
 
   const nav = [
@@ -204,6 +238,10 @@ function Dashboard() {
                   <strong>Sign in with OpenAI</strong>
                   <span>ChatGPT / Codex · oauth</span>
                 </button>
+                <button className="provider-btn" onClick={connectClaude} disabled={claudeFlow}>
+                  <strong>Sign in with Claude</strong>
+                  <span>Pro / Max · oauth</span>
+                </button>
                 <button className="provider-btn" onClick={connectOpenRouter}>
                   <strong>Connect OpenRouter</strong>
                   <span>oauth · hundreds of models</span>
@@ -215,6 +253,17 @@ function Dashboard() {
                   <p><span className="mono muted">02</span> &nbsp;Enter this code:</p>
                   <div className="devicecode">{codexFlow.code}</div>
                   <p className="spin">◠ waiting for sign-in…</p>
+                </div>
+              )}
+              {claudeFlow && (
+                <div className="device">
+                  <p><span className="mono muted">01</span> &nbsp;A Claude tab opened — approve access.</p>
+                  <p><span className="mono muted">02</span> &nbsp;Copy the <span className="accent">code#state</span> it shows and paste it here:</p>
+                  <div className="row" style={{ marginTop: "0.6rem" }}>
+                    <input placeholder="code#state" value={claudeInput} onChange={(e) => setClaudeInput(e.target.value)} />
+                    <button className="btn accent" disabled={!claudeInput.trim()} onClick={() => void submitClaude()}>Connect</button>
+                    <button className="link" onClick={() => { setClaudeFlow(false); setClaudeInput(""); }}>cancel</button>
+                  </div>
                 </div>
               )}
               <ApiKeyForm setCredential={setCredential} />
@@ -376,8 +425,8 @@ function ApiKeyForm({ setCredential }: { setCredential: (a: { provider: string; 
   const [busy, setBusy] = useState(false);
   const opts = ["anthropic", "openai", "google", "openrouter", "groq", "deepseek", "xai", "mistral", "moonshotai", "togetherai", "fireworks-ai", "cerebras", "perplexity", "deepinfra", "nebius", "hyperbolic", "sambanova", "novita", "cohere", "glm", "github-models", "vercel-gateway"];
   return (
-    <details className="apikey">
-      <summary>…or paste an API key</summary>
+    <div className="apikey">
+      <div className="apikey-label mono muted">or paste an API key — any of {SUPPORTED} providers</div>
       <div className="row">
         <select value={provider} onChange={(e) => setProvider(e.target.value)} style={{ width: "auto" }}>
           {opts.map((p) => <option key={p} value={p}>{PROVIDER_LABEL[p] ?? p}</option>)}
@@ -391,7 +440,7 @@ function ApiKeyForm({ setCredential }: { setCredential: (a: { provider: string; 
           Save
         </button>
       </div>
-    </details>
+    </div>
   );
 }
 

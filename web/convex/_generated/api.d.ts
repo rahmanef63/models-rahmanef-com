@@ -12,6 +12,7 @@ import type * as admin from "../admin.js";
 import type * as agents from "../agents.js";
 import type * as auth from "../auth.js";
 import type * as chat from "../chat.js";
+import type * as claudeLib from "../claudeLib.js";
 import type * as codexLib from "../codexLib.js";
 import type * as credentials from "../credentials.js";
 import type * as crypto from "../crypto.js";
@@ -32,6 +33,7 @@ declare const fullApi: ApiFromModules<{
   agents: typeof agents;
   auth: typeof auth;
   chat: typeof chat;
+  claudeLib: typeof claudeLib;
   codexLib: typeof codexLib;
   credentials: typeof credentials;
   crypto: typeof crypto;

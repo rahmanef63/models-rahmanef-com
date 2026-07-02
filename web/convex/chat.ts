@@ -13,6 +13,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { encryptSecret, decryptSecret } from "./crypto";
 import { ensureFreshCodex, codexChat, type CodexBundle } from "./codexLib";
+import { ensureFreshClaude, claudeChat, type ClaudeBundle } from "./claudeLib";
 
 // provider slug -> a Vercel AI SDK model bound to the caller's key. openai-compatible providers
 // reuse the OpenAI provider with a baseURL. Keep in sync with ../../src/registry.js.
@@ -123,6 +124,24 @@ export const chat = action({
         text = res.text;
         promptTokens = res.promptTokens;
         completionTokens = res.completionTokens;
+      } else if (provider === "anthropic-oauth") {
+        let bundle: ClaudeBundle = JSON.parse(await decryptSecret(row.ciphertext));
+        const marginMs = 60_000;
+        if (Date.now() >= bundle.expires - marginMs) {
+          const claim = await ctx.runMutation(internal.credentials.claimRefresh, { userId, provider, marginMs });
+          if (claim.win) {
+            bundle = (await ensureFreshClaude(bundle)).bundle;
+            await ctx.runMutation(internal.credentials.store, { userId, provider, kind: "oauth", ciphertext: await encryptSecret(JSON.stringify(bundle)), expires: bundle.expires });
+          } else {
+            await new Promise((r) => setTimeout(r, 1500));
+            const r2 = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider });
+            if (r2) bundle = JSON.parse(await decryptSecret(r2.ciphertext));
+          }
+        }
+        const res = await claudeChat(bundle, model, messages);
+        text = res.text;
+        promptTokens = res.promptTokens;
+        completionTokens = res.completionTokens;
       } else {
         const apiKey = await decryptSecret(row.ciphertext);
         const m = modelFor(provider, model, apiKey);
@@ -157,7 +176,7 @@ export const runAgent = action({
     if (i < 1 || i === a.model.length - 1) throw new Error('model must be "provider/model"');
     const provider = a.model.slice(0, i);
     const model = a.model.slice(i + 1);
-    if (provider === "openai-codex") throw new Error("agents need a tool-capable API-key model (not openai-codex)");
+    if (provider === "openai-codex" || provider === "anthropic-oauth") throw new Error("agents need a tool-capable API-key model (not an OAuth subscription provider)");
 
     const row = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider });
     if (!row) throw new Error(`no credentials for "${provider}" — connect or add a key first`);
