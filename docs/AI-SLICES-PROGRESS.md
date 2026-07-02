@@ -18,7 +18,7 @@ Last updated: 2026-07-02.
 | **AI Admin** — console (8 tabs) | scaffold-only | 🟡 providers/models/audit + content totals | ~35% |
 | **AI Studio** — generation canvas | scaffold-only | ⬜ not started | 0% |
 | **shared/agentic** — the tool kit | implemented (lib) | 🟡 we use AI-SDK tools instead of the kit | ~25% |
-| **Create Your MCP** — MCP server | partial (templates) | 🅿️ parked (needs your OK — adds OAuth) | 0% |
+| **Create Your MCP** — MCP server | partial (templates) | 🟡 **bearer core live**; OAuth 5b next | ~35% |
 
 ---
 
@@ -116,17 +116,17 @@ Last updated: 2026-07-02.
 - ⬜ SSE browser client
 - ⬜ 41 downstream tool collections
 
-## Create Your MCP — MCP Server 🅿️
-> Expose the gateway's tools/agents as an MCP server so ChatGPT / Claude / Cursor can call them. **Parked** — adds OAuth 2.1 (authorize/consent/token, PKCE, `.well-known` metadata) = architectural; needs your go-ahead.
+## Create Your MCP — MCP Server
+> **Bearer core is LIVE** at `models.rahmanef.com/mcp` (smoke-tested). OAuth 2.1 (for ChatGPT) is phase 5b. Works with Claude Code / Cursor today via a bearer token.
 
-- ⬜ JSON-RPC MCP dispatcher + tool registry
-- ⬜ Scope-gated `tools/call`
-- ⬜ Dual-path bearer auth + per-request context
-- ⬜ `/oauth/authorize` consent page + `/oauth/token` endpoint (PKCE)
-- ⬜ `.well-known/oauth-authorization-server` + `oauth-protected-resource` metadata
-- ⬜ Admin token console (issue/revoke)
-- ⬜ Per-domain tool catalog (list models, add/remove key, chat, run agent…)
-- ⬜ Rate limiting / anti-abuse
+- ✅ JSON-RPC MCP dispatcher (initialize / tools/list / tools/call) — `mcpNode.ts`
+- ✅ Bearer auth — tokens stored as sha256, validated before any dispatch; 401 on missing/bad
+- ✅ Token console (issue / revoke, endpoint URL + client config) — dashboard **MCP** tab
+- ✅ Tool catalog: `list_providers`, `get_usage`, `chat` (runs as the token owner, BYOK, never leaks a key)
+- 🟡 `/oauth/authorize` consent + `/oauth/token` (PKCE) — **5b, next**
+- 🟡 `.well-known/oauth-authorization-server` + `oauth-protected-resource` — 5b
+- ⬜ More tools (`run_agent`, `list_models`, add/remove key)
+- ⬜ Rate limiting / anti-abuse — 5c
 
 ---
 
@@ -138,7 +138,7 @@ Last updated: 2026-07-02.
 - ✅ Landing page, OG image, super-admin gate, dashboard sidebar
 
 ## What's next (loop order)
-- ✅ **AI Admin console** — providers/models/audit + content totals shipped (registry tabs later)
-5. **Create Your MCP** 🅿️ — NEXT; loop **paused** here — needs your OK (adds OAuth 2.1)
+- ✅ **AI Admin console** — providers/models/audit + content totals
+- 🟡 **Create Your MCP** — bearer core live (5a); OAuth 2.1 (5b) + rate-limit (5c) in progress
 6. **AI Studio** — generation canvas
 - backlog: chat Search mode, agent definitions + scheduling, cost($) tracking, public `/v1` router (🅿️), the 8-tab admin registries
