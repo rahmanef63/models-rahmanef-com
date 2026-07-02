@@ -74,6 +74,7 @@ type Cred = { provider: string; kind: string };
 type Catalog = Record<string, { models?: Record<string, unknown> }>;
 
 function Dashboard() {
+  const me = useQuery(api.admin.me);
   const providers = useQuery(api.credentials.listConfiguredProviders) as Cred[] | undefined;
   const setCredential = useAction(api.credentials.setCredential);
   const deleteCredential = useMutation(api.credentials.deleteCredential);
@@ -189,7 +190,37 @@ function Dashboard() {
       </section>
 
       <ChatCard models={myModels} chat={chat} />
+
+      {me?.isSuperAdmin && <AdminCard />}
     </>
+  );
+}
+
+function AdminCard() {
+  const stats = useQuery(api.admin.adminStats);
+  return (
+    <section className="card">
+      <h2>Admin <span className="badge oauth">SUPER</span></h2>
+      <p className="sub">Aggregate stats — no keys, no per-user data.</p>
+      {stats === undefined ? (
+        <p className="muted mono">…</p>
+      ) : (
+        <>
+          <div className="row" style={{ gap: "2rem" }}>
+            <div><div className="mono accent" style={{ fontSize: "1.6rem" }}>{stats.users}</div><div className="muted mono" style={{ fontSize: ".75rem" }}>users</div></div>
+            <div><div className="mono accent" style={{ fontSize: "1.6rem" }}>{stats.connections}</div><div className="muted mono" style={{ fontSize: ".75rem" }}>connections</div></div>
+            <div><div className="mono accent" style={{ fontSize: "1.6rem" }}>{stats.oauth}</div><div className="muted mono" style={{ fontSize: ".75rem" }}>via oauth</div></div>
+          </div>
+          {Object.keys(stats.byProvider).length > 0 && (
+            <ul className="creds" style={{ marginTop: "1rem" }}>
+              {Object.entries(stats.byProvider).sort((a, b) => b[1] - a[1]).map(([p, n]) => (
+                <li key={p}><span className="name">{PROVIDER_LABEL[p] ?? p}</span><span className="mono muted">{n}</span></li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 

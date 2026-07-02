@@ -13,6 +13,7 @@ export const metadata: Metadata = {
   description: "A bring-your-own-key model gateway. Sign in with OpenAI or OpenRouter, or paste any key, then call any model. Distilled from openclaw & hermes.",
   metadataBase: new URL("https://models.rahmanef.com"),
   openGraph: { title: "models — bring your own key", description: "Every model. Your keys. One dashboard.", url: "https://models.rahmanef.com", type: "website" },
+  twitter: { card: "summary_large_image", title: "models — bring your own key", description: "Every model. Your keys. One dashboard.", images: ["/opengraph-image.png"] },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
