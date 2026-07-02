@@ -1,8 +1,10 @@
 // RFC 8414 — authorization-server metadata. Public clients, PKCE S256, DCR enabled.
+import { publicOrigin } from "@/lib/origin";
+
 export const runtime = "nodejs";
 
 export async function GET(req: Request) {
-  const origin = new URL(req.url).origin;
+  const origin = publicOrigin(req);
   return Response.json({
     issuer: origin,
     authorization_endpoint: `${origin}/oauth/authorize`,

@@ -3,13 +3,14 @@
 // it here (not on convex.site) means the OAuth .well-known metadata can live on the same host later.
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import { publicOrigin } from "@/lib/origin";
 
 export const runtime = "nodejs";
 
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL || "";
 
 export async function POST(req: Request) {
-  const origin = new URL(req.url).origin;
+  const origin = publicOrigin(req);
   const challenge = `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource"`;
   const auth = req.headers.get("authorization") || "";
   const token = auth.replace(/^Bearer\s+/i, "").trim();
