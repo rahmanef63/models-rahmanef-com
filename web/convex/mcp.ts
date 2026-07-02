@@ -5,7 +5,7 @@ import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 export const _storeToken = internalMutation({
-  args: { userId: v.id("users"), tokenHash: v.string(), label: v.string() },
+  args: { userId: v.id("users"), tokenHash: v.string(), label: v.string(), clientId: v.optional(v.string()), scope: v.optional(v.string()) },
   handler: (ctx, a) => ctx.db.insert("mcpTokens", { ...a, createdAt: Date.now() }),
 });
 

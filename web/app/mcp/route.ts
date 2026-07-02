@@ -9,10 +9,12 @@ export const runtime = "nodejs";
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL || "";
 
 export async function POST(req: Request) {
+  const origin = new URL(req.url).origin;
+  const challenge = `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource"`;
   const auth = req.headers.get("authorization") || "";
   const token = auth.replace(/^Bearer\s+/i, "").trim();
   if (!token) {
-    return new Response("Unauthorized", { status: 401, headers: { "WWW-Authenticate": 'Bearer realm="models.rahmanef.com"' } });
+    return new Response("Unauthorized", { status: 401, headers: { "WWW-Authenticate": challenge } });
   }
   let body: unknown;
   try {
@@ -22,8 +24,10 @@ export async function POST(req: Request) {
   }
   const client = new ConvexHttpClient(CONVEX_URL);
   const result: any = await client.action(api.mcpNode.rpc, { token, request: body });
-  const status = result?.error?.code === -32001 ? 401 : 200;
-  return Response.json(result, { status });
+  if (result?.error?.code === -32001) {
+    return Response.json(result, { status: 401, headers: { "WWW-Authenticate": challenge } });
+  }
+  return Response.json(result, { status: 200 });
 }
 
 export async function GET() {

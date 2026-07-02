@@ -19,6 +19,8 @@ import type * as crypto from "../crypto.js";
 import type * as http from "../http.js";
 import type * as mcp from "../mcp.js";
 import type * as mcpNode from "../mcpNode.js";
+import type * as mcpOauth from "../mcpOauth.js";
+import type * as mcpOauthNode from "../mcpOauthNode.js";
 import type * as oauth from "../oauth.js";
 import type * as settings from "../settings.js";
 import type * as threads from "../threads.js";
@@ -42,6 +44,8 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   mcp: typeof mcp;
   mcpNode: typeof mcpNode;
+  mcpOauth: typeof mcpOauth;
+  mcpOauthNode: typeof mcpOauthNode;
   oauth: typeof oauth;
   settings: typeof settings;
   threads: typeof threads;

@@ -73,9 +73,29 @@ export default defineSchema({
     createdAt: v.number(),
     lastUsedAt: v.optional(v.number()),
     revoked: v.optional(v.boolean()),
+    clientId: v.optional(v.string()), // set when issued via the OAuth flow
+    scope: v.optional(v.string()),
   })
     .index("by_hash", ["tokenHash"])
     .index("by_user", ["userId"]),
+  // OAuth 2.1 dynamically-registered clients (public clients — PKCE, no secret).
+  mcpClients: defineTable({
+    clientId: v.string(),
+    name: v.string(),
+    redirectUris: v.array(v.string()),
+    createdAt: v.number(),
+  }).index("by_clientId", ["clientId"]),
+  // Short-lived, single-use authorization codes (store only sha256(code)).
+  mcpAuthCodes: defineTable({
+    codeHash: v.string(),
+    userId: v.id("users"),
+    clientId: v.string(),
+    redirectUri: v.string(),
+    codeChallenge: v.string(), // S256
+    scope: v.string(),
+    expiresAt: v.number(),
+    used: v.optional(v.boolean()),
+  }).index("by_codeHash", ["codeHash"]),
   // short-lived OAuth handshake state (PKCE verifier / device-code ids), keyed per user+provider
   oauthFlows: defineTable({
     userId: v.id("users"),
