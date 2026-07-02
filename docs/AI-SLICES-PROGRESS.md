@@ -15,7 +15,7 @@ Last updated: 2026-07-02.
 | **AI Router** — backend provider proxy | partial (OpenRouter tiers) | 🟡 **we exceed rr on BYOK**, lag on the public proxy | ~45% |
 | **AI Chat** — workbench / sidebar / search | partial (FAB only) | 🟡 workbench + persistence built | ~40% |
 | **AI Agents** — autonomous workers | partial (in-memory) | 🟡 runner + traces + persistence built | ~35% |
-| **AI Admin** — console (8 tabs) | scaffold-only | 🟡 stats + providers overview (building) | ~15% |
+| **AI Admin** — console (8 tabs) | scaffold-only | 🟡 providers/models/audit + content totals | ~35% |
 | **AI Studio** — generation canvas | scaffold-only | ⬜ not started | 0% |
 | **shared/agentic** — the tool kit | implemented (lib) | 🟡 we use AI-SDK tools instead of the kit | ~25% |
 | **Create Your MCP** — MCP server | partial (templates) | 🅿️ parked (needs your OK — adds OAuth) | 0% |
@@ -82,9 +82,10 @@ Last updated: 2026-07-02.
 
 - ✅ Admin section mount (super-admin gated, `admin.ts` isSuperAdmin)
 - ✅ Users + connections + oauth counts
-- 🟡 **Providers** overview (system-wide, in progress)
-- 🟡 **Models** overview (top models via usage)
-- 🟡 **Audit** (usage log is proto-audit)
+- ✅ **Providers** overview (system-wide, by slug — `adminOverview`)
+- ✅ **Models** overview (global top models)
+- ✅ Content totals (threads / messages / agent-runs / requests / tokens)
+- 🟡 **Audit** (usage log is proto-audit; no dedicated audit table yet)
 - ⬜ **Instructions** tab (system-prompt registry)
 - ⬜ **Skills** tab
 - ⬜ **Tools** tab (tool registry / SSOT)
@@ -137,7 +138,7 @@ Last updated: 2026-07-02.
 - ✅ Landing page, OG image, super-admin gate, dashboard sidebar
 
 ## What's next (loop order)
-4. **AI Admin console** — flesh out the 8 tabs (in progress)
-5. **Create Your MCP** 🅿️ — needs your confirm (OAuth/architectural)
+- ✅ **AI Admin console** — providers/models/audit + content totals shipped (registry tabs later)
+5. **Create Your MCP** 🅿️ — NEXT; loop **paused** here — needs your OK (adds OAuth 2.1)
 6. **AI Studio** — generation canvas
-- then: chat Search mode, agent definitions + scheduling, cost($) tracking, public `/v1` router (🅿️)
+- backlog: chat Search mode, agent definitions + scheduling, cost($) tracking, public `/v1` router (🅿️), the 8-tab admin registries
