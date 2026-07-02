@@ -63,3 +63,49 @@ export const adminUsers = query({
       .sort((a, b) => b.createdAt - a.createdAt);
   },
 });
+
+// System-wide operator insight. AGGREGATE / COUNTS ONLY — never a key, never message/task content.
+// ponytail: full-table scans; fine at this scale, paginate if the tables ever get large.
+export const adminOverview = query({
+  args: {},
+  handler: async (ctx) => {
+    if (!(await isSuperAdmin(ctx))) throw new Error("forbidden");
+
+    const creds = await ctx.db.query("modelCreds").collect();
+    const providers: Record<string, number> = {};
+    for (const c of creds) providers[c.provider] = (providers[c.provider] ?? 0) + 1;
+
+    const usage = await ctx.db.query("usage").collect();
+    const models: Record<string, number> = {};
+    let promptTokens = 0, completionTokens = 0, errors = 0;
+    for (const u of usage) {
+      models[u.model] = (models[u.model] ?? 0) + 1;
+      promptTokens += u.promptTokens;
+      completionTokens += u.completionTokens;
+      if (u.status === "error") errors++;
+    }
+
+    const runs = await ctx.db.query("agentRuns").collect();
+    const runsByStatus: Record<string, number> = {};
+    for (const r of runs) runsByStatus[r.status] = (runsByStatus[r.status] ?? 0) + 1;
+
+    const threads = (await ctx.db.query("threads").collect()).length;
+    const messages = (await ctx.db.query("messages").collect()).length;
+
+    return {
+      providers: Object.entries(providers).sort((a, b) => b[1] - a[1]),
+      topModels: Object.entries(models).sort((a, b) => b[1] - a[1]).slice(0, 8),
+      runsByStatus,
+      totals: {
+        connections: creds.length,
+        requests: usage.length,
+        promptTokens,
+        completionTokens,
+        errors,
+        agentRuns: runs.length,
+        threads,
+        messages,
+      },
+    };
+  },
+});
