@@ -2,7 +2,7 @@
 
 **A portable, multi-tenant, bring-your-own-key (BYOK) model registry.** Drop it into any project so every user or tenant brings their own provider keys, the model catalog auto-updates from [models.dev](https://models.dev), and one `resolveModel()` call turns a `"provider/model"` string plus a tenant into a ready-to-call client — host-gated, offline-first, and provider-agnostic.
 
-**Live reference deployment: [models.rahmanef.com](https://models.rahmanef.com)** — sign up, connect a provider (OpenAI, OpenRouter, or paste any key), and use models from your own account.
+**Live reference deployment: [models.rahmanef.com](https://models.rahmanef.com)** — sign up, connect a provider (OpenAI, OpenRouter, or paste any key), and use it as a full BYOK AI dashboard: a threaded **chat workbench**, task-running **agents**, **agent mode** (tool-calling), **token-saver** modes, and live **usage stats** — all on your own keys.
 
 ### What & why
 
@@ -21,6 +21,22 @@
 - **One HTTP CRUD surface, two front-ends** — `createModelsApi()` returns a Web-standard `(Request) => Response` handler that backs both a UI and the CLI.
 - **CLI** — `models add/ls/rm/models/init`, local file store by default, or drive a remote API.
 - **Zero runtime dependencies**, ESM + JSDoc, Node ≥ 22.6. Runs anywhere: Next, Convex, Bun, Deno, plain Node.
+
+---
+
+## Live dashboard ([models.rahmanef.com](https://models.rahmanef.com))
+
+The reference app is evolving into a self-hosted, BYOK alternative to hosted LLM routers — built on the library above, one left-nav shell over these sections:
+
+- **Providers** — 23 providers: OAuth sign-in (OpenAI ChatGPT/Codex device-code, OpenRouter PKCE) or paste any key. Keys are AES-256-GCM encrypted per user in Convex; never shared, never sent to another provider's host.
+- **Chat workbench** — threaded, persisted conversations against any connected model.
+- **AI Agents** — give a tool-capable model a task; it runs a multi-step tool loop and records a step-by-step trace.
+- **Agent mode** — the chat/agents can call tools to inspect your own gateway (connected providers, usage).
+- **Token savers** — Caveman (terse) / Ponytail (lazy-YAGNI) system-prompt injection to cut output tokens.
+- **Usage** — per-user requests/tokens, per-model and per-day, live.
+- **Admin** — operator console (identities + counts only, never a key), env-gated super-admin.
+
+> BYOK is the foundation and never optional — every call uses the signed-in user's own credential.
 
 ---
 
