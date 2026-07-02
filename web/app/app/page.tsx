@@ -107,6 +107,7 @@ function Dashboard() {
   const [codexModels, setCodexModels] = useState<string[]>([]);
   const [codexFlow, setCodexFlow] = useState<{ url: string; code: string } | null>(null);
   const [banner, setBanner] = useState("");
+  const [section, setSection] = useState("chat");
 
   useEffect(() => {
     fetch("https://models.dev/api.json").then((r) => r.json()).then(setCatalog).catch(() => {});
@@ -161,65 +162,92 @@ function Dashboard() {
     window.location.href = url;
   }
 
+  const nav = [
+    { id: "overview", label: "Overview" },
+    { id: "chat", label: "Chat" },
+    { id: "agents", label: "Agents" },
+    { id: "providers", label: "Providers" },
+    { id: "usage", label: "Usage" },
+    { id: "settings", label: "Settings" },
+    ...(me?.isSuperAdmin ? [{ id: "admin", label: "Admin" }] : []),
+  ];
+
   return (
-    <>
-      {banner && <div className="banner">{banner}</div>}
+    <div className="app-body">
+      <nav className="side">
+        {nav.map((s) => (
+          <button key={s.id} className={`side-link ${section === s.id ? "on" : ""}`} onClick={() => setSection(s.id)}>{s.label}</button>
+        ))}
+      </nav>
 
-      <Overview providers={providers} />
+      <div className="app-content">
+        {banner && <div className="banner">{banner}</div>}
 
-      <section className="card">
-        <h2>Connect a provider</h2>
-        <p className="sub">{SUPPORTED} providers supported — sign in over OAuth, or paste a key. Each connection is yours only.</p>
-        <div className="connect-grid">
-          <button className="provider-btn" onClick={connectCodex} disabled={!!codexFlow}>
-            <strong>Sign in with OpenAI</strong>
-            <span>ChatGPT / Codex · oauth</span>
-          </button>
-          <button className="provider-btn" onClick={connectOpenRouter}>
-            <strong>Connect OpenRouter</strong>
-            <span>oauth · hundreds of models</span>
-          </button>
-        </div>
-        {codexFlow && (
-          <div className="device">
-            <p><span className="mono muted">01</span> &nbsp;Open <a className="accent" href={codexFlow.url} target="_blank" rel="noreferrer">{codexFlow.url}</a></p>
-            <p><span className="mono muted">02</span> &nbsp;Enter this code:</p>
-            <div className="devicecode">{codexFlow.code}</div>
-            <p className="spin">◠ waiting for sign-in…</p>
-          </div>
+        {section === "overview" && (
+          <>
+            <Overview providers={providers} />
+            <UsageCard />
+          </>
         )}
-        <ApiKeyForm setCredential={setCredential} />
-      </section>
 
-      <section className="card">
-        <h2>Connected</h2>
-        {providers === undefined ? (
-          <p className="muted mono">…</p>
-        ) : providers.length === 0 ? (
-          <p className="muted">Nothing yet — connect a provider or add a key above.</p>
-        ) : (
-          <ul className="creds">
-            {providers.map((p) => (
-              <li key={p.provider}>
-                <span className="name">{PROVIDER_LABEL[p.provider] ?? p.provider}</span>
-                <span className={`badge ${p.kind}`}>{p.kind === "oauth" ? "OAUTH" : "API KEY"}</span>
-                <button className="link danger" onClick={() => void deleteCredential({ provider: p.provider })}>remove</button>
-              </li>
-            ))}
-          </ul>
+        {section === "chat" && <WorkbenchCard models={myModels} />}
+
+        {section === "agents" && <AgentsCard models={myModels} />}
+
+        {section === "providers" && (
+          <>
+            <section className="card">
+              <h2>Connect a provider</h2>
+              <p className="sub">{SUPPORTED} providers supported — sign in over OAuth, or paste a key. Each connection is yours only.</p>
+              <div className="connect-grid">
+                <button className="provider-btn" onClick={connectCodex} disabled={!!codexFlow}>
+                  <strong>Sign in with OpenAI</strong>
+                  <span>ChatGPT / Codex · oauth</span>
+                </button>
+                <button className="provider-btn" onClick={connectOpenRouter}>
+                  <strong>Connect OpenRouter</strong>
+                  <span>oauth · hundreds of models</span>
+                </button>
+              </div>
+              {codexFlow && (
+                <div className="device">
+                  <p><span className="mono muted">01</span> &nbsp;Open <a className="accent" href={codexFlow.url} target="_blank" rel="noreferrer">{codexFlow.url}</a></p>
+                  <p><span className="mono muted">02</span> &nbsp;Enter this code:</p>
+                  <div className="devicecode">{codexFlow.code}</div>
+                  <p className="spin">◠ waiting for sign-in…</p>
+                </div>
+              )}
+              <ApiKeyForm setCredential={setCredential} />
+            </section>
+
+            <section className="card">
+              <h2>Connected</h2>
+              {providers === undefined ? (
+                <p className="muted mono">…</p>
+              ) : providers.length === 0 ? (
+                <p className="muted">Nothing yet — connect a provider or add a key above.</p>
+              ) : (
+                <ul className="creds">
+                  {providers.map((p) => (
+                    <li key={p.provider}>
+                      <span className="name">{PROVIDER_LABEL[p.provider] ?? p.provider}</span>
+                      <span className={`badge ${p.kind}`}>{p.kind === "oauth" ? "OAUTH" : "API KEY"}</span>
+                      <button className="link danger" onClick={() => void deleteCredential({ provider: p.provider })}>remove</button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          </>
         )}
-      </section>
 
-      <WorkbenchCard models={myModels} />
+        {section === "usage" && <UsageCard />}
 
-      <AgentsCard models={myModels} />
+        {section === "settings" && <TokenSaverCard />}
 
-      <TokenSaverCard />
-
-      <UsageCard />
-
-      {me?.isSuperAdmin && <AdminCard />}
-    </>
+        {section === "admin" && me?.isSuperAdmin && <AdminCard />}
+      </div>
+    </div>
   );
 }
 
