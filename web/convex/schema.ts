@@ -52,6 +52,19 @@ export default defineSchema({
     completionTokens: v.optional(v.number()),
     at: v.number(),
   }).index("by_user_at", ["userId", "at"]),
+  // AI Chat workbench: persisted threaded conversations. messages owned via their thread.
+  threads: defineTable({
+    userId: v.id("users"),
+    title: v.string(),
+    model: v.string(),
+    at: v.number(),
+  }).index("by_user_at", ["userId", "at"]),
+  messages: defineTable({
+    threadId: v.id("threads"),
+    role: v.string(), // "user" | "assistant"
+    content: v.string(),
+    at: v.number(),
+  }).index("by_thread", ["threadId", "at"]),
   // short-lived OAuth handshake state (PKCE verifier / device-code ids), keyed per user+provider
   oauthFlows: defineTable({
     userId: v.id("users"),

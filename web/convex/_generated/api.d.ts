@@ -18,6 +18,7 @@ import type * as crypto from "../crypto.js";
 import type * as http from "../http.js";
 import type * as oauth from "../oauth.js";
 import type * as settings from "../settings.js";
+import type * as threads from "../threads.js";
 import type * as usage from "../usage.js";
 
 import type {
@@ -37,6 +38,7 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   oauth: typeof oauth;
   settings: typeof settings;
+  threads: typeof threads;
   usage: typeof usage;
 }>;
 

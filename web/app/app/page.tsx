@@ -102,7 +102,6 @@ function Dashboard() {
   const pollCodex = useAction(api.oauth.pollCodexLogin);
   const startOpenRouter = useAction(api.oauth.startOpenRouterConnect);
   const codexModelList = useAction(api.oauth.codexModelList);
-  const chat = useAction(api.chat.chat);
 
   const [catalog, setCatalog] = useState<Catalog>({});
   const [codexModels, setCodexModels] = useState<string[]>([]);
@@ -211,7 +210,7 @@ function Dashboard() {
         )}
       </section>
 
-      <ChatCard models={myModels} chat={chat} />
+      <WorkbenchCard models={myModels} />
 
       <AgentsCard models={myModels} />
 
@@ -423,34 +422,88 @@ function AgentsCard({ models }: { models: string[] }) {
   );
 }
 
-function ChatCard({ models, chat }: { models: string[]; chat: (a: { model: string; messages: { role: string; content: string }[] }) => Promise<{ text: string }> }) {
+type Msg = { _id: string; role: string; content: string };
+
+function WorkbenchCard({ models }: { models: string[] }) {
+  const threads = useQuery(api.threads.listThreads) as { _id: string; title: string; model: string }[] | undefined;
+  const createThread = useMutation(api.threads.createThread);
+  const deleteThread = useMutation(api.threads.deleteThread);
+  const sendMessage = useAction(api.threads.sendMessage);
+  const [active, setActive] = useState<string | null>(null);
   const [model, setModel] = useState("");
-  const [prompt, setPrompt] = useState("");
-  const [out, setOut] = useState("");
+  const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const msgs = useQuery(api.threads.threadMessages, active ? { threadId: active as any } : "skip") as Msg[] | undefined;
+
+  async function send() {
+    if (!input.trim() || busy) return;
+    setErr("");
+    setBusy(true);
+    try {
+      let tid = active;
+      if (!tid) {
+        if (!model) { setErr("pick a model first"); return; }
+        tid = (await createThread({ model, title: input.slice(0, 60) })) as string;
+        setActive(tid);
+      }
+      const content = input;
+      setInput("");
+      await sendMessage({ threadId: tid as any, content });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="card">
-      <h2>Try a model</h2>
-      <p className="sub">{models.length ? `${models.length} models available` : "connect a provider to see models"}</p>
-      <div className="row">
-        <input list="mymodels" placeholder="provider/model" value={model} onChange={(e) => setModel(e.target.value)} />
-        <datalist id="mymodels">{models.map((m) => <option key={m} value={m} />)}</datalist>
+      <h2>Chat workbench</h2>
+      <p className="sub">Threaded, persisted conversations. Token savers + agent mode apply.</p>
+      <div className="wb">
+        <aside className="wb-threads">
+          <button className="btn" onClick={() => { setActive(null); setInput(""); setErr(""); }}>+ New</button>
+          <ul>
+            {(threads ?? []).map((t) => (
+              <li key={t._id} className={active === t._id ? "on" : ""}>
+                <button className="link" title={t.model} onClick={() => { setActive(t._id); setModel(t.model); }}>{t.title}</button>
+                <button className="link danger" onClick={() => { if (active === t._id) setActive(null); void deleteThread({ threadId: t._id as any }); }}>×</button>
+              </li>
+            ))}
+          </ul>
+        </aside>
+        <div className="wb-main">
+          {!active && (
+            <div className="row">
+              <input list="wbmodels" placeholder="provider/model" value={model} onChange={(e) => setModel(e.target.value)} />
+              <datalist id="wbmodels">{models.map((m) => <option key={m} value={m} />)}</datalist>
+            </div>
+          )}
+          <div className="wb-msgs">
+            {!active ? (
+              <p className="sub">Pick a model, then send a message to start a thread.</p>
+            ) : msgs === undefined ? (
+              <p className="muted mono">…</p>
+            ) : msgs.length === 0 ? (
+              <p className="sub">Empty thread — say something.</p>
+            ) : (
+              msgs.map((m) => (
+                <div key={m._id} className={`msg ${m.role}`}>
+                  <span className="who mono muted">{m.role}</span>
+                  <div>{m.content}</div>
+                </div>
+              ))
+            )}
+            {busy && <div className="msg assistant"><span className="who mono muted">assistant</span><div className="muted">…</div></div>}
+          </div>
+          <div className="wb-composer">
+            <textarea rows={2} placeholder="message  (⌘/Ctrl+Enter to send)" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void send(); }} />
+            <button className="btn accent" disabled={busy || !input.trim() || (!active && !model)} onClick={() => void send()}>{busy ? "…" : "Send"}</button>
+          </div>
+          {err && <p className="err">{err}</p>}
+        </div>
       </div>
-      <textarea rows={2} placeholder="say hi" value={prompt} onChange={(e) => setPrompt(e.target.value)} />
-      <button
-        className="btn accent"
-        disabled={!model || !prompt || busy}
-        onClick={async () => {
-          setBusy(true);
-          setOut("…");
-          try { setOut((await chat({ model, messages: [{ role: "user", content: prompt }] })).text); }
-          catch (e) { setOut("error: " + (e instanceof Error ? e.message : String(e))); }
-          finally { setBusy(false); }
-        }}
-      >
-        {busy ? "…" : "Send"}
-      </button>
-      {out && <pre>{out}</pre>}
     </section>
   );
 }
