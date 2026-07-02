@@ -85,11 +85,22 @@ export const chat = action({
   handler: async (ctx, a): Promise<{ text: string }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new Error("unauthenticated");
+    return callForUser(ctx, userId, a.model, a.messages);
+  },
+});
 
-    const i = a.model.indexOf("/");
-    if (i < 1 || i === a.model.length - 1) throw new Error('model must be "provider/model"');
-    const provider = a.model.slice(0, i);
-    const model = a.model.slice(i + 1);
+// Core BYOK model call for an EXPLICIT userId. Shared by the authed chat action and the MCP path.
+// Callers must have already authorized the user (getAuthUserId, or a validated MCP token).
+export async function callForUser(
+  ctx: any,
+  userId: any,
+  modelRef: string,
+  inputMessages: { role: string; content: string }[],
+): Promise<{ text: string }> {
+    const i = modelRef.indexOf("/");
+    if (i < 1 || i === modelRef.length - 1) throw new Error('model must be "provider/model"');
+    const provider = modelRef.slice(0, i);
+    const model = modelRef.slice(i + 1);
 
     const row = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider });
     if (!row) throw new Error(`no credentials for "${provider}" — connect or add a key first`);
@@ -99,10 +110,10 @@ export const chat = action({
     const sys: string[] = [];
     if (settings.cavemanEnabled) sys.push(CAVEMAN_PROMPT);
     if (settings.ponytailEnabled) sys.push(PONYTAIL_PROMPT);
-    const messages = sys.length ? [{ role: "system", content: sys.join("\n\n") }, ...a.messages] : a.messages;
+    const messages = sys.length ? [{ role: "system", content: sys.join("\n\n") }, ...inputMessages] : inputMessages;
 
     const logUsage = (status: string, promptTokens: number, completionTokens: number) =>
-      ctx.runMutation(internal.usage.log, { userId, provider, model: a.model, promptTokens, completionTokens, status });
+      ctx.runMutation(internal.usage.log, { userId, provider, model: modelRef, promptTokens, completionTokens, status });
 
     let text = "", promptTokens = 0, completionTokens = 0;
     try {
@@ -161,8 +172,7 @@ export const chat = action({
 
     await logUsage("ok", promptTokens, completionTokens);
     return { text };
-  },
-});
+}
 
 // AI Agents: run a single task with tools + a multi-step loop, persisting a trace. Needs a
 // tool-capable API-key model (codex's ChatGPT-backend path has no tool support here).

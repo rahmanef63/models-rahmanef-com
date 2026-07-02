@@ -65,6 +65,17 @@ export default defineSchema({
     content: v.string(),
     at: v.number(),
   }).index("by_thread", ["threadId", "at"]),
+  // MCP access tokens — one per issued bearer. We store only sha256(token); raw shown once.
+  mcpTokens: defineTable({
+    userId: v.id("users"),
+    tokenHash: v.string(),
+    label: v.string(),
+    createdAt: v.number(),
+    lastUsedAt: v.optional(v.number()),
+    revoked: v.optional(v.boolean()),
+  })
+    .index("by_hash", ["tokenHash"])
+    .index("by_user", ["userId"]),
   // short-lived OAuth handshake state (PKCE verifier / device-code ids), keyed per user+provider
   oauthFlows: defineTable({
     userId: v.id("users"),

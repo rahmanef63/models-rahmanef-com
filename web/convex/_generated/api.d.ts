@@ -17,6 +17,8 @@ import type * as codexLib from "../codexLib.js";
 import type * as credentials from "../credentials.js";
 import type * as crypto from "../crypto.js";
 import type * as http from "../http.js";
+import type * as mcp from "../mcp.js";
+import type * as mcpNode from "../mcpNode.js";
 import type * as oauth from "../oauth.js";
 import type * as settings from "../settings.js";
 import type * as threads from "../threads.js";
@@ -38,6 +40,8 @@ declare const fullApi: ApiFromModules<{
   credentials: typeof credentials;
   crypto: typeof crypto;
   http: typeof http;
+  mcp: typeof mcp;
+  mcpNode: typeof mcpNode;
   oauth: typeof oauth;
   settings: typeof settings;
   threads: typeof threads;
