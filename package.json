@@ -1,0 +1,20 @@
+{
+  "name": "@rahmanef/models",
+  "version": "0.1.0",
+  "description": "Portable multi-tenant BYOK model registry: auto-updating catalog (models.dev) + per-tenant credential resolution. Distilled from openclaw + hermes-agent.",
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22.6" },
+  "bin": { "models": "bin/models.mjs" },
+  "exports": {
+    ".": "./src/index.js",
+    "./api": "./src/api.js",
+    "./convex/schema": "./adapters/convex/schema.ts",
+    "./convex/credentials": "./adapters/convex/credentials.ts",
+    "./convex/crypto": "./adapters/convex/crypto.ts"
+  },
+  "scripts": {
+    "test": "node test.mjs && node api.test.mjs && node --experimental-strip-types adapters/convex/crypto.test.ts"
+  },
+  "files": ["src", "adapters", "bin", "examples"]
+}

@@ -1,0 +1,80 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>models — BYOK dashboard</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<!-- UI method: a single-file, zero-build dashboard against the models API.
+     DEMO auth: it sends the token you type as `Authorization: Bearer <token>`.
+     Your API's authenticate() must verify it and return the user id. -->
+<style>
+  :root { color-scheme: light dark; font: 15px/1.5 system-ui, sans-serif }
+  body { max-width: 720px; margin: 2rem auto; padding: 0 1rem }
+  fieldset { border: 1px solid #8884; border-radius: 8px; margin: 1rem 0; padding: 1rem }
+  legend { font-weight: 600 }
+  input, select, button, textarea { font: inherit; padding: .4rem .5rem; border-radius: 6px; border: 1px solid #8886 }
+  button { cursor: pointer }
+  .row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center }
+  ul { padding-left: 1rem } li { margin: .2rem 0 }
+  pre { background: #8881; padding: .75rem; border-radius: 6px; white-space: pre-wrap }
+</style>
+
+<h1>models — BYOK</h1>
+<div class="row">
+  <input id="api" placeholder="API base, e.g. https://models.rahmanef.com" size="34" />
+  <input id="token" placeholder="auth token" type="password" size="20" />
+</div>
+
+<fieldset>
+  <legend>Add / update a provider key</legend>
+  <div class="row">
+    <select id="provider"></select>
+    <input id="key" placeholder="sk-..." type="password" size="30" />
+    <button onclick="addKey()">Save</button>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>My providers <button onclick="loadProviders()">↻</button></legend>
+  <ul id="providers"></ul>
+</fieldset>
+
+<fieldset>
+  <legend>Quick chat test</legend>
+  <div class="row"><input id="model" placeholder="anthropic/claude-opus-4-8" size="34" /></div>
+  <textarea id="prompt" rows="2" style="width:100%;margin-top:.5rem" placeholder="say hi"></textarea>
+  <div class="row" style="margin-top:.5rem"><button onclick="send()">Send</button></div>
+  <pre id="out"></pre>
+</fieldset>
+
+<script>
+const $ = (id) => document.getElementById(id)
+const base = () => $('api').value.replace(/\/$/, '')
+const auth = () => ({ 'content-type': 'application/json', authorization: 'Bearer ' + $('token').value })
+
+// seed the provider dropdown from the public catalog
+fetch('https://models.dev/api.json').then(r => r.json()).then(cat => {
+  $('provider').innerHTML = Object.keys(cat).sort().map(p => `<option>${p}</option>`).join('')
+}).catch(() => { $('provider').innerHTML = ['openai','anthropic','google','openrouter','groq','deepseek','xai','mistral','moonshotai'].map(p=>`<option>${p}</option>`).join('') })
+
+async function addKey() {
+  const p = $('provider').value
+  const r = await fetch(`${base()}/providers/${encodeURIComponent(p)}`, { method: 'PUT', headers: auth(), body: JSON.stringify({ apiKey: $('key').value }) })
+  if (r.ok) { $('key').value = ''; loadProviders() } else alert(await r.text())
+}
+async function loadProviders() {
+  const r = await fetch(`${base()}/providers`, { headers: auth() })
+  if (!r.ok) return alert(await r.text())
+  const { providers } = await r.json()
+  $('providers').innerHTML = providers.length
+    ? providers.map(x => `<li>${x.provider} <button onclick="delKey('${x.provider}')">✕</button></li>`).join('')
+    : '<li>(none yet)</li>'
+}
+async function delKey(p) {
+  await fetch(`${base()}/providers/${encodeURIComponent(p)}`, { method: 'DELETE', headers: auth() })
+  loadProviders()
+}
+async function send() {
+  $('out').textContent = '...'
+  const r = await fetch(`${base()}/chat`, { method: 'POST', headers: auth(), body: JSON.stringify({ model: $('model').value, messages: [{ role: 'user', content: $('prompt').value }] }) })
+  $('out').textContent = JSON.stringify(await r.json(), null, 2)
+}
+</script>

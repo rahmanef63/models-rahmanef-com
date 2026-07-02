@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180">
+  <rect width="180" height="180" rx="40" fill="#0a0a09"/>
+  <text x="74" y="92" text-anchor="middle" dominant-baseline="central"
+        font-family="ui-monospace,'JetBrains Mono',SFMono-Regular,Menlo,monospace"
+        font-size="104" font-weight="700" fill="#f1eee4">m</text>
+  <circle cx="134" cy="120" r="15" fill="#c9f24a"/>
+</svg>

@@ -1,0 +1,30 @@
+import { defineSchema, defineTable } from "convex/server";
+import { authTables } from "@convex-dev/auth/server";
+import { v } from "convex/values";
+
+// authTables = users, authAccounts, authSessions, ... (from @convex-dev/auth).
+// modelCreds = one row per (user, provider); ciphertext = AES-256-GCM(base64 iv||ct).
+export default defineSchema({
+  ...authTables,
+  // kind: "api_key" (ciphertext = the key) | "oauth" (ciphertext = JSON {access,refresh,expires,accountId})
+  modelCreds: defineTable({
+    userId: v.id("users"),
+    provider: v.string(),
+    kind: v.optional(v.string()),
+    ciphertext: v.string(),
+    updatedAt: v.number(),
+    expires: v.optional(v.number()), // plaintext token expiry (oauth) — lets the lease check staleness without decrypting
+    refreshLeaseUntil: v.optional(v.number()), // single-flight refresh lease
+  })
+    .index("by_user", ["userId"])
+    .index("by_user_provider", ["userId", "provider"]),
+  // short-lived OAuth handshake state (PKCE verifier / device-code ids), keyed per user+provider
+  oauthFlows: defineTable({
+    userId: v.id("users"),
+    provider: v.string(),
+    verifier: v.optional(v.string()),
+    deviceAuthId: v.optional(v.string()),
+    userCode: v.optional(v.string()),
+    createdAt: v.number(),
+  }).index("by_user_provider", ["userId", "provider"]),
+});
