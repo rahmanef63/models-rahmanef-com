@@ -50,6 +50,8 @@ export default defineSchema({
     userId: v.id("users"),
     task: v.string(),
     model: v.string(),
+    agentId: v.optional(v.id("agentDefs")), // set when run via a saved agent (vs an ad-hoc model+task)
+    agentName: v.optional(v.string()), // denormalized so the trace still reads fine if the agent is later renamed/deleted
     status: v.string(), // "running" | "done" | "error"
     steps: v.optional(v.array(v.object({ text: v.string(), tools: v.array(v.string()) }))),
     result: v.optional(v.string()),
@@ -59,6 +61,18 @@ export default defineSchema({
     completionTokens: v.optional(v.number()),
     at: v.number(),
   }).index("by_user_at", ["userId", "at"]),
+  // AI Agents: saved, reusable agent configs (named: skill × model × tools × max-iter).
+  agentDefs: defineTable({
+    userId: v.id("users"),
+    name: v.string(),
+    model: v.string(), // "provider/model" — the agent's fixed model
+    instructions: v.optional(v.string()), // system prompt / skill description
+    tools: v.array(v.string()), // enabled tool ids (see convex/toolRegistry.ts)
+    maxSteps: v.number(), // tool-loop step budget, clamped [1,20]
+    temperature: v.optional(v.number()), // clamped [0,2]; unset = provider default
+    createdAt: v.number(),
+    updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
   // AI Chat workbench: persisted threaded conversations. messages owned via their thread.
   threads: defineTable({
     userId: v.id("users"),

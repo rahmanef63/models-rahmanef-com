@@ -14,6 +14,7 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { encryptSecret, decryptSecret } from "./crypto";
 import { ensureFreshCodex, codexChat, type CodexBundle } from "./codexLib";
 import { ensureFreshClaude, claudeChat, type ClaudeBundle } from "./claudeLib";
+import { TOOL_REGISTRY } from "./toolRegistry";
 
 // provider slug -> a Vercel AI SDK model bound to the caller's key. openai-compatible providers
 // reuse the OpenAI provider with a baseURL. Keep in sync with ../../src/registry.js.
@@ -59,14 +60,22 @@ function modelFor(provider: string, model: string, apiKey: string) {
   }
 }
 
+const TOOL_DESC = Object.fromEntries(TOOL_REGISTRY.map((t) => [t.id, t.description]));
+
 // tools that let a model inspect the caller's OWN gateway (agent mode + AI Agents). auth flows
-// through ctx.runQuery, so a tool only ever sees the authed user's data.
-function gatewayTools(ctx: any) {
+// through ctx.runQuery, so a tool only ever sees the authed user's data. `ids` (from a saved
+// agentDef's `tools` field) filters which of these are actually exposed; omitted = all of them,
+// matching the pre-agentDefs "agent mode" behavior (Chat's on/off toggle) exactly.
+function gatewayTools(ctx: any, ids?: string[]) {
   const noArgs = jsonSchema({ type: "object", properties: {}, additionalProperties: false });
-  return {
-    list_my_providers: tool({ description: "List the AI providers the user has connected (BYOK).", inputSchema: noArgs, execute: async () => ctx.runQuery(api.credentials.listConfiguredProviders, {}) }),
-    get_my_usage: tool({ description: "Get the user's model usage stats (requests, tokens in/out, per-model, per-day).", inputSchema: noArgs, execute: async () => ctx.runQuery(api.usage.myUsage, {}) }),
+  const all: Record<string, any> = {
+    list_my_providers: tool({ description: TOOL_DESC.list_my_providers, inputSchema: noArgs, execute: async () => ctx.runQuery(api.credentials.listConfiguredProviders, {}) }),
+    get_my_usage: tool({ description: TOOL_DESC.get_my_usage, inputSchema: noArgs, execute: async () => ctx.runQuery(api.usage.myUsage, {}) }),
   };
+  if (!ids) return all;
+  const out: Record<string, any> = {};
+  for (const id of ids) if (all[id]) out[id] = all[id];
+  return out;
 }
 
 // Classify a call failure into a structured code the CLIENT decides how much detail to render for
@@ -215,17 +224,36 @@ export async function callForUser(
 }
 
 // AI Agents: run a single task with tools + a multi-step loop, persisting a trace. Needs a
-// tool-capable API-key model (codex's ChatGPT-backend path has no tool support here).
+// tool-capable API-key model (codex's ChatGPT-backend path has no tool support here). Either
+// `agentId` (a saved agentDefs config — model/instructions/tools/maxSteps/temperature all come
+// from there) or `model` (ad-hoc: all gateway tools, maxSteps 8, no instructions — the original
+// pre-agentDefs behavior, unchanged) must be given.
 export const runAgent = action({
-  args: { task: v.string(), model: v.string() },
+  args: { task: v.string(), model: v.optional(v.string()), agentId: v.optional(v.id("agentDefs")) },
   handler: async (ctx, a): Promise<{ runId: string; text: string }> => {
     const userId = await getAuthUserId(ctx);
     if (!userId) throw new ConvexError("Please sign in.");
 
-    const i = a.model.indexOf("/");
-    if (i < 1 || i === a.model.length - 1) throw new ConvexError({ code: "invalid_request", detail: 'model must be "provider/model"' } satisfies ChatErrorInfo);
-    const provider = a.model.slice(0, i);
-    const model = a.model.slice(i + 1);
+    let modelRef: string, instructions: string | undefined, toolIds: string[] | undefined, maxSteps: number, temperature: number | undefined, agentName: string | undefined;
+    if (a.agentId) {
+      const def = await ctx.runQuery(internal.agentDefs.getOwned, { userId, id: a.agentId });
+      if (!def) throw new ConvexError({ code: "not_found", detail: "Agent not found" } satisfies ChatErrorInfo);
+      modelRef = def.model;
+      instructions = def.instructions;
+      toolIds = def.tools;
+      maxSteps = def.maxSteps;
+      temperature = def.temperature;
+      agentName = def.name;
+    } else {
+      if (!a.model) throw new ConvexError({ code: "invalid_request", detail: "model required" } satisfies ChatErrorInfo);
+      modelRef = a.model;
+      maxSteps = 8;
+    }
+
+    const i = modelRef.indexOf("/");
+    if (i < 1 || i === modelRef.length - 1) throw new ConvexError({ code: "invalid_request", detail: 'model must be "provider/model"' } satisfies ChatErrorInfo);
+    const provider = modelRef.slice(0, i);
+    const model = modelRef.slice(i + 1);
     if (provider === "openai-codex" || provider === "anthropic-oauth") throw new ConvexError({ code: "invalid_request", detail: "Agents need a tool-capable API-key model (not an OAuth subscription provider).", provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
 
     let row: any, m: any;
@@ -240,18 +268,25 @@ export const runAgent = action({
       throw new ConvexError({ ...classifyError(e, provider), provider, model });
     }
 
-    const runId = await ctx.runMutation(internal.agents.create, { userId, task: a.task, model: a.model, at: Date.now() });
+    const runId = await ctx.runMutation(internal.agents.create, { userId, task: a.task, model: modelRef, agentId: a.agentId, agentName, at: Date.now() });
     try {
-      const result = await generateText({ model: m, messages: [{ role: "user", content: a.task }], tools: gatewayTools(ctx), stopWhen: stepCountIs(8) });
+      const result = await generateText({
+        model: m,
+        ...(instructions ? { system: instructions } : {}),
+        messages: [{ role: "user", content: a.task }],
+        tools: gatewayTools(ctx, toolIds),
+        stopWhen: stepCountIs(maxSteps),
+        ...(temperature != null ? { temperature } : {}),
+      });
       const { steps, promptTokens, completionTokens } = traceOf(result);
       const text = result.text || "(no text)";
       await ctx.runMutation(internal.agents.finish, { runId, status: "done", steps, result: text, promptTokens, completionTokens });
-      await ctx.runMutation(internal.usage.log, { userId, provider, model: a.model, promptTokens, completionTokens, status: "ok" });
+      await ctx.runMutation(internal.usage.log, { userId, provider, model: modelRef, promptTokens, completionTokens, status: "ok" });
       return { runId, text };
     } catch (e: any) {
       const info = classifyError(e, provider);
       await ctx.runMutation(internal.agents.finish, { runId, status: "error", error: info.detail, errorCode: info.code });
-      await ctx.runMutation(internal.usage.log, { userId, provider, model: a.model, promptTokens: 0, completionTokens: 0, status: "error" });
+      await ctx.runMutation(internal.usage.log, { userId, provider, model: modelRef, promptTokens: 0, completionTokens: 0, status: "error" });
       throw new ConvexError({ ...info, provider, model }); // unmask the real provider error (Convex hides plain throws)
     }
   },

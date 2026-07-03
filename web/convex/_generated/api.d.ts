@@ -9,6 +9,7 @@
  */
 
 import type * as admin from "../admin.js";
+import type * as agentDefs from "../agentDefs.js";
 import type * as agents from "../agents.js";
 import type * as auth from "../auth.js";
 import type * as chat from "../chat.js";
@@ -24,6 +25,7 @@ import type * as mcpOauthNode from "../mcpOauthNode.js";
 import type * as oauth from "../oauth.js";
 import type * as settings from "../settings.js";
 import type * as threads from "../threads.js";
+import type * as toolRegistry from "../toolRegistry.js";
 import type * as usage from "../usage.js";
 
 import type {
@@ -34,6 +36,7 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   admin: typeof admin;
+  agentDefs: typeof agentDefs;
   agents: typeof agents;
   auth: typeof auth;
   chat: typeof chat;
@@ -49,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   oauth: typeof oauth;
   settings: typeof settings;
   threads: typeof threads;
+  toolRegistry: typeof toolRegistry;
   usage: typeof usage;
 }>;
 

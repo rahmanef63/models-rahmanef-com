@@ -7,7 +7,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 const stepV = v.object({ text: v.string(), tools: v.array(v.string()) });
 
 export const create = internalMutation({
-  args: { userId: v.id("users"), task: v.string(), model: v.string(), at: v.number() },
+  args: { userId: v.id("users"), task: v.string(), model: v.string(), agentId: v.optional(v.id("agentDefs")), agentName: v.optional(v.string()), at: v.number() },
   handler: async (ctx, a) => ctx.db.insert("agentRuns", { ...a, status: "running" }),
 });
 

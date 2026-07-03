@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useConvexAuth, useQuery, useMutation, useAction } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@/convex/_generated/api";
@@ -546,7 +546,10 @@ function cheapestModel(catalog: Catalog, provider: string): string | undefined {
     const out = m?.modalities?.output;
     return !Array.isArray(out) || out.includes("text");
   });
-  const pool = chatCapable.length > 0 ? chatCapable : ids; // fall back to unfiltered rather than skipping the test entirely
+  // OpenRouter's ":free" models share a global, cross-user rate-limit pool — a 429 there says
+  // nothing about whether THIS key works, so prefer a paid model for the connectivity test.
+  const notFree = chatCapable.filter((id) => !id.endsWith(":free"));
+  const pool = notFree.length > 0 ? notFree : chatCapable.length > 0 ? chatCapable : ids; // fall back rather than skipping the test entirely
   if (pool.length === 0) return undefined;
   return pool.reduce((best, id) => {
     const c = models![id]?.cost?.input;
@@ -698,32 +701,209 @@ function CredBadge({ p, isAdmin, canTest }: { p: Cred; isAdmin: boolean; canTest
   return <span className="badge key">NOT TESTED</span>;
 }
 
-type Run = { _id: string; task: string; model: string; status: string; steps?: { text: string; tools: string[] }[]; result?: string; error?: string; errorCode?: string };
+type Run = { _id: string; task: string; model: string; agentId?: string; agentName?: string; status: string; steps?: { text: string; tools: string[] }[]; result?: string; error?: string; errorCode?: string };
+type AgentDef = { _id: string; name: string; model: string; instructions?: string; tools: string[]; maxSteps: number; temperature?: number };
+type ToolMeta = { id: string; label: string; description: string };
+// instructions/temperature: null = "clear this field" (only meaningful on edit — see onSave below;
+// Convex's client silently drops `undefined` args before they reach the wire, so `undefined` can't
+// distinguish "not touched" from "cleared" the way `null` can).
+type AgentPatch = { name?: string; model?: string; instructions?: string | null; tools?: string[]; maxSteps?: number; temperature?: number | null };
+const isValidModelRef = (m: string) => { const i = m.trim().indexOf("/"); return i > 0 && i !== m.trim().length - 1; };
+
+function AgentForm({ models, toolRegistry, initial, onSave, onCancel, isAdmin }: {
+  models: string[];
+  toolRegistry: ToolMeta[];
+  initial?: AgentDef;
+  onSave: (a: AgentPatch & { name: string; model: string; tools: string[]; maxSteps: number }) => Promise<void>;
+  onCancel: () => void;
+  isAdmin: boolean;
+}) {
+  const [name, setName] = useState(initial?.name ?? "");
+  const [model, setModel] = useState(initial?.model ?? "");
+  const [instructions, setInstructions] = useState(initial?.instructions ?? "");
+  const [tools, setTools] = useState<string[]>(initial?.tools ?? toolRegistry.map((t) => t.id)); // new agent defaults: every tool on
+  const [maxSteps, setMaxSteps] = useState(initial?.maxSteps ?? 8);
+  const [temperature, setTemperature] = useState(initial?.temperature != null ? String(initial.temperature) : "");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<unknown>(null);
+  const formId = useId();
+
+  function toggleTool(id: string) {
+    setTools((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id]));
+  }
+
+  return (
+    <div className="agent-form">
+      <input placeholder="Agent name — e.g. Research assistant" value={name} onChange={(e) => setName(e.target.value)} />
+      <div className="row">
+        <input list={formId} placeholder="provider/model" value={model} onChange={(e) => setModel(e.target.value)} />
+        <datalist id={formId}>{models.map((m) => <option key={m} value={m} />)}</datalist>
+      </div>
+      <textarea rows={3} placeholder="Instructions / system prompt — optional, e.g. &quot;You are a terse research assistant. Cite sources.&quot;" value={instructions} onChange={(e) => setInstructions(e.target.value)} />
+      <div className="agent-form-tools">
+        <div className="picker-step mono muted">tools</div>
+        {toolRegistry.map((t) => (
+          <label key={t.id} className="toggle">
+            <input type="checkbox" checked={tools.includes(t.id)} onChange={() => toggleTool(t.id)} />
+            <span><strong>{t.label}</strong> <span className="muted">— {t.description}</span></span>
+          </label>
+        ))}
+      </div>
+      <div className="row">
+        <label className="mono muted" style={{ fontSize: ".78rem", display: "flex", alignItems: "center", gap: ".5rem" }}>
+          max steps
+          <input type="number" min={1} max={20} value={maxSteps} onChange={(e) => setMaxSteps(Number(e.target.value))} style={{ width: "5rem" }} />
+        </label>
+        <label className="mono muted" style={{ fontSize: ".78rem", display: "flex", alignItems: "center", gap: ".5rem" }}>
+          temperature
+          <input type="number" min={0} max={2} step={0.1} placeholder="default" value={temperature} onChange={(e) => setTemperature(e.target.value)} style={{ width: "5rem" }} />
+        </label>
+      </div>
+      <div className="row">
+        <button
+          className="btn accent"
+          disabled={busy || !name.trim() || !isValidModelRef(model)}
+          onClick={async () => {
+            setBusy(true);
+            setErr(null);
+            try {
+              // editing: null clears a blanked field (survives Convex's arg serializer); creating:
+              // undefined omits it — there's no existing value to distinguish "cleared" from.
+              const empty = initial ? null : undefined;
+              await onSave({
+                name: name.trim(),
+                model: model.trim(),
+                instructions: instructions.trim() ? instructions.trim() : empty,
+                tools,
+                maxSteps,
+                temperature: temperature.trim() ? Number(temperature) : empty,
+              });
+            } catch (e) {
+              setErr(e);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? "…" : initial ? "Save changes" : "Create agent"}
+        </button>
+        <button className="link" onClick={onCancel}>cancel</button>
+      </div>
+      {err != null && <ErrorLine e={err} isAdmin={isAdmin} />}
+    </div>
+  );
+}
 
 function AgentsCard({ models, isAdmin }: { models: string[]; isAdmin: boolean }) {
   const runAgent = useAction(api.chat.runAgent);
   const runs = useQuery(api.agents.myRuns) as Run[] | undefined;
+  const agentDefs = useQuery(api.agentDefs.list) as AgentDef[] | undefined;
+  const toolRegistry = useQuery(api.agentDefs.listToolRegistry) as ToolMeta[] | undefined;
+  const createAgent = useMutation(api.agentDefs.create);
+  const updateAgent = useMutation(api.agentDefs.update);
+  const removeAgent = useMutation(api.agentDefs.remove);
+
+  const [showForm, setShowForm] = useState<"new" | string | null>(null); // "new", or an agent _id being edited
+  const [selectedAgentId, setSelectedAgentId] = useState("");
   const [model, setModel] = useState("");
   const [task, setTask] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
+
+  const selectedAgent = agentDefs?.find((a) => a._id === selectedAgentId);
+
+  async function run() {
+    setBusy(true);
+    setErr(null);
+    try {
+      if (selectedAgent) await runAgent({ agentId: selectedAgent._id as any, task });
+      else await runAgent({ model, task });
+      setTask("");
+    } catch (e) {
+      setErr(e);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="card">
       <h2>AI Agents</h2>
-      <p className="sub">Give a tool-capable model a task — it runs a multi-step loop with tools and traces every step.</p>
-      <div className="row">
-        <input list="agentmodels" placeholder="provider/model" value={model} onChange={(e) => setModel(e.target.value)} />
-        <datalist id="agentmodels">{models.map((m) => <option key={m} value={m} />)}</datalist>
+      <p className="sub">Save a reusable agent (model, instructions, tools, step budget) or run one off ad-hoc — either way it runs a multi-step tool loop and traces every step.</p>
+
+      <div className="wb-head">
+        <div className="picker-step mono muted">my agents</div>
+        {showForm !== "new" && <button className="btn" onClick={() => setShowForm("new")}>+ New agent</button>}
       </div>
+
+      {showForm === "new" && (toolRegistry ? (
+        <AgentForm
+          models={models}
+          toolRegistry={toolRegistry}
+          isAdmin={isAdmin}
+          onSave={async (a) => { await createAgent({ ...a, instructions: a.instructions ?? undefined, temperature: a.temperature ?? undefined }); setShowForm(null); }}
+          onCancel={() => setShowForm(null)}
+        />
+      ) : <p className="muted mono">…</p>)}
+
+      {agentDefs === undefined ? (
+        <p className="muted mono">…</p>
+      ) : agentDefs.length === 0 && showForm !== "new" ? (
+        <p className="sub">No saved agents yet — create one, or just run ad-hoc below.</p>
+      ) : (
+        <ul className="creds" style={{ marginBottom: "1.2rem" }}>
+          {agentDefs.map((a) => (
+            <li key={a._id}>
+              {showForm === a._id && toolRegistry ? (
+                <AgentForm
+                  models={models}
+                  toolRegistry={toolRegistry}
+                  initial={a}
+                  isAdmin={isAdmin}
+                  onSave={async (patch: AgentPatch) => { await updateAgent({ id: a._id as any, ...patch }); setShowForm(null); }}
+                  onCancel={() => setShowForm(null)}
+                />
+              ) : (
+                <>
+                  <span className="name">{a.name}</span>
+                  <span className="mono muted model-id" style={{ fontSize: ".72rem" }}>{a.model}</span>
+                  <span className="cred-actions">
+                    <span className="badge">{a.tools.length} tool{a.tools.length === 1 ? "" : "s"}</span>
+                    <span className="badge">max {a.maxSteps}</span>
+                    {a.temperature != null && <span className="badge">temp {a.temperature}</span>}
+                    <button className="link" onClick={() => setShowForm(a._id)}>edit</button>
+                    <button className="link danger" onClick={() => { if (selectedAgentId === a._id) setSelectedAgentId(""); void removeAgent({ id: a._id as any }); }}>delete</button>
+                  </span>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="picker-step mono muted">run</div>
+      <div className="row">
+        <select value={selectedAgentId} onChange={(e) => { setSelectedAgentId(e.target.value); setErr(null); }} style={{ width: "auto" }}>
+          <option value="">Ad-hoc — pick a model below</option>
+          {(agentDefs ?? []).map((a) => <option key={a._id} value={a._id}>{a.name}</option>)}
+        </select>
+      </div>
+      {!selectedAgent ? (
+        <div className="row">
+          <input list="agentmodels" placeholder="provider/model" value={model} onChange={(e) => setModel(e.target.value)} />
+          <datalist id="agentmodels">{models.map((m) => <option key={m} value={m} />)}</datalist>
+        </div>
+      ) : (
+        <p className="sub" style={{ margin: "0 0 0.8rem" }}>
+          <span className="mono">{selectedAgent.model}</span> · {selectedAgent.tools.length} tool{selectedAgent.tools.length === 1 ? "" : "s"} · max {selectedAgent.maxSteps} steps{selectedAgent.temperature != null ? ` · temp ${selectedAgent.temperature}` : ""}{selectedAgent.instructions ? " · has instructions" : ""}
+        </p>
+      )}
       <textarea rows={2} placeholder="e.g. list which providers I've connected, then summarize my usage" value={task} onChange={(e) => setTask(e.target.value)} />
-      <button
-        className="btn accent"
-        disabled={!model || !task || busy}
-        onClick={async () => { setBusy(true); setErr(null); try { await runAgent({ model, task }); setTask(""); } catch (e) { setErr(e); } finally { setBusy(false); } }}
-      >
+      <button className="btn accent" disabled={busy || !task || (!selectedAgent && !model)} onClick={() => void run()}>
         {busy ? "running…" : "Run agent"}
       </button>
       {err != null && <ErrorLine e={err} isAdmin={isAdmin} />}
+
       {runs && runs.length > 0 && (
         <ul className="runs">
           {runs.map((r) => (
@@ -732,7 +912,8 @@ function AgentsCard({ models, isAdmin }: { models: string[]; isAdmin: boolean })
                 <summary>
                   <span className="badge" style={r.status === "error" ? { color: "var(--danger)" } : undefined}>{r.status}</span>
                   <span className="name">{r.task}</span>
-                  <span className="mono muted" style={{ fontSize: ".72rem" }}>{r.model}</span>
+                  {r.agentName && <span className="badge oauth">{r.agentName}</span>}
+                  <span className="mono muted model-id" style={{ fontSize: ".72rem" }}>{r.model}</span>
                 </summary>
                 <div className="trace">
                   {(r.steps ?? []).map((s, i) => (
@@ -780,7 +961,13 @@ const FRIENDLY: Record<string, (provider: string) => string> = {
 function ErrorLine({ e, isAdmin }: { e: unknown; isAdmin: boolean }) {
   const d = errData(e);
   if (typeof d === "string") return <p className="err">{d}</p>;
-  const label = d.provider ? (PROVIDER_LABEL[d.provider] ?? d.provider) : "This provider";
+  // no `provider` means this ISN'T a provider/model-call failure — it's a validation error we
+  // wrote ourselves (e.g. agentDefs CRUD: "name required", "Agent not found") — that text is
+  // already safe + actionable for every user, so show it directly instead of running it through
+  // the provider-oriented FRIENDLY table (which would render something like "This provider
+  // couldn't process this request" — nonsensical here, and hides the real reason from non-admins).
+  if (!d.provider) return <p className="err">{d.detail}</p>;
+  const label = PROVIDER_LABEL[d.provider] ?? d.provider;
   const friendly = (FRIENDLY[d.code] ?? FRIENDLY.internal)(label);
   return (
     <p className="err">

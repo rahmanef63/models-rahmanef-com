@@ -172,6 +172,10 @@ textarea { resize: vertical; margin: 0.6rem 0; }
 .provider-btn span { font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted); }
 .provider-btn:disabled { opacity: 0.5; cursor: default; }
 
+.agent-form { margin: 0 0 1.2rem; padding: 1.2rem; border: 1px dashed var(--line-2); border-radius: 6px; background: var(--bg); display: flex; flex-direction: column; gap: 0.7rem; }
+.agent-form textarea { margin: 0; }
+.agent-form-tools { display: flex; flex-direction: column; gap: 0.1rem; }
+.model-id { word-break: break-all; min-width: 0; }
 .device { margin-top: 1.2rem; padding: 1.3rem; border: 1px dashed var(--line-2); border-radius: 4px; background: var(--bg); }
 .device p { margin: 0.4rem 0; font-size: 0.9rem; }
 .devicecode { display: inline-block; font-family: var(--font-mono); font-size: 1.7rem; letter-spacing: 0.3em; font-weight: 700; color: var(--accent); padding: 0.5rem 0.9rem; background: var(--bg-3); border: 1px solid var(--line-2); border-radius: 3px; margin: 0.4rem 0; }
