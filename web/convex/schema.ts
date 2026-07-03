@@ -15,6 +15,12 @@ export default defineSchema({
     updatedAt: v.number(),
     expires: v.optional(v.number()), // plaintext token expiry (oauth) — lets the lease check staleness without decrypting
     refreshLeaseUntil: v.optional(v.number()), // single-flight refresh lease
+    // last connectivity test result (a real 1-token call through the SAME path chat uses) —
+    // lets the Providers list show a health badge instead of only failing deep in a chat.
+    lastCheckedAt: v.optional(v.number()),
+    lastCheckedOk: v.optional(v.boolean()),
+    lastCheckedCode: v.optional(v.string()),
+    lastCheckedDetail: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
     .index("by_user_provider", ["userId", "provider"]),

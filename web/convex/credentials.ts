@@ -3,7 +3,7 @@
 // mutations stay deterministic; the mutation only writes the finished ciphertext.
 import { action, mutation, query, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { encryptSecret } from "./crypto";
 
@@ -16,7 +16,15 @@ export const listConfiguredProviders = query({
       .query("modelCreds")
       .withIndex("by_user", (q) => q.eq("userId", userId))
       .collect();
-    return rows.map((r) => ({ provider: r.provider, kind: r.kind ?? "api_key" })); // never the ciphertext
+    // never the ciphertext — last-check fields drive the health badge in the Providers list
+    return rows.map((r) => ({
+      provider: r.provider,
+      kind: r.kind ?? "api_key",
+      lastCheckedAt: r.lastCheckedAt,
+      lastCheckedOk: r.lastCheckedOk,
+      lastCheckedCode: r.lastCheckedCode,
+      lastCheckedDetail: r.lastCheckedDetail,
+    }));
   },
 });
 
@@ -24,10 +32,24 @@ export const setCredential = action({
   args: { provider: v.string(), apiKey: v.string() },
   handler: async (ctx, a): Promise<void> => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("unauthenticated");
-    if (!a.apiKey) throw new Error("apiKey required");
+    if (!userId) throw new ConvexError("Please sign in.");
+    if (!a.apiKey) throw new ConvexError({ code: "invalid_request", detail: "apiKey required" });
     const ciphertext = await encryptSecret(a.apiKey);
     await ctx.runMutation(internal.credentials.store, { userId, provider: a.provider, kind: "api_key", ciphertext });
+  },
+});
+
+// internal: record the result of a connectivity test (chat.ts testCredential) against this
+// credential — never touches the ciphertext itself.
+export const _recordCheck = internalMutation({
+  args: { userId: v.id("users"), provider: v.string(), ok: v.boolean(), code: v.optional(v.string()), detail: v.optional(v.string()) },
+  handler: async (ctx, a) => {
+    const row = await ctx.db
+      .query("modelCreds")
+      .withIndex("by_user_provider", (q) => q.eq("userId", a.userId).eq("provider", a.provider))
+      .unique();
+    if (!row) return; // credential was deleted mid-check — nothing to record
+    await ctx.db.patch(row._id, { lastCheckedAt: Date.now(), lastCheckedOk: a.ok, lastCheckedCode: a.code, lastCheckedDetail: a.detail });
   },
 });
 
@@ -67,7 +89,7 @@ export const deleteCredential = mutation({
   args: { provider: v.string() },
   handler: async (ctx, a) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("unauthenticated");
+    if (!userId) throw new ConvexError("Please sign in.");
     const row = await ctx.db
       .query("modelCreds")
       .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", a.provider))

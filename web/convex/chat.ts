@@ -256,3 +256,29 @@ export const runAgent = action({
     }
   },
 });
+
+// Connectivity check for a stored API-key credential — a real 1-token call through the EXACT
+// same path (callForUser) real chat uses, so it can never diverge from what chat actually does.
+// Never throws on a bad key (that's an EXPECTED outcome, not exceptional) — records the result on
+// the credential row so the Providers list can show a health badge instead of only surfacing at
+// chat time. Client picks `model` from the models.dev catalog (cheapest available for `provider`).
+export const testCredential = action({
+  args: { provider: v.string(), model: v.string() },
+  handler: async (ctx, a): Promise<{ ok: boolean; code?: string; status?: number; detail?: string }> => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) throw new ConvexError("Please sign in.");
+    if (!a.model) throw new ConvexError({ code: "invalid_request", detail: "model required" } satisfies ChatErrorInfo);
+    try {
+      await callForUser(ctx, userId, `${a.provider}/${a.model}`, [{ role: "user", content: "ping" }]);
+      // never let the bookkeeping write itself throw — a hiccup here must not surface as a false
+      // "key is bad" (or an uncaught rejection) when the actual connectivity check succeeded
+      try { await ctx.runMutation(internal.credentials._recordCheck, { userId, provider: a.provider, ok: true }); } catch { /* best-effort */ }
+      return { ok: true };
+    } catch (e: any) {
+      // callForUser already classifies its own failures into ConvexError({code,status,detail,...}) — reuse it
+      const d = e?.data && typeof e.data === "object" ? e.data : classifyError(e, a.provider);
+      try { await ctx.runMutation(internal.credentials._recordCheck, { userId, provider: a.provider, ok: false, code: d.code, detail: d.detail }); } catch { /* best-effort */ }
+      return { ok: false, code: d.code, status: d.status, detail: d.detail };
+    }
+  },
+});

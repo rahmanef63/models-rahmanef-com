@@ -158,6 +158,7 @@ textarea { resize: vertical; margin: 0.6rem 0; }
 .link { background: none; border: none; color: var(--accent); font-family: var(--font-mono); font-size: 0.82rem; cursor: pointer; padding: 0.3rem 0; }
 .link.danger { color: var(--danger); }
 .err { color: var(--danger); font-size: 0.85rem; }
+.ok-line { color: var(--accent-dim); font-size: 0.85rem; }
 
 .connect-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8rem; }
 @media (max-width: 520px) { .connect-grid { grid-template-columns: 1fr; } .hero, .lib-grid { grid-template-columns: 1fr; } .features, .steps { grid-template-columns: 1fr; } }
@@ -181,11 +182,15 @@ textarea { resize: vertical; margin: 0.6rem 0; }
 .apikey .row { margin-top: 0.8rem; }
 
 .creds { list-style: none; margin: 0; padding: 0; }
-.creds li { display: flex; align-items: center; gap: 0.7rem; padding: 0.7rem 0; border-bottom: 1px solid var(--line); }
+.creds li { display: flex; align-items: center; flex-wrap: wrap; gap: 0.7rem; padding: 0.7rem 0; border-bottom: 1px solid var(--line); }
 .creds li:last-child { border-bottom: none; }
-.creds li > .name { flex: 1; }
+.creds li > .name { flex: 1; min-width: 8ch; }
+.creds li .cred-actions { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; } /* badge+test+remove wrap as a unit, not independently */
+.creds li .err, .creds li .ok-line { flex-basis: 100%; margin: 0.1rem 0 0; }
 .badge { font-family: var(--font-mono); font-size: 0.68rem; letter-spacing: 0.08em; padding: 0.16rem 0.55rem; border-radius: 999px; border: 1px solid var(--line-2); color: var(--muted); }
 .badge.oauth { color: var(--accent); border-color: var(--accent-dim); }
+.badge.ok { color: var(--ok); border-color: var(--ok); }
+.badge.danger { color: var(--danger); border-color: var(--danger); }
 .admin-block { margin-top: 1.6rem; }
 .admin-block h3 { font-family: var(--font-mono); font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin: 0 0 0.4rem; font-weight: 500; }
 .overview { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin: 0.5rem 0 1.25rem; }
