@@ -68,6 +68,7 @@ export default defineSchema({
     model: v.string(), // "provider/model" — the agent's fixed model
     instructions: v.optional(v.string()), // system prompt / skill description
     tools: v.array(v.string()), // enabled tool ids (see convex/toolRegistry.ts)
+    skills: v.optional(v.array(v.string())), // instruction-bundle ids (see convex/skillsRegistry.ts), concatenated into the system prompt at run time
     maxSteps: v.number(), // tool-loop step budget, clamped [1,20]
     temperature: v.optional(v.number()), // clamped [0,2]; unset = provider default
     createdAt: v.number(),

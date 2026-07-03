@@ -6,6 +6,7 @@ import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUser } from "./_shared/auth";
 import { TOOL_REGISTRY, TOOL_IDS } from "./toolRegistry";
+import { SKILLS_REGISTRY, SKILL_IDS } from "./skillsRegistry";
 
 const MAX_STEPS_MIN = 1;
 const MAX_STEPS_MAX = 20;
@@ -37,10 +38,20 @@ function validateTools(tools: string[]): string[] {
   if (bad.length) throw new ConvexError({ code: "invalid_request", detail: `Unknown tool(s): ${bad.join(", ")}` });
   return [...new Set(tools)];
 }
+function validateSkills(skills: string[]): string[] {
+  const bad = skills.filter((s) => !SKILL_IDS.includes(s));
+  if (bad.length) throw new ConvexError({ code: "invalid_request", detail: `Unknown skill(s): ${bad.join(", ")}` });
+  return [...new Set(skills)];
+}
 
 export const listToolRegistry = query({
   args: {},
   handler: () => TOOL_REGISTRY,
+});
+
+export const listSkillsRegistry = query({
+  args: {},
+  handler: () => SKILLS_REGISTRY,
 });
 
 export const list = query({
@@ -58,6 +69,7 @@ export const create = mutation({
     model: v.string(),
     instructions: v.optional(v.string()),
     tools: v.array(v.string()),
+    skills: v.optional(v.array(v.string())),
     maxSteps: v.optional(v.number()),
     temperature: v.optional(v.number()),
   },
@@ -70,6 +82,7 @@ export const create = mutation({
       model: validateModel(a.model),
       instructions: a.instructions?.trim() ? a.instructions.trim().slice(0, 4000) : undefined,
       tools: validateTools(a.tools),
+      skills: validateSkills(a.skills ?? []),
       maxSteps: clampMaxSteps(a.maxSteps),
       temperature: clampTemperature(a.temperature),
       createdAt: now,
@@ -88,6 +101,7 @@ export const update = mutation({
     model: v.optional(v.string()),
     instructions: v.optional(v.union(v.string(), v.null())),
     tools: v.optional(v.array(v.string())),
+    skills: v.optional(v.array(v.string())),
     maxSteps: v.optional(v.number()),
     temperature: v.optional(v.union(v.number(), v.null())),
   },
@@ -100,6 +114,7 @@ export const update = mutation({
     if (a.model !== undefined) patch.model = validateModel(a.model);
     if (a.instructions !== undefined) patch.instructions = a.instructions === null || !a.instructions.trim() ? undefined : a.instructions.trim().slice(0, 4000);
     if (a.tools !== undefined) patch.tools = validateTools(a.tools);
+    if (a.skills !== undefined) patch.skills = validateSkills(a.skills);
     if (a.maxSteps !== undefined) patch.maxSteps = clampMaxSteps(a.maxSteps);
     if (a.temperature !== undefined) patch.temperature = a.temperature === null ? undefined : clampTemperature(a.temperature);
     await ctx.db.patch(a.id, patch);

@@ -25,6 +25,7 @@ import type * as mcpOauth from "../mcpOauth.js";
 import type * as mcpOauthNode from "../mcpOauthNode.js";
 import type * as oauth from "../oauth.js";
 import type * as settings from "../settings.js";
+import type * as skillsRegistry from "../skillsRegistry.js";
 import type * as threads from "../threads.js";
 import type * as toolRegistry from "../toolRegistry.js";
 import type * as usage from "../usage.js";
@@ -53,6 +54,7 @@ declare const fullApi: ApiFromModules<{
   mcpOauthNode: typeof mcpOauthNode;
   oauth: typeof oauth;
   settings: typeof settings;
+  skillsRegistry: typeof skillsRegistry;
   threads: typeof threads;
   toolRegistry: typeof toolRegistry;
   usage: typeof usage;

@@ -5,6 +5,8 @@
 export const TOOL_REGISTRY = [
   { id: "list_my_providers", label: "List my providers", description: "List the AI providers you've connected (BYOK)." },
   { id: "get_my_usage", label: "Get my usage", description: "Get your model usage stats (requests, tokens, per-model, per-day)." },
+  { id: "get_model_catalog", label: "Search model catalog", description: "Search the models.dev catalog for a provider's available models (context size, cost, tool support)." },
+  { id: "list_my_agents", label: "List my agents", description: "List your other saved agent configs (name, model, tool count)." },
 ] as const;
 
 export type ToolId = (typeof TOOL_REGISTRY)[number]["id"];

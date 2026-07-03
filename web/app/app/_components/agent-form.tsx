@@ -2,34 +2,45 @@
 import { useId, useState } from "react";
 import { ErrorLine } from "./shared";
 
-export type AgentDef = { _id: string; name: string; model: string; instructions?: string; tools: string[]; maxSteps: number; temperature?: number };
+export type AgentDef = { _id: string; name: string; model: string; instructions?: string; tools: string[]; skills?: string[]; maxSteps: number; temperature?: number };
 export type ToolMeta = { id: string; label: string; description: string };
+export type SkillMeta = { id: string; label: string; description: string };
 // instructions/temperature: null = "clear this field" (only meaningful on edit — see onSave below;
 // Convex's client silently drops `undefined` args before they reach the wire, so `undefined` can't
 // distinguish "not touched" from "cleared" the way `null` can).
-export type AgentPatch = { name?: string; model?: string; instructions?: string | null; tools?: string[]; maxSteps?: number; temperature?: number | null };
+export type AgentPatch = { name?: string; model?: string; instructions?: string | null; tools?: string[]; skills?: string[]; maxSteps?: number; temperature?: number | null };
+// what an imported/generated JSON blob can seed the form with — same shape as AgentDef minus _id,
+// since it's always creating a NEW agent (never editing), unlike `initial`.
+export type AgentPrefill = Partial<Omit<AgentDef, "_id">>;
 export const isValidModelRef = (m: string) => { const i = m.trim().indexOf("/"); return i > 0 && i !== m.trim().length - 1; };
 
-export function AgentForm({ models, toolRegistry, initial, onSave, onCancel, isAdmin }: {
+export function AgentForm({ models, toolRegistry, skillRegistry, initial, prefill, onSave, onCancel, isAdmin }: {
   models: string[];
   toolRegistry: ToolMeta[];
+  skillRegistry: SkillMeta[];
   initial?: AgentDef;
+  prefill?: AgentPrefill;
   onSave: (a: AgentPatch & { name: string; model: string; tools: string[]; maxSteps: number }) => Promise<void>;
   onCancel: () => void;
   isAdmin: boolean;
 }) {
-  const [name, setName] = useState(initial?.name ?? "");
-  const [model, setModel] = useState(initial?.model ?? "");
-  const [instructions, setInstructions] = useState(initial?.instructions ?? "");
-  const [tools, setTools] = useState<string[]>(initial?.tools ?? toolRegistry.map((t) => t.id)); // new agent defaults: every tool on
-  const [maxSteps, setMaxSteps] = useState(initial?.maxSteps ?? 8);
-  const [temperature, setTemperature] = useState(initial?.temperature != null ? String(initial.temperature) : "");
+  const seed = initial ?? prefill;
+  const [name, setName] = useState(seed?.name ?? "");
+  const [model, setModel] = useState(seed?.model ?? "");
+  const [instructions, setInstructions] = useState(seed?.instructions ?? "");
+  const [tools, setTools] = useState<string[]>(seed?.tools ?? toolRegistry.map((t) => t.id)); // new agent defaults: every tool on
+  const [skills, setSkills] = useState<string[]>(seed?.skills ?? []);
+  const [maxSteps, setMaxSteps] = useState(seed?.maxSteps ?? 8);
+  const [temperature, setTemperature] = useState(seed?.temperature != null ? String(seed.temperature) : "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
   const formId = useId();
 
   function toggleTool(id: string) {
     setTools((t) => (t.includes(id) ? t.filter((x) => x !== id) : [...t, id]));
+  }
+  function toggleSkill(id: string) {
+    setSkills((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   }
 
   return (
@@ -46,6 +57,15 @@ export function AgentForm({ models, toolRegistry, initial, onSave, onCancel, isA
           <label key={t.id} className="toggle">
             <input type="checkbox" checked={tools.includes(t.id)} onChange={() => toggleTool(t.id)} />
             <span><strong>{t.label}</strong> <span className="muted">— {t.description}</span></span>
+          </label>
+        ))}
+      </div>
+      <div className="agent-form-tools">
+        <div className="picker-step mono muted">skills — reusable instruction bundles, added to the prompt above</div>
+        {skillRegistry.map((s) => (
+          <label key={s.id} className="toggle">
+            <input type="checkbox" checked={skills.includes(s.id)} onChange={() => toggleSkill(s.id)} />
+            <span><strong>{s.label}</strong> <span className="muted">— {s.description}</span></span>
           </label>
         ))}
       </div>
@@ -75,6 +95,7 @@ export function AgentForm({ models, toolRegistry, initial, onSave, onCancel, isA
                 model: model.trim(),
                 instructions: instructions.trim() ? instructions.trim() : empty,
                 tools,
+                skills,
                 maxSteps,
                 temperature: temperature.trim() ? Number(temperature) : empty,
               });

@@ -15,6 +15,7 @@ import { encryptSecret, decryptSecret } from "./crypto";
 import { ensureFreshCodex, codexChat, type CodexBundle } from "./codexLib";
 import { ensureFreshClaude, claudeChat, type ClaudeBundle } from "./claudeLib";
 import { TOOL_REGISTRY } from "./toolRegistry";
+import { SKILLS_REGISTRY } from "./skillsRegistry";
 
 // provider slug -> a Vercel AI SDK model bound to the caller's key. openai-compatible providers
 // reuse the OpenAI provider with a baseURL. Keep in sync with ../../src/registry.js.
@@ -46,6 +47,21 @@ const CAVEMAN_PROMPT =
 const PONYTAIL_PROMPT =
   "Answer like a lazy senior engineer: the simplest solution that actually works. Prefer stdlib > native platform feature > an existing dependency > one line > minimal code. Apply YAGNI (skip speculative abstractions). Never trade away input validation, security, error handling, or accessibility. Shortest working answer, no filler.";
 
+// module-level cache — this Node action instance can stay warm across several tool calls within
+// (and across) agent runs; the catalog changes rarely, so a short TTL avoids re-fetching +
+// re-parsing the whole models.dev catalog on every single tool call in a multi-step agent loop.
+let modelsCatalogCache: { at: number; data: Record<string, any> } | null = null;
+const MODELS_CATALOG_TTL_MS = 5 * 60_000;
+
+async function fetchModelsCatalog(): Promise<Record<string, any>> {
+  if (modelsCatalogCache && Date.now() - modelsCatalogCache.at < MODELS_CATALOG_TTL_MS) return modelsCatalogCache.data;
+  const res = await fetch("https://models.dev/api.json", { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) throw new Error(`models.dev catalog fetch failed (${res.status})`);
+  const data = await res.json();
+  modelsCatalogCache = { at: Date.now(), data };
+  return data;
+}
+
 function modelFor(provider: string, model: string, apiKey: string) {
   switch (provider) {
     case "openai": return createOpenAI({ apiKey })(model);
@@ -68,9 +84,31 @@ const TOOL_DESC = Object.fromEntries(TOOL_REGISTRY.map((t) => [t.id, t.descripti
 // matching the pre-agentDefs "agent mode" behavior (Chat's on/off toggle) exactly.
 function gatewayTools(ctx: any, ids?: string[]) {
   const noArgs = jsonSchema({ type: "object", properties: {}, additionalProperties: false });
+  const catalogArgs = jsonSchema<{ provider: string }>({ type: "object", properties: { provider: { type: "string", description: 'e.g. "anthropic", "openrouter"' } }, required: ["provider"], additionalProperties: false });
   const all: Record<string, any> = {
     list_my_providers: tool({ description: TOOL_DESC.list_my_providers, inputSchema: noArgs, execute: async () => ctx.runQuery(api.credentials.listConfiguredProviders, {}) }),
     get_my_usage: tool({ description: TOOL_DESC.get_my_usage, inputSchema: noArgs, execute: async () => ctx.runQuery(api.usage.myUsage, {}) }),
+    get_model_catalog: tool({
+      description: TOOL_DESC.get_model_catalog,
+      inputSchema: catalogArgs,
+      execute: async ({ provider }: { provider: string }) => {
+        const catalog = await fetchModelsCatalog();
+        const models = (catalog[provider]?.models ?? {}) as Record<string, any>;
+        // capped — the full catalog can be hundreds of entries per provider, unbounded would
+        // dump way too much into the model's own context for what's meant to be a quick lookup
+        return Object.entries(models).slice(0, 30).map(([id, m]) => ({
+          id, contextTokens: m?.limit?.context, costInPerM: m?.cost?.input, toolCapable: !!m?.tool_call,
+        }));
+      },
+    }),
+    list_my_agents: tool({
+      description: TOOL_DESC.list_my_agents,
+      inputSchema: noArgs,
+      execute: async () => {
+        const defs = await ctx.runQuery(api.agentDefs.list, {});
+        return defs.map((d: any) => ({ name: d.name, model: d.model, tools: d.tools.length, skills: d.skills?.length ?? 0 }));
+      },
+    }),
   };
   if (!ids) return all;
   const out: Record<string, any> = {};
@@ -237,7 +275,13 @@ export const runAgent = action({
       const def = await ctx.runQuery(internal.agentDefs.getOwned, { userId, id: a.agentId });
       if (!def) throw new ConvexError({ code: "not_found", detail: "Agent not found" } satisfies ChatErrorInfo);
       modelRef = def.model;
-      instructions = def.instructions;
+      // skill instructions are reusable snippets selected on the agent — concatenated after the
+      // agent's own free-form instructions so a skill can't silently override the agent's intent.
+      const skillText = (def.skills ?? [])
+        .map((id) => SKILLS_REGISTRY.find((s) => s.id === id)?.instructions)
+        .filter(Boolean)
+        .join("\n\n");
+      instructions = [def.instructions, skillText].filter(Boolean).join("\n\n") || undefined;
       toolIds = def.tools;
       maxSteps = def.maxSteps;
       temperature = def.temperature;

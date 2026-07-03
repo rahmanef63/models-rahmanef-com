@@ -176,6 +176,21 @@ textarea { resize: vertical; margin: 0.6rem 0; }
 .agent-form textarea { margin: 0; }
 .agent-form-tools { display: flex; flex-direction: column; gap: 0.1rem; }
 .model-id { word-break: break-all; min-width: 0; }
+
+.dropdown { position: relative; display: inline-block; }
+.dropdown > summary { list-style: none; cursor: pointer; }
+.dropdown > summary::-webkit-details-marker, .dropdown > summary::marker { display: none; content: ""; }
+.dropdown-menu {
+  position: absolute; top: 100%; right: 0; margin-top: 0.3rem; z-index: 20; white-space: nowrap;
+  background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 4px; padding: 0.35rem;
+  display: flex; flex-direction: column; gap: 0.1rem; box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.7);
+}
+.dropdown-menu .link { padding: 0.35rem 0.6rem; text-align: left; }
+.dropdown-menu .link:hover { background: var(--bg-3); }
+/* right:0 assumes the trigger sits near its row's right edge (true for the header-level "Import"
+   button) — the per-agent "export" trigger sits inside a wrapping badge cluster and can land near
+   a wrapped line's START instead, where right:0 would push the menu off the left of the viewport. */
+.dropdown-menu-left { right: auto; left: 0; }
 .device { margin-top: 1.2rem; padding: 1.3rem; border: 1px dashed var(--line-2); border-radius: 4px; background: var(--bg); }
 .device p { margin: 0.4rem 0; font-size: 0.9rem; }
 .devicecode { display: inline-block; font-family: var(--font-mono); font-size: 1.7rem; letter-spacing: 0.3em; font-weight: 700; color: var(--accent); padding: 0.5rem 0.9rem; background: var(--bg-3); border: 1px solid var(--line-2); border-radius: 3px; margin: 0.4rem 0; }

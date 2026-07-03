@@ -3,7 +3,9 @@ import { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ErrorLine } from "./shared";
-import { AgentForm, type AgentDef, type AgentPatch, type ToolMeta } from "./agent-form";
+import { AgentForm, type AgentDef, type AgentPatch, type AgentPrefill, type SkillMeta, type ToolMeta } from "./agent-form";
+import { ImportMenu } from "./agent-import";
+import { exportAgentFile } from "./agent-io";
 
 type Run = { _id: string; task: string; model: string; agentId?: string; agentName?: string; status: string; steps?: { text: string; tools: string[] }[]; result?: string; error?: string; errorCode?: string };
 
@@ -12,11 +14,13 @@ export function AgentsCard({ models, isAdmin }: { models: string[]; isAdmin: boo
   const runs = useQuery(api.agents.myRuns) as Run[] | undefined;
   const agentDefs = useQuery(api.agentDefs.list) as AgentDef[] | undefined;
   const toolRegistry = useQuery(api.agentDefs.listToolRegistry) as ToolMeta[] | undefined;
+  const skillRegistry = useQuery(api.agentDefs.listSkillsRegistry) as SkillMeta[] | undefined;
   const createAgent = useMutation(api.agentDefs.create);
   const updateAgent = useMutation(api.agentDefs.update);
   const removeAgent = useMutation(api.agentDefs.remove);
 
   const [showForm, setShowForm] = useState<"new" | string | null>(null); // "new", or an agent _id being edited
+  const [importPrefill, setImportPrefill] = useState<AgentPrefill | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState("");
   const [model, setModel] = useState("");
   const [task, setTask] = useState("");
@@ -24,6 +28,11 @@ export function AgentsCard({ models, isAdmin }: { models: string[]; isAdmin: boo
   const [err, setErr] = useState<unknown>(null);
 
   const selectedAgent = agentDefs?.find((a) => a._id === selectedAgentId);
+
+  function closeForm() {
+    setShowForm(null);
+    setImportPrefill(null);
+  }
 
   async function run() {
     setBusy(true);
@@ -42,20 +51,31 @@ export function AgentsCard({ models, isAdmin }: { models: string[]; isAdmin: boo
   return (
     <section className="card">
       <h2>AI Agents</h2>
-      <p className="sub">Save a reusable agent (model, instructions, tools, step budget) or run one off ad-hoc — either way it runs a multi-step tool loop and traces every step.</p>
+      <p className="sub">Save a reusable agent (model, instructions, tools, skills, step budget) or run one off ad-hoc — either way it runs a multi-step tool loop and traces every step.</p>
 
       <div className="wb-head">
         <div className="picker-step mono muted">my agents</div>
-        {showForm !== "new" && <button className="btn" onClick={() => setShowForm("new")}>+ New agent</button>}
+        <div className="row" style={{ gap: "0.5rem" }}>
+          {toolRegistry && skillRegistry && (
+            <ImportMenu
+              toolRegistry={toolRegistry}
+              skillRegistry={skillRegistry}
+              onImport={(prefill) => { setImportPrefill(prefill); setShowForm("new"); }}
+            />
+          )}
+          {showForm !== "new" && <button className="btn" onClick={() => { setImportPrefill(null); setShowForm("new"); }}>+ New agent</button>}
+        </div>
       </div>
 
-      {showForm === "new" && (toolRegistry ? (
+      {showForm === "new" && (toolRegistry && skillRegistry ? (
         <AgentForm
           models={models}
           toolRegistry={toolRegistry}
+          skillRegistry={skillRegistry}
+          prefill={importPrefill ?? undefined}
           isAdmin={isAdmin}
-          onSave={async (a) => { await createAgent({ ...a, instructions: a.instructions ?? undefined, temperature: a.temperature ?? undefined }); setShowForm(null); }}
-          onCancel={() => setShowForm(null)}
+          onSave={async (a) => { await createAgent({ ...a, instructions: a.instructions ?? undefined, temperature: a.temperature ?? undefined }); closeForm(); }}
+          onCancel={closeForm}
         />
       ) : <p className="muted mono">…</p>)}
 
@@ -67,14 +87,15 @@ export function AgentsCard({ models, isAdmin }: { models: string[]; isAdmin: boo
         <ul className="creds" style={{ marginBottom: "1.2rem" }}>
           {agentDefs.map((a) => (
             <li key={a._id}>
-              {showForm === a._id && toolRegistry ? (
+              {showForm === a._id && toolRegistry && skillRegistry ? (
                 <AgentForm
                   models={models}
                   toolRegistry={toolRegistry}
+                  skillRegistry={skillRegistry}
                   initial={a}
                   isAdmin={isAdmin}
-                  onSave={async (patch: AgentPatch) => { await updateAgent({ id: a._id as any, ...patch }); setShowForm(null); }}
-                  onCancel={() => setShowForm(null)}
+                  onSave={async (patch: AgentPatch) => { await updateAgent({ id: a._id as any, ...patch }); closeForm(); }}
+                  onCancel={closeForm}
                 />
               ) : (
                 <>
@@ -82,9 +103,17 @@ export function AgentsCard({ models, isAdmin }: { models: string[]; isAdmin: boo
                   <span className="mono muted model-id" style={{ fontSize: ".72rem" }}>{a.model}</span>
                   <span className="cred-actions">
                     <span className="badge">{a.tools.length} tool{a.tools.length === 1 ? "" : "s"}</span>
+                    {(a.skills?.length ?? 0) > 0 && <span className="badge">{a.skills!.length} skill{a.skills!.length === 1 ? "" : "s"}</span>}
                     <span className="badge">max {a.maxSteps}</span>
                     {a.temperature != null && <span className="badge">temp {a.temperature}</span>}
-                    <button className="link" onClick={() => setShowForm(a._id)}>edit</button>
+                    <details className="dropdown">
+                      <summary className="link">export ▾</summary>
+                      <div className="dropdown-menu dropdown-menu-left">
+                        <button className="link" onClick={(e) => { exportAgentFile(a, false); e.currentTarget.closest("details")?.removeAttribute("open"); }}>Export JSON</button>
+                        <button className="link" onClick={(e) => { exportAgentFile(a, true); e.currentTarget.closest("details")?.removeAttribute("open"); }}>Export as template</button>
+                      </div>
+                    </details>
+                    <button className="link" onClick={() => { setImportPrefill(null); setShowForm(a._id); }}>edit</button>
                     <button className="link danger" onClick={() => { if (selectedAgentId === a._id) setSelectedAgentId(""); void removeAgent({ id: a._id as any }); }}>delete</button>
                   </span>
                 </>
