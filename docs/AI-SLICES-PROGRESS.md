@@ -139,6 +139,7 @@ Last updated: 2026-07-02.
 - ✅ models.dev auto-updating catalog + host-gating
 - ✅ Landing page, OG image, super-admin gate, dashboard sidebar
 - ✅ **Full-width UI** (landing + dashboard, 1520px fluid) · landing reflects every shipped feature (Chat / Agents / Providers / Usage / MCP / Admin) · Overview default with quick-links + connect nudge
+- ✅ **Provider key validation** — a pasted API key is tested with a real 1-token call the moment you Save it (not the first time you chat), Providers list shows a persisted health badge (VERIFIED / NEEDS ATTENTION / NOT TESTED / NO AUTO-CHECK) + on-demand recheck
 
 ## What's next (loop order)
 - ✅ **AI Admin console** — providers/models/audit + content totals
