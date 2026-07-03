@@ -191,6 +191,9 @@ textarea { resize: vertical; margin: 0.6rem 0; }
    button) — the per-agent "export" trigger sits inside a wrapping badge cluster and can land near
    a wrapped line's START instead, where right:0 would push the menu off the left of the viewport. */
 .dropdown-menu-left { right: auto; left: 0; }
+/* floats ABOVE the composer (not below, like the other dropdowns) — there's no room below it at
+   the bottom of the chat card, and it needs to stay open while the user keeps typing the query. */
+.mention-menu { top: auto; bottom: 100%; left: 0; right: auto; margin-top: 0; margin-bottom: 0.3rem; max-width: min(320px, 90vw); }
 .device { margin-top: 1.2rem; padding: 1.3rem; border: 1px dashed var(--line-2); border-radius: 4px; background: var(--bg); }
 .device p { margin: 0.4rem 0; font-size: 0.9rem; }
 .devicecode { display: inline-block; font-family: var(--font-mono); font-size: 1.7rem; letter-spacing: 0.3em; font-weight: 700; color: var(--accent); padding: 0.5rem 0.9rem; background: var(--bg-3); border: 1px solid var(--line-2); border-radius: 3px; margin: 0.4rem 0; }

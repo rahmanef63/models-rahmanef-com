@@ -153,24 +153,51 @@ function traceOf(result: any): { steps: { text: string; tools: string[] }[]; pro
   return { steps, promptTokens: u.inputTokens ?? u.promptTokens ?? 0, completionTokens: u.outputTokens ?? u.completionTokens ?? 0 };
 }
 
+// `agentId` routes the message through a saved agent's instructions/skills/tools/maxSteps
+// (same resolution runAgent uses for one-shot task runs) instead of plain chat — this is what
+// lets a thread be "bound" to an agent. Either `agentId` or `model` must be given.
 export const chat = action({
   args: {
-    model: v.string(),
+    model: v.optional(v.string()),
+    agentId: v.optional(v.id("agentDefs")),
     messages: v.array(v.object({ role: v.string(), content: v.string() })),
   },
   handler: async (ctx, a): Promise<{ text: string }> => {
     const userId = await requireUser(ctx);
+    if (a.agentId) {
+      const def = await ctx.runQuery(internal.agentDefs.getOwned, { userId, id: a.agentId });
+      if (!def) throw new ConvexError({ code: "not_found", detail: "Agent not found" } satisfies ChatErrorInfo);
+      const i = def.model.indexOf("/");
+      const provider = def.model.slice(0, i);
+      const model = def.model.slice(i + 1);
+      if (provider === "openai-codex" || provider === "anthropic-oauth") {
+        throw new ConvexError({ code: "invalid_request", detail: "This agent's model doesn't support tools (OAuth subscription providers can't run tool-using agents) — pick an API-key model for it in the Agents tab.", provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
+      }
+      // skill instructions are reusable snippets selected on the agent — concatenated after the
+      // agent's own free-form instructions so a skill can't silently override the agent's intent.
+      const skillText = (def.skills ?? [])
+        .map((id: string) => SKILLS_REGISTRY.find((s) => s.id === id)?.instructions)
+        .filter(Boolean)
+        .join("\n\n");
+      const system = [def.instructions, skillText].filter(Boolean).join("\n\n") || undefined;
+      return callForUser(ctx, userId, def.model, a.messages, { system, tools: gatewayTools(ctx, def.tools), maxSteps: def.maxSteps, temperature: def.temperature });
+    }
+    if (!a.model) throw new ConvexError({ code: "invalid_request", detail: "model or agentId required" } satisfies ChatErrorInfo);
     return callForUser(ctx, userId, a.model, a.messages);
   },
 });
 
 // Core BYOK model call for an EXPLICIT userId. Shared by the authed chat action and the MCP path.
 // Callers must have already authorized the user (getAuthUserId, or a validated MCP token).
+// `agentOpts` (only ever passed by the `chat` action's agentId branch above) overrides/augments
+// the settings-driven system prompt + tools — explicit tools/maxSteps win over the "agent mode"
+// user setting, but caveman/ponytail (if enabled) still apply on top of the agent's own instructions.
 export async function callForUser(
   ctx: any,
   userId: any,
   modelRef: string,
   inputMessages: { role: string; content: string }[],
+  agentOpts?: { system?: string; tools?: Record<string, any>; maxSteps?: number; temperature?: number },
 ): Promise<{ text: string }> {
     const i = modelRef.indexOf("/");
     if (i < 1 || i === modelRef.length - 1) throw new ConvexError({ code: "invalid_request", detail: 'model must be "provider/model"' } satisfies ChatErrorInfo);
@@ -188,11 +215,14 @@ export async function callForUser(
       const row = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider });
       if (!row) throw new ConvexError({ code: "not_connected", detail: `No credentials for "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
 
-      // token-savers: a Caveman/Ponytail system prompt when the user has them on
+      // token-savers: a Caveman/Ponytail system prompt when the user has them on — still applied
+      // even when agentOpts.system is set, so a global "keep it terse" preference isn't silently
+      // dropped just because this message happens to be routed through a saved agent.
       const settings = await ctx.runQuery(internal.settings._getForChat, { userId });
       const sys: string[] = [];
       if (settings.cavemanEnabled) sys.push(CAVEMAN_PROMPT);
       if (settings.ponytailEnabled) sys.push(PONYTAIL_PROMPT);
+      if (agentOpts?.system) sys.push(agentOpts.system);
       const systemPrompt = sys.length ? sys.join("\n\n") : undefined;
       // codex/claude custom paths take the system prompt inline as a message; the AI SDK (ai@7)
       // REJECTS a {role:"system"} message inside `messages` — it must be passed via the `system` param.
@@ -238,10 +268,17 @@ export async function callForUser(
         const apiKey = await decryptSecret(row.ciphertext);
         const m = modelFor(provider, model, apiKey);
         if (!m) throw new ConvexError({ code: "internal", detail: `Unknown provider "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
+        // explicit agentOpts.tools (from a saved agent) wins over the "agent mode" user setting;
         // agent mode: give the model tools to inspect the user's own gateway (needs a tool-capable model)
-        const tools = settings.agentMode ? gatewayTools(ctx) : undefined;
+        const tools = agentOpts?.tools ?? (settings.agentMode ? gatewayTools(ctx) : undefined);
         // system via the `system` param (NOT a message) — ai@7 rejects system-in-messages; use inputMessages (no system role)
-        const result = await generateText({ model: m, ...(systemPrompt ? { system: systemPrompt } : {}), messages: inputMessages as any, ...(tools ? { tools, stopWhen: stepCountIs(5) } : {}) });
+        const result = await generateText({
+          model: m,
+          ...(systemPrompt ? { system: systemPrompt } : {}),
+          messages: inputMessages as any,
+          ...(tools ? { tools, stopWhen: stepCountIs(agentOpts?.maxSteps ?? 5) } : {}),
+          ...(agentOpts?.temperature != null ? { temperature: agentOpts.temperature } : {}),
+        });
         text = result.text || "(no text)";
         const u: any = result.usage ?? {};
         promptTokens = u.inputTokens ?? u.promptTokens ?? 0;

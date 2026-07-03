@@ -78,7 +78,9 @@ export default defineSchema({
   threads: defineTable({
     userId: v.id("users"),
     title: v.string(),
-    model: v.string(),
+    model: v.string(), // denormalized from the bound agent's model when agentId is set (see agentDefs.model)
+    agentId: v.optional(v.id("agentDefs")), // set = replies route through this agent's instructions/skills/tools
+    agentName: v.optional(v.string()), // denormalized so the thread list still reads fine if the agent is later renamed/deleted (matches agentRuns' pattern)
     at: v.number(),
   }).index("by_user_at", ["userId", "at"]),
   messages: defineTable({

@@ -43,12 +43,17 @@ export function ModelInspector({ catalog, model }: { catalog: Catalog; model: st
   );
 }
 
+export type ModelPick = { kind: "model"; ref: string } | { kind: "agent"; agentId: string };
+export type AgentPickMeta = { id: string; name: string; model: string; toolCount: number };
+
 // provider-first model picker — never dumps every model at once. Pick a provider, then its models.
-export function ModelPicker({ byProvider, providers, catalog, onPick }: {
+// also offers saved agents up top, so a new thread can bind to an agent instead of a raw model.
+export function ModelPicker({ byProvider, providers, catalog, agents, onPick }: {
   byProvider: Record<string, string[]>;
   providers: Cred[] | undefined;
   catalog: Catalog;
-  onPick: (m: string) => void;
+  agents: AgentPickMeta[];
+  onPick: (pick: ModelPick) => void;
 }) {
   const provs = Object.keys(byProvider).sort((a, b) => (PROVIDER_LABEL[a] ?? a).localeCompare(PROVIDER_LABEL[b] ?? b));
   const [prov, setProv] = useState<string | null>(provs.length === 1 ? provs[0] : null);
@@ -58,6 +63,22 @@ export function ModelPicker({ byProvider, providers, catalog, onPick }: {
   const ids = list.filter((id) => id.toLowerCase().includes(q.toLowerCase()));
   return (
     <div className="picker">
+      {agents.length > 0 && (
+        <>
+          <div className="picker-step mono muted">saved agents</div>
+          <div className="prov-chips">
+            {agents.map((a) => (
+              <button key={a.id} className="prov-chip" onClick={() => onPick({ kind: "agent", agentId: a.id })}>
+                <strong>{a.name}</strong>
+                <span className="badge">{a.toolCount} tool{a.toolCount === 1 ? "" : "s"}</span>
+                {/* a plain flowing span, not <em> — <em> here is `.prov-chip em`'s absolutely-positioned
+                    top-right corner slot sized for a short digit count, not a full "provider/model" string */}
+                <span className="mono muted model-id" style={{ fontSize: ".68rem" }}>{a.model}</span>
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       <div className="picker-step mono muted">1 · provider</div>
       <div className="prov-chips">
         {provs.map((p) => {
@@ -82,7 +103,7 @@ export function ModelPicker({ byProvider, providers, catalog, onPick }: {
               ids.slice(0, 200).map((id) => {
                 const ctx = (catalog[prov]?.models as Record<string, any> | undefined)?.[id]?.limit?.context as number | undefined;
                 return (
-                  <button key={id} className="model-row" onClick={() => onPick(`${prov}/${id}`)}>
+                  <button key={id} className="model-row" onClick={() => onPick({ kind: "model", ref: `${prov}/${id}` })}>
                     <span className="mono">{id}</span>
                     {ctx != null && <span className="mono muted" style={{ fontSize: ".72rem" }}>{kfmt(ctx)} tok</span>}
                   </button>
