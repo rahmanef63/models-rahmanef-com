@@ -70,13 +70,13 @@ Last updated: 2026-07-02.
 - ⬜ Per-run **cost tally** (USD)
 - ⬜ Cancel run
 - ⬜ Run queue / status board UI
-- ⬜ **Agent definitions** (named: skill × model × tools × max-iter)
+- ✅ **Agent definitions** (named: skill × model × tools × max-iter) — `agentDefs` table, full CRUD, ownership-checked; `runAgent` runs either a saved def or stays ad-hoc
 - ⬜ Cron / scheduled runs
 - ⬜ Retry policy + backoff
 - ⬜ Max concurrency cap
 - ⬜ Hard cost cap + kill switch
 - ⬜ Shareable trace URL
-- ⬜ New/edit agent wizards
+- ✅ New/edit agent wizards — `AgentForm` (name/model/instructions/tool-picker/maxSteps/temperature), used for both create + edit
 
 ## AI Admin — Console (Providers · Models · Instructions · Skills · Tools · Agents · Budgets · Audit)
 > rr = scaffold only (no components, no backend). **Currently building (loop iteration 4).**
@@ -109,7 +109,7 @@ Last updated: 2026-07-02.
 > rr's kit (defineTool → registry → one agent loop → model seam). **We use the Vercel AI SDK's native tool-calling instead** — same capability, fewer abstractions (ponytail).
 
 - ✅ Tool-calling loop (AI SDK `tools` + `stopWhen`) — functional equivalent
-- 🟡 Tool set (2 hardcoded gateway tools; no `defineTool` registry)
+- ✅ Tool **registry** (`convex/toolRegistry.ts`, SSOT for id/label/description) + per-agent tool selection — still 2 tools (list_my_providers, get_my_usage), now properly infrastructure'd instead of hardcoded
 - ⬜ `defineTool` authoring factory + JSON-schema builders
 - ⬜ Central tool registry / bus (many slices' tools aggregated)
 - ⬜ Dangerous + confirm safety seam
