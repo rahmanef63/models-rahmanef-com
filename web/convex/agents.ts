@@ -18,6 +18,7 @@ export const finish = internalMutation({
     steps: v.optional(v.array(stepV)),
     result: v.optional(v.string()),
     error: v.optional(v.string()),
+    errorCode: v.optional(v.string()),
     promptTokens: v.optional(v.number()),
     completionTokens: v.optional(v.number()),
   },

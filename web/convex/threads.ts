@@ -10,7 +10,7 @@ export const createThread = mutation({
   args: { model: v.string(), title: v.string() },
   handler: async (ctx, a) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("unauthenticated");
+    if (!userId) throw new ConvexError("Please sign in.");
     return ctx.db.insert("threads", { userId, title: a.title.slice(0, 80) || "New chat", model: a.model, at: Date.now() });
   },
 });
@@ -39,7 +39,7 @@ export const deleteThread = mutation({
   args: { threadId: v.id("threads") },
   handler: async (ctx, a) => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("unauthenticated");
+    if (!userId) throw new ConvexError("Please sign in.");
     const t = await ctx.db.get(a.threadId);
     if (!t || t.userId !== userId) return;
     for (const m of await ctx.db.query("messages").withIndex("by_thread", (q) => q.eq("threadId", a.threadId)).collect()) await ctx.db.delete(m._id);
@@ -82,8 +82,11 @@ export const sendMessage = action({
     } catch (e) {
       // re-throw as a fresh ConvexError HERE (V8 runtime) so the real reason reaches the client — a
       // ConvexError thrown inside the "use node" chat action loses its data across the runAction boundary.
-      const msg = (e as { data?: unknown })?.data ?? (e instanceof Error ? e.message : String(e));
-      throw new ConvexError(String(msg).slice(0, 400));
+      // chat.ts already classifies failures into a structured {code,status,detail,provider,model} — pass
+      // that through as-is; the client's isAdmin gate on how MUCH of it to render is a UX choice, not
+      // access control — the full object is always in this action's own response either way.
+      const data = (e as { data?: unknown })?.data;
+      throw new ConvexError((data && typeof data === "object" ? data : String(data ?? (e instanceof Error ? e.message : String(e))).slice(0, 400)) as any);
     }
     await ctx.runMutation(internal.threads._append, { userId, threadId: a.threadId, role: "assistant", content: text });
     return { text };

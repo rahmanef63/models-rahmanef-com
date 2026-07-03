@@ -48,6 +48,7 @@ export default defineSchema({
     steps: v.optional(v.array(v.object({ text: v.string(), tools: v.array(v.string()) }))),
     result: v.optional(v.string()),
     error: v.optional(v.string()),
+    errorCode: v.optional(v.string()), // structured classifyError() code — lets the client show a FRIENDLY message to non-admins
     promptTokens: v.optional(v.number()),
     completionTokens: v.optional(v.number()),
     at: v.number(),

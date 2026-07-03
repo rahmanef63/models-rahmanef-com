@@ -6,7 +6,7 @@ import { action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { generateText, tool, jsonSchema, stepCountIs } from "ai";
+import { generateText, tool, jsonSchema, stepCountIs, APICallError, RetryError } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
@@ -69,6 +69,33 @@ function gatewayTools(ctx: any) {
   };
 }
 
+// Classify a call failure into a structured code the CLIENT decides how much detail to render for
+// (see errData()/FRIENDLY/ErrorLine in app/app/page.tsx — that's a UX choice, NOT an access-control
+// boundary: the full object still goes to whichever user made the call, same as any other action
+// result). Prefer APICallError.statusCode (reliable, from the AI SDK) over string-sniffing; the AI
+// SDK's own retry wrapper (generateText retries 429/5xx by default) wraps an exhausted retry chain
+// in a RetryError, NOT an APICallError, so unwrap that first via its .lastError. codex/claude's
+// bespoke fetch paths (no retry wrapper) embed a status in the message text instead
+// ("codex responses 401: …", "Claude messages 403: …") — regex fallback for those.
+export type ChatErrorInfo = { code: string; status?: number; detail: string };
+function classifyError(e: unknown, provider?: string): ChatErrorInfo {
+  if (RetryError.isInstance(e) && e.lastError) e = e.lastError; // reclassify off the real underlying failure
+  const detail = (e instanceof Error ? e.message : String(e)).slice(0, 400);
+  let status: number | undefined;
+  if (APICallError.isInstance(e)) status = e.statusCode;
+  else if (e instanceof Error) { const m = e.message.match(/\b(4\d{2}|5\d{2})\b/); if (m) status = Number(m[1]); }
+  // Google's Generative Language API returns HTTP 400 (not 401/403) for a bad/revoked key.
+  const googleBadKey = provider === "google" && status === 400 && /api key not valid|INVALID_ARGUMENT/i.test(detail);
+  const code =
+    status === 401 || status === 403 || googleBadKey ? "invalid_api_key" :
+    status === 429 ? "rate_limited" :
+    status === 402 ? "quota_exceeded" :
+    status === 404 ? "not_found" :
+    status === 400 ? "invalid_request" :
+    status ? "provider_error" : "internal";
+  return { code, status, detail };
+}
+
 // compact a Vercel AI SDK multi-step result into a serializable trace + token totals
 function traceOf(result: any): { steps: { text: string; tools: string[] }[]; promptTokens: number; completionTokens: number } {
   const steps = (result.steps ?? []).map((s: any) => ({
@@ -86,7 +113,7 @@ export const chat = action({
   },
   handler: async (ctx, a): Promise<{ text: string }> => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("unauthenticated");
+    if (!userId) throw new ConvexError("Please sign in.");
     return callForUser(ctx, userId, a.model, a.messages);
   },
 });
@@ -100,28 +127,31 @@ export async function callForUser(
   inputMessages: { role: string; content: string }[],
 ): Promise<{ text: string }> {
     const i = modelRef.indexOf("/");
-    if (i < 1 || i === modelRef.length - 1) throw new Error('model must be "provider/model"');
+    if (i < 1 || i === modelRef.length - 1) throw new ConvexError({ code: "invalid_request", detail: 'model must be "provider/model"' } satisfies ChatErrorInfo);
     const provider = modelRef.slice(0, i);
     const model = modelRef.slice(i + 1);
-
-    const row = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider });
-    if (!row) throw new Error(`no credentials for "${provider}" — connect or add a key first`);
-
-    // token-savers: a Caveman/Ponytail system prompt when the user has them on
-    const settings = await ctx.runQuery(internal.settings._getForChat, { userId });
-    const sys: string[] = [];
-    if (settings.cavemanEnabled) sys.push(CAVEMAN_PROMPT);
-    if (settings.ponytailEnabled) sys.push(PONYTAIL_PROMPT);
-    const systemPrompt = sys.length ? sys.join("\n\n") : undefined;
-    // codex/claude custom paths take the system prompt inline as a message; the AI SDK (ai@7)
-    // REJECTS a {role:"system"} message inside `messages` — it must be passed via the `system` param.
-    const messages = systemPrompt ? [{ role: "system", content: systemPrompt }, ...inputMessages] : inputMessages;
 
     const logUsage = (status: string, promptTokens: number, completionTokens: number) =>
       ctx.runMutation(internal.usage.log, { userId, provider, model: modelRef, promptTokens, completionTokens, status });
 
+    // Everything below — including the credential/settings lookups — is inside ONE try so every
+    // failure (not just the model call itself) gets classified into a structured ConvexError
+    // instead of escaping as a plain Error (which Convex redacts to a bare "Server Error").
     let text = "", promptTokens = 0, completionTokens = 0;
     try {
+      const row = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider });
+      if (!row) throw new ConvexError({ code: "not_connected", detail: `No credentials for "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
+
+      // token-savers: a Caveman/Ponytail system prompt when the user has them on
+      const settings = await ctx.runQuery(internal.settings._getForChat, { userId });
+      const sys: string[] = [];
+      if (settings.cavemanEnabled) sys.push(CAVEMAN_PROMPT);
+      if (settings.ponytailEnabled) sys.push(PONYTAIL_PROMPT);
+      const systemPrompt = sys.length ? sys.join("\n\n") : undefined;
+      // codex/claude custom paths take the system prompt inline as a message; the AI SDK (ai@7)
+      // REJECTS a {role:"system"} message inside `messages` — it must be passed via the `system` param.
+      const messages = systemPrompt ? [{ role: "system", content: systemPrompt }, ...inputMessages] : inputMessages;
+
       if (provider === "openai-codex") {
         let bundle: CodexBundle = JSON.parse(await decryptSecret(row.ciphertext));
         const marginMs = 120_000;
@@ -161,7 +191,7 @@ export async function callForUser(
       } else {
         const apiKey = await decryptSecret(row.ciphertext);
         const m = modelFor(provider, model, apiKey);
-        if (!m) throw new Error(`unknown provider "${provider}"`);
+        if (!m) throw new ConvexError({ code: "internal", detail: `Unknown provider "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
         // agent mode: give the model tools to inspect the user's own gateway (needs a tool-capable model)
         const tools = settings.agentMode ? gatewayTools(ctx) : undefined;
         // system via the `system` param (NOT a message) — ai@7 rejects system-in-messages; use inputMessages (no system role)
@@ -173,8 +203,11 @@ export async function callForUser(
       }
     } catch (e) {
       await logUsage("error", 0, 0);
-      // surface the real provider error — Convex masks plain thrown errors as "Server Error" in prod
-      throw new ConvexError((e instanceof Error ? e.message : String(e)).slice(0, 400));
+      // surface the real provider error — Convex masks plain thrown errors as "Server Error" in prod.
+      // already-structured ConvexErrors thrown above (not_connected, unknown provider) pass through
+      // untouched — classifyError is for RAW provider/SDK failures, not our own typed throws.
+      if (e instanceof ConvexError && e.data && typeof e.data === "object") throw e;
+      throw new ConvexError({ ...classifyError(e, provider), provider, model });
     }
 
     await logUsage("ok", promptTokens, completionTokens);
@@ -187,18 +220,25 @@ export const runAgent = action({
   args: { task: v.string(), model: v.string() },
   handler: async (ctx, a): Promise<{ runId: string; text: string }> => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("unauthenticated");
+    if (!userId) throw new ConvexError("Please sign in.");
 
     const i = a.model.indexOf("/");
-    if (i < 1 || i === a.model.length - 1) throw new Error('model must be "provider/model"');
+    if (i < 1 || i === a.model.length - 1) throw new ConvexError({ code: "invalid_request", detail: 'model must be "provider/model"' } satisfies ChatErrorInfo);
     const provider = a.model.slice(0, i);
     const model = a.model.slice(i + 1);
-    if (provider === "openai-codex" || provider === "anthropic-oauth") throw new Error("agents need a tool-capable API-key model (not an OAuth subscription provider)");
+    if (provider === "openai-codex" || provider === "anthropic-oauth") throw new ConvexError({ code: "invalid_request", detail: "Agents need a tool-capable API-key model (not an OAuth subscription provider).", provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
 
-    const row = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider });
-    if (!row) throw new Error(`no credentials for "${provider}" — connect or add a key first`);
-    const m = modelFor(provider, model, await decryptSecret(row.ciphertext));
-    if (!m) throw new Error(`unknown provider "${provider}"`);
+    let row: any, m: any;
+    try {
+      row = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider });
+      if (!row) throw new ConvexError({ code: "not_connected", detail: `No credentials for "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
+      m = modelFor(provider, model, await decryptSecret(row.ciphertext));
+      if (!m) throw new ConvexError({ code: "internal", detail: `Unknown provider "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
+    } catch (e) {
+      // no run exists yet at this point — nothing to mark failed, just classify + rethrow
+      if (e instanceof ConvexError && e.data && typeof e.data === "object") throw e;
+      throw new ConvexError({ ...classifyError(e, provider), provider, model });
+    }
 
     const runId = await ctx.runMutation(internal.agents.create, { userId, task: a.task, model: a.model, at: Date.now() });
     try {
@@ -209,9 +249,10 @@ export const runAgent = action({
       await ctx.runMutation(internal.usage.log, { userId, provider, model: a.model, promptTokens, completionTokens, status: "ok" });
       return { runId, text };
     } catch (e: any) {
-      await ctx.runMutation(internal.agents.finish, { runId, status: "error", error: String(e?.message ?? e).slice(0, 500) });
+      const info = classifyError(e, provider);
+      await ctx.runMutation(internal.agents.finish, { runId, status: "error", error: info.detail, errorCode: info.code });
       await ctx.runMutation(internal.usage.log, { userId, provider, model: a.model, promptTokens: 0, completionTokens: 0, status: "error" });
-      throw new ConvexError(String(e?.message ?? e).slice(0, 400)); // unmask the real provider error (Convex hides plain throws)
+      throw new ConvexError({ ...info, provider, model }); // unmask the real provider error (Convex hides plain throws)
     }
   },
 });

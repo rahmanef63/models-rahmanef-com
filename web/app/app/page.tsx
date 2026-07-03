@@ -225,9 +225,9 @@ function Dashboard() {
           </>
         )}
 
-        {section === "chat" && <WorkbenchCard models={myModels} providers={providers} catalog={catalog} />}
+        {section === "chat" && <WorkbenchCard models={myModels} providers={providers} catalog={catalog} isAdmin={!!me?.isSuperAdmin} />}
 
-        {section === "agents" && <AgentsCard models={myModels} />}
+        {section === "agents" && <AgentsCard models={myModels} isAdmin={!!me?.isSuperAdmin} />}
 
         {section === "providers" && (
           <>
@@ -560,15 +560,15 @@ function ApiKeyForm({ setCredential }: { setCredential: (a: { provider: string; 
   );
 }
 
-type Run = { _id: string; task: string; model: string; status: string; steps?: { text: string; tools: string[] }[]; result?: string; error?: string };
+type Run = { _id: string; task: string; model: string; status: string; steps?: { text: string; tools: string[] }[]; result?: string; error?: string; errorCode?: string };
 
-function AgentsCard({ models }: { models: string[] }) {
+function AgentsCard({ models, isAdmin }: { models: string[]; isAdmin: boolean }) {
   const runAgent = useAction(api.chat.runAgent);
   const runs = useQuery(api.agents.myRuns) as Run[] | undefined;
   const [model, setModel] = useState("");
   const [task, setTask] = useState("");
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
+  const [err, setErr] = useState<unknown>(null);
   return (
     <section className="card">
       <h2>AI Agents</h2>
@@ -581,11 +581,11 @@ function AgentsCard({ models }: { models: string[] }) {
       <button
         className="btn accent"
         disabled={!model || !task || busy}
-        onClick={async () => { setBusy(true); setErr(""); try { await runAgent({ model, task }); setTask(""); } catch (e) { setErr(errMsg(e)); } finally { setBusy(false); } }}
+        onClick={async () => { setBusy(true); setErr(null); try { await runAgent({ model, task }); setTask(""); } catch (e) { setErr(e); } finally { setBusy(false); } }}
       >
         {busy ? "running…" : "Run agent"}
       </button>
-      {err && <p className="err">{err}</p>}
+      {err != null && <ErrorLine e={err} isAdmin={isAdmin} />}
       {runs && runs.length > 0 && (
         <ul className="runs">
           {runs.map((r) => (
@@ -604,7 +604,7 @@ function AgentsCard({ models }: { models: string[] }) {
                     </div>
                   ))}
                   {r.result && <pre>{r.result}</pre>}
-                  {r.error && <p className="err">{r.error}</p>}
+                  {r.error && <ErrorLine e={{ data: { code: r.errorCode ?? "internal", detail: r.error, model: r.model } }} isAdmin={isAdmin} />}
                 </div>
               </details>
             </li>
@@ -618,11 +618,42 @@ function AgentsCard({ models }: { models: string[] }) {
 type Msg = { _id: string; role: string; content: string };
 type Thread = { _id: string; title: string; model: string };
 
-// ConvexError from an action arrives with the real message in `.data`; plain errors use `.message`.
-function errMsg(e: unknown): string {
+// ConvexError from an action arrives with the real payload in `.data` — either a plain string
+// (e.g. "Please sign in.") or the structured {code,status,detail,provider,model} chat.ts throws
+// for a model-call failure. Plain (non-Convex) errors fall back to `.message`.
+type ChatErrData = { code: string; status?: number; detail: string; provider?: string; model?: string };
+function errData(e: unknown): ChatErrData | string {
   const d = (e as { data?: unknown })?.data;
+  if (d && typeof d === "object") return d as ChatErrData;
   if (typeof d === "string" && d) return d;
   return e instanceof Error ? e.message : String(e);
+}
+// non-admin message per error code — no raw provider text, just what the user can act on.
+const FRIENDLY: Record<string, (provider: string) => string> = {
+  not_connected: (p) => `${p} isn't connected — add it in the Providers tab.`,
+  invalid_api_key: (p) => `Your ${p} API key was rejected — check it in the Providers tab.`,
+  rate_limited: (p) => `${p} is rate-limiting requests right now — try again shortly.`,
+  quota_exceeded: (p) => `${p} says this key is out of credit or quota.`,
+  not_found: (p) => `This model isn't available from ${p} — try a different one.`,
+  invalid_request: (p) => `${p} couldn't process this request — try a different model.`,
+  provider_error: (p) => `${p} had a problem handling this request. Try again.`,
+  internal: () => `Something went wrong on our side. Try again, or ask an admin.`,
+};
+function ErrorLine({ e, isAdmin }: { e: unknown; isAdmin: boolean }) {
+  const d = errData(e);
+  if (typeof d === "string") return <p className="err">{d}</p>;
+  const label = d.provider ? (PROVIDER_LABEL[d.provider] ?? d.provider) : "This provider";
+  const friendly = (FRIENDLY[d.code] ?? FRIENDLY.internal)(label);
+  return (
+    <p className="err">
+      {friendly}
+      {isAdmin && (
+        <span className="mono muted" style={{ display: "block", fontSize: ".72rem", marginTop: ".3rem" }}>
+          {d.code}{d.status != null ? ` · ${d.status}` : ""}{d.model ? ` · ${d.model}` : ""} · {d.detail}
+        </span>
+      )}
+    </p>
+  );
 }
 const splitModel = (m: string): [string, string] => { const i = m.indexOf("/"); return [m.slice(0, i), m.slice(i + 1)]; };
 const route = (kind?: string) => (kind === "oauth" ? { label: "OAUTH", cls: "oauth" } : { label: "API KEY", cls: "key" });
@@ -719,7 +750,7 @@ function ModelPicker({ byProvider, providers, catalog, onPick }: {
   );
 }
 
-function WorkbenchCard({ models, providers, catalog }: { models: string[]; providers: Cred[] | undefined; catalog: Catalog }) {
+function WorkbenchCard({ models, providers, catalog, isAdmin }: { models: string[]; providers: Cred[] | undefined; catalog: Catalog; isAdmin: boolean }) {
   const threads = useQuery(api.threads.listThreads) as Thread[] | undefined;
   const createThread = useMutation(api.threads.createThread);
   const deleteThread = useMutation(api.threads.deleteThread);
@@ -728,7 +759,7 @@ function WorkbenchCard({ models, providers, catalog }: { models: string[]; provi
   const [model, setModel] = useState(""); // model chosen for a NEW (not-yet-created) thread
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
+  const [err, setErr] = useState<unknown>(null);
   const [showInsp, setShowInsp] = useState(false);
   const msgs = useQuery(api.threads.threadMessages, active ? { threadId: active as any } : "skip") as Msg[] | undefined;
 
@@ -743,11 +774,11 @@ function WorkbenchCard({ models, providers, catalog }: { models: string[]; provi
   const currentProvider = currentModel ? splitModel(currentModel)[0] : null;
   const r = route(providers?.find((p) => p.provider === currentProvider)?.kind);
 
-  function newChat() { setActive(null); setModel(""); setInput(""); setErr(""); setShowInsp(false); }
+  function newChat() { setActive(null); setModel(""); setInput(""); setErr(null); setShowInsp(false); }
 
   async function send() {
     if (!input.trim() || busy) return;
-    setErr("");
+    setErr(null);
     setBusy(true);
     try {
       let tid = active;
@@ -760,7 +791,7 @@ function WorkbenchCard({ models, providers, catalog }: { models: string[]; provi
       setInput("");
       await sendMessage({ threadId: tid as any, content });
     } catch (e) {
-      setErr(errMsg(e));
+      setErr(e);
     } finally {
       setBusy(false);
     }
@@ -785,7 +816,7 @@ function WorkbenchCard({ models, providers, catalog }: { models: string[]; provi
               const tr = route(providers?.find((p) => p.provider === tp)?.kind);
               return (
                 <li key={t._id} className={active === t._id ? "on" : ""}>
-                  <button className="thread-btn" onClick={() => { setActive(t._id); setShowInsp(false); setErr(""); }}>
+                  <button className="thread-btn" onClick={() => { setActive(t._id); setShowInsp(false); setErr(null); }}>
                     <span className="t-title">{t.title}</span>
                     <span className="t-model mono muted">{PROVIDER_LABEL[tp] ?? tp} · <span className={`t-route ${tr.cls}`}>{tr.label.toLowerCase()}</span></span>
                   </button>
@@ -812,7 +843,7 @@ function WorkbenchCard({ models, providers, catalog }: { models: string[]; provi
           {currentModel && showInsp && <ModelInspector catalog={catalog} model={currentModel} />}
 
           {!active && !model ? (
-            <ModelPicker byProvider={byProvider} providers={providers} catalog={catalog} onPick={(m) => { setModel(m); setErr(""); }} />
+            <ModelPicker byProvider={byProvider} providers={providers} catalog={catalog} onPick={(m) => { setModel(m); setErr(null); }} />
           ) : (
             <>
               <div className="wb-msgs">
@@ -836,7 +867,7 @@ function WorkbenchCard({ models, providers, catalog }: { models: string[]; provi
                 <textarea rows={2} placeholder="message  (⌘/Ctrl+Enter to send)" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void send(); }} />
                 <button className="btn accent" disabled={busy || !input.trim()} onClick={() => void send()}>{busy ? "…" : "Send"}</button>
               </div>
-              {err && <p className="err">{err}</p>}
+              {err != null && <ErrorLine e={err} isAdmin={isAdmin} />}
             </>
           )}
         </div>
