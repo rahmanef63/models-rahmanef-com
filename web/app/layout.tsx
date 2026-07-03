@@ -8,11 +8,20 @@ const display = Fraunces({ subsets: ["latin"], variable: "--font-display", weigh
 const body = Hanken_Grotesk({ subsets: ["latin"], variable: "--font-body", weight: ["400", "500", "600", "700"] });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", weight: ["400", "500", "700"] });
 
+// Server-only env — never inlined into the client bundle, safe to read directly here. A
+// misconfigured SITE_URL (e.g. missing the scheme) must NOT crash metadata evaluation for the
+// whole app — this runs at module scope, so an unguarded `new URL()` here fails every request.
+function siteUrl(): string {
+  const raw = process.env.SITE_URL || process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  try { return new URL(raw).toString(); } catch { return "http://localhost:3000"; }
+}
+const SITE_URL = siteUrl();
+
 export const metadata: Metadata = {
   title: "models — bring your own key",
   description: "A multi-tenant bring-your-own-key AI gateway. Sign in with OpenAI, Claude, or OpenRouter — or paste any key — then chat, run agents, and expose your own MCP server. 23 providers, distilled from openclaw & hermes.",
-  metadataBase: new URL("https://models.rahmanef.com"),
-  openGraph: { title: "models — bring your own key", description: "Every model. Your keys. One dashboard.", url: "https://models.rahmanef.com", type: "website" },
+  metadataBase: new URL(SITE_URL),
+  openGraph: { title: "models — bring your own key", description: "Every model. Your keys. One dashboard.", url: SITE_URL, type: "website" },
   twitter: { card: "summary_large_image", title: "models — bring your own key", description: "Every model. Your keys. One dashboard.", images: ["/opengraph-image.png"] },
 };
 

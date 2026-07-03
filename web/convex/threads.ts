@@ -5,12 +5,12 @@ import { query, mutation, action, internalMutation, internalQuery } from "./_gen
 import { api, internal } from "./_generated/api";
 import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { requireUser } from "./_shared/auth";
 
 export const createThread = mutation({
   args: { model: v.string(), title: v.string() },
   handler: async (ctx, a) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError("Please sign in.");
+    const userId = await requireUser(ctx);
     return ctx.db.insert("threads", { userId, title: a.title.slice(0, 80) || "New chat", model: a.model, at: Date.now() });
   },
 });
@@ -24,6 +24,11 @@ export const listThreads = query({
   },
 });
 
+// most recent MESSAGE_WINDOW messages, restored to chronological order — a bare .collect() here
+// would grow unbounded with a thread's length; this caps both the UI render and (via _history
+// below) what gets forwarded to the model on every turn.
+const MESSAGE_WINDOW = 100;
+
 export const threadMessages = query({
   args: { threadId: v.id("threads") },
   handler: async (ctx, a) => {
@@ -31,15 +36,15 @@ export const threadMessages = query({
     if (!userId) return [];
     const t = await ctx.db.get(a.threadId);
     if (!t || t.userId !== userId) return []; // not the caller's thread
-    return ctx.db.query("messages").withIndex("by_thread", (q) => q.eq("threadId", a.threadId)).order("asc").collect();
+    const recent = await ctx.db.query("messages").withIndex("by_thread", (q) => q.eq("threadId", a.threadId)).order("desc").take(MESSAGE_WINDOW);
+    return recent.reverse();
   },
 });
 
 export const deleteThread = mutation({
   args: { threadId: v.id("threads") },
   handler: async (ctx, a) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError("Please sign in.");
+    const userId = await requireUser(ctx);
     const t = await ctx.db.get(a.threadId);
     if (!t || t.userId !== userId) return;
     for (const m of await ctx.db.query("messages").withIndex("by_thread", (q) => q.eq("threadId", a.threadId)).collect()) await ctx.db.delete(m._id);
@@ -64,16 +69,15 @@ export const _history = internalQuery({
   handler: async (ctx, a) => {
     const t = await ctx.db.get(a.threadId);
     if (!t || t.userId !== a.userId) throw new Error("thread not found");
-    const msgs = await ctx.db.query("messages").withIndex("by_thread", (q) => q.eq("threadId", a.threadId)).order("asc").collect();
-    return msgs.map((m) => ({ role: m.role, content: m.content }));
+    const recent = await ctx.db.query("messages").withIndex("by_thread", (q) => q.eq("threadId", a.threadId)).order("desc").take(MESSAGE_WINDOW);
+    return recent.reverse().map((m) => ({ role: m.role, content: m.content }));
   },
 });
 
 export const sendMessage = action({
   args: { threadId: v.id("threads"), content: v.string() },
   handler: async (ctx, a): Promise<{ text: string }> => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError("Please sign in.");
+    const userId = await requireUser(ctx);
     const model = await ctx.runMutation(internal.threads._append, { userId, threadId: a.threadId, role: "user", content: a.content });
     const history = await ctx.runQuery(internal.threads._history, { userId, threadId: a.threadId });
     let text: string;

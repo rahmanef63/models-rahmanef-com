@@ -5,7 +5,7 @@
 import { action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
 import { v, ConvexError } from "convex/values";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { requireUser } from "./_shared/auth";
 import { generateText, tool, jsonSchema, stepCountIs, APICallError, RetryError } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
@@ -121,8 +121,7 @@ export const chat = action({
     messages: v.array(v.object({ role: v.string(), content: v.string() })),
   },
   handler: async (ctx, a): Promise<{ text: string }> => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError("Please sign in.");
+    const userId = await requireUser(ctx);
     return callForUser(ctx, userId, a.model, a.messages);
   },
 });
@@ -231,8 +230,7 @@ export async function callForUser(
 export const runAgent = action({
   args: { task: v.string(), model: v.optional(v.string()), agentId: v.optional(v.id("agentDefs")) },
   handler: async (ctx, a): Promise<{ runId: string; text: string }> => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError("Please sign in.");
+    const userId = await requireUser(ctx);
 
     let modelRef: string, instructions: string | undefined, toolIds: string[] | undefined, maxSteps: number, temperature: number | undefined, agentName: string | undefined;
     if (a.agentId) {
@@ -300,8 +298,7 @@ export const runAgent = action({
 export const testCredential = action({
   args: { provider: v.string(), model: v.string() },
   handler: async (ctx, a): Promise<{ ok: boolean; code?: string; status?: number; detail?: string }> => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError("Please sign in.");
+    const userId = await requireUser(ctx);
     if (!a.model) throw new ConvexError({ code: "invalid_request", detail: "model required" } satisfies ChatErrorInfo);
     try {
       await callForUser(ctx, userId, `${a.provider}/${a.model}`, [{ role: "user", content: "ping" }]);

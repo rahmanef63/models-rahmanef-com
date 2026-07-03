@@ -1,6 +1,6 @@
-// MCP endpoint on the app host (https://models.rahmanef.com/mcp). Thin proxy: pull the bearer
-// token + JSON-RPC body, hand both to Convex (which validates the token and dispatches). Keeping
-// it here (not on convex.site) means the OAuth .well-known metadata can live on the same host later.
+// MCP endpoint on the app host (SITE_URL + /mcp). Thin proxy: pull the bearer token + JSON-RPC
+// body, hand both to Convex (which validates the token and dispatches). Keeping it here (not on
+// convex.site) means the OAuth .well-known metadata can live on the same host later.
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
 import { publicOrigin } from "@/lib/origin";
@@ -31,6 +31,10 @@ export async function POST(req: Request) {
   return Response.json(result, { status: 200 });
 }
 
-export async function GET() {
-  return Response.json({ name: "models.rahmanef.com MCP", transport: "streamable-http (JSON-RPC over POST)", auth: "Bearer <mcp token>" });
+export async function GET(req: Request) {
+  // publicOrigin(req) can return a malformed value if SITE_URL is set without a scheme — don't
+  // let a bad env var 500 this discovery endpoint, just fall back to a generic label.
+  let host = "models-gateway";
+  try { host = new URL(publicOrigin(req)).host; } catch { /* keep fallback */ }
+  return Response.json({ name: `${host} MCP`, transport: "streamable-http (JSON-RPC over POST)", auth: "Bearer <mcp token>" });
 }

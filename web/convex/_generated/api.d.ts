@@ -8,6 +8,7 @@
  * @module
  */
 
+import type * as _shared_auth from "../_shared/auth.js";
 import type * as admin from "../admin.js";
 import type * as agentDefs from "../agentDefs.js";
 import type * as agents from "../agents.js";
@@ -35,6 +36,7 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  "_shared/auth": typeof _shared_auth;
   admin: typeof admin;
   agentDefs: typeof agentDefs;
   agents: typeof agents;

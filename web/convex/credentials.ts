@@ -5,6 +5,7 @@ import { action, mutation, query, internalMutation, internalQuery } from "./_gen
 import { internal } from "./_generated/api";
 import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { requireUser } from "./_shared/auth";
 import { encryptSecret } from "./crypto";
 
 export const listConfiguredProviders = query({
@@ -31,8 +32,7 @@ export const listConfiguredProviders = query({
 export const setCredential = action({
   args: { provider: v.string(), apiKey: v.string() },
   handler: async (ctx, a): Promise<void> => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError("Please sign in.");
+    const userId = await requireUser(ctx);
     if (!a.apiKey) throw new ConvexError({ code: "invalid_request", detail: "apiKey required" });
     const ciphertext = await encryptSecret(a.apiKey);
     await ctx.runMutation(internal.credentials.store, { userId, provider: a.provider, kind: "api_key", ciphertext });
@@ -88,8 +88,7 @@ export const claimRefresh = internalMutation({
 export const deleteCredential = mutation({
   args: { provider: v.string() },
   handler: async (ctx, a) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError("Please sign in.");
+    const userId = await requireUser(ctx);
     const row = await ctx.db
       .query("modelCreds")
       .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", a.provider))

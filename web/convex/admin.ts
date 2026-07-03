@@ -1,24 +1,19 @@
-// Super-admin gate. Two env allowlists on the Convex deployment (comma-separated):
-//   SUPER_ADMIN_USER_IDS  — Convex users._id values. NON-FORGEABLE (server-assigned). Preferred.
-//   SUPER_ADMIN_EMAILS    — emails. Convenient, but the Password provider does NOT verify email
-//                           ownership, so an email only becomes trustworthy once its account is
-//                           CLAIMED (emails are unique — first Password signup locks it). Do not
-//                           rely on the email gate for an unclaimed address on an open-signup app.
-// Change admins by editing the env var — no code change, no redeploy of code.
-import { query, type QueryCtx, type MutationCtx } from "./_generated/server";
+// Super-admin gate + operator stats. Auth lives in ./_shared/auth (requireUser/isSuperAdmin/
+// requireAdmin) — this file just re-exports isSuperAdmin for the few call sites that need the
+// boolean (not the throw) and owns the stats queries.
+import { query } from "./_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { isSuperAdmin, requireAdmin } from "./_shared/auth";
 
-const list = (v: string | undefined) => (v || "").split(",").map((s) => s.trim()).filter(Boolean);
+export { isSuperAdmin };
 
-// Usable in queries/mutations (needs ctx.db). Actions must call this via runQuery(api.admin.me).
-export async function isSuperAdmin(ctx: QueryCtx | MutationCtx): Promise<boolean> {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) return false;
-  if (list(process.env.SUPER_ADMIN_USER_IDS).includes(userId)) return true; // non-forgeable
-  const user = await ctx.db.get(userId);
-  const email = (user?.email || "").toLowerCase();
-  return !!email && list(process.env.SUPER_ADMIN_EMAILS).map((e) => e.toLowerCase()).includes(email);
-}
+// Bounded rather than a bare .collect() — these are admin-only aggregate reads, not per-record
+// listings, so a high cap keeps counts accurate at any scale we're actually at while still
+// protecting against an unbounded scan degrading/timing out if a table gets huge. Always ordered
+// "desc" (most-recent-first) — these tables grow with per-message/per-call ACTIVITY, not user
+// count, so once a table exceeds the cap we still want the RECENT window, not a scan frozen on
+// the oldest rows forever.
+const ADMIN_SCAN_CAP = 10_000;
 
 // The current user's identity + admin flag, for the UI (and for pinning their id as admin).
 export const me = query({
@@ -35,9 +30,9 @@ export const me = query({
 export const adminStats = query({
   args: {},
   handler: async (ctx) => {
-    if (!(await isSuperAdmin(ctx))) throw new Error("forbidden");
-    const users = await ctx.db.query("users").collect();
-    const creds = await ctx.db.query("modelCreds").collect();
+    await requireAdmin(ctx);
+    const users = await ctx.db.query("users").order("desc").take(ADMIN_SCAN_CAP);
+    const creds = await ctx.db.query("modelCreds").order("desc").take(ADMIN_SCAN_CAP);
     const byProvider: Record<string, number> = {};
     let oauth = 0;
     for (const c of creds) {
@@ -53,9 +48,9 @@ export const adminStats = query({
 export const adminUsers = query({
   args: {},
   handler: async (ctx) => {
-    if (!(await isSuperAdmin(ctx))) throw new Error("forbidden");
-    const users = await ctx.db.query("users").collect();
-    const creds = await ctx.db.query("modelCreds").collect();
+    await requireAdmin(ctx);
+    const users = await ctx.db.query("users").order("desc").take(ADMIN_SCAN_CAP);
+    const creds = await ctx.db.query("modelCreds").order("desc").take(ADMIN_SCAN_CAP);
     const count: Record<string, number> = {};
     for (const c of creds) count[c.userId] = (count[c.userId] ?? 0) + 1;
     return users
@@ -65,17 +60,16 @@ export const adminUsers = query({
 });
 
 // System-wide operator insight. AGGREGATE / COUNTS ONLY — never a key, never message/task content.
-// ponytail: full-table scans; fine at this scale, paginate if the tables ever get large.
 export const adminOverview = query({
   args: {},
   handler: async (ctx) => {
-    if (!(await isSuperAdmin(ctx))) throw new Error("forbidden");
+    await requireAdmin(ctx);
 
-    const creds = await ctx.db.query("modelCreds").collect();
+    const creds = await ctx.db.query("modelCreds").order("desc").take(ADMIN_SCAN_CAP);
     const providers: Record<string, number> = {};
     for (const c of creds) providers[c.provider] = (providers[c.provider] ?? 0) + 1;
 
-    const usage = await ctx.db.query("usage").collect();
+    const usage = await ctx.db.query("usage").order("desc").take(ADMIN_SCAN_CAP);
     const models: Record<string, number> = {};
     let promptTokens = 0, completionTokens = 0, errors = 0;
     for (const u of usage) {
@@ -85,12 +79,12 @@ export const adminOverview = query({
       if (u.status === "error") errors++;
     }
 
-    const runs = await ctx.db.query("agentRuns").collect();
+    const runs = await ctx.db.query("agentRuns").order("desc").take(ADMIN_SCAN_CAP);
     const runsByStatus: Record<string, number> = {};
     for (const r of runs) runsByStatus[r.status] = (runsByStatus[r.status] ?? 0) + 1;
 
-    const threads = (await ctx.db.query("threads").collect()).length;
-    const messages = (await ctx.db.query("messages").collect()).length;
+    const threads = (await ctx.db.query("threads").order("desc").take(ADMIN_SCAN_CAP)).length;
+    const messages = (await ctx.db.query("messages").order("desc").take(ADMIN_SCAN_CAP)).length;
 
     return {
       providers: Object.entries(providers).sort((a, b) => b[1] - a[1]),

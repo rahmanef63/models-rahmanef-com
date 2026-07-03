@@ -4,7 +4,7 @@
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { requireUser } from "./_shared/auth";
 
 const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 async function sha256hex(s: string): Promise<string> {
@@ -35,8 +35,7 @@ export const registerClient = action({
 export const createAuthCode = action({
   args: { clientId: v.string(), redirectUri: v.string(), codeChallenge: v.string(), codeChallengeMethod: v.string(), scope: v.optional(v.string()) },
   handler: async (ctx, a): Promise<{ code: string }> => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("unauthenticated");
+    const userId = await requireUser(ctx);
     if (a.codeChallengeMethod !== "S256" || !a.codeChallenge) throw new Error("PKCE S256 required");
     const client = await ctx.runQuery(internal.mcpOauth._getClient, { clientId: a.clientId });
     if (!client) throw new Error("unknown client");

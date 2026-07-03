@@ -4,6 +4,7 @@
 import { query, mutation, internalQuery } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { requireUser } from "./_shared/auth";
 import { TOOL_REGISTRY, TOOL_IDS } from "./toolRegistry";
 
 const MAX_STEPS_MIN = 1;
@@ -61,8 +62,7 @@ export const create = mutation({
     temperature: v.optional(v.number()),
   },
   handler: async (ctx, a) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError("Please sign in.");
+    const userId = await requireUser(ctx);
     const now = Date.now();
     return ctx.db.insert("agentDefs", {
       userId,
@@ -92,8 +92,7 @@ export const update = mutation({
     temperature: v.optional(v.union(v.number(), v.null())),
   },
   handler: async (ctx, a) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError("Please sign in.");
+    const userId = await requireUser(ctx);
     const row = await ctx.db.get(a.id);
     if (!row || row.userId !== userId) throw new ConvexError({ code: "not_found", detail: "Agent not found" });
     const patch: Record<string, unknown> = { updatedAt: Date.now() };
@@ -110,8 +109,7 @@ export const update = mutation({
 export const remove = mutation({
   args: { id: v.id("agentDefs") },
   handler: async (ctx, a) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new ConvexError("Please sign in.");
+    const userId = await requireUser(ctx);
     const row = await ctx.db.get(a.id);
     if (!row || row.userId !== userId) return; // idempotent delete, matches deleteCredential
     await ctx.db.delete(a.id);

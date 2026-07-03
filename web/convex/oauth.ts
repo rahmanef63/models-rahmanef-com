@@ -1,9 +1,9 @@
 // OAuth provider auth: OpenAI Codex device-code + OpenRouter PKCE (issues a normal key).
-// Every action derives userId from getAuthUserId — never from the client.
+// Every action derives userId from requireUser — never from the client.
 import { action, internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { requireUser } from "./_shared/auth";
 import { encryptSecret, decryptSecret } from "./crypto";
 import { CODEX, decodeAccountId, codexModels, type CodexBundle } from "./codexLib";
 import { claudePkce, claudeAuthUrl, claudeExchange, claudeModels, type ClaudeBundle } from "./claudeLib";
@@ -28,12 +28,6 @@ export const _clearFlow = internalMutation({
     if (f) await ctx.db.delete(f._id);
   },
 });
-
-async function requireUser(ctx: any) {
-  const userId = await getAuthUserId(ctx);
-  if (!userId) throw new Error("unauthenticated");
-  return userId;
-}
 
 // ---------- OpenAI Codex (device-code) ----------
 export const startCodexLogin = action({

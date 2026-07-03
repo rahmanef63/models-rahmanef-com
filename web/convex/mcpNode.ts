@@ -4,20 +4,22 @@
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { getAuthUserId } from "@convex-dev/auth/server";
+import { requireUser } from "./_shared/auth";
 import { callForUser } from "./chat";
 
 async function sha256hex(s: string): Promise<string> {
   const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
   return [...d].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
+function selfHost(): string {
+  try { return new URL(process.env.SITE_URL || "").host || "models-gateway"; } catch { return "models-gateway"; }
+}
 const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
 export const issueMcpToken = action({
   args: { label: v.string() },
   handler: async (ctx, a): Promise<{ token: string }> => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("unauthenticated");
+    const userId = await requireUser(ctx);
     const raw = "mcp_" + b64url(crypto.getRandomValues(new Uint8Array(32)));
     await ctx.runMutation(internal.mcp._storeToken, { userId, tokenHash: await sha256hex(raw), label: a.label || "token" });
     return { token: raw }; // shown to the user exactly once
@@ -47,7 +49,7 @@ export const rpc = action({
 
     switch (req.method) {
       case "initialize":
-        return ok({ protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: "models.rahmanef.com", version: "1.0.0" } });
+        return ok({ protocolVersion: "2024-11-05", capabilities: { tools: {} }, serverInfo: { name: selfHost(), version: "1.0.0" } });
       case "notifications/initialized":
       case "ping":
         return ok({});

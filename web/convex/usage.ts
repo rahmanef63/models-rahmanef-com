@@ -2,7 +2,7 @@
 import { internalMutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { isSuperAdmin } from "./admin";
+import { requireAdmin } from "./_shared/auth";
 
 export const log = internalMutation({
   args: { userId: v.id("users"), provider: v.string(), model: v.string(), promptTokens: v.number(), completionTokens: v.number(), status: v.string() },
@@ -47,7 +47,7 @@ export const myUsage = query({
 export const globalUsage = query({
   args: {},
   handler: async (ctx) => {
-    if (!(await isSuperAdmin(ctx))) throw new Error("forbidden");
+    await requireAdmin(ctx);
     const rows = await ctx.db.query("usage").withIndex("by_at").order("desc").take(1000);
     return aggregate(rows as Row[]);
   },

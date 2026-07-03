@@ -45,9 +45,11 @@ function Inner(p: {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
+  const selfHost = typeof window !== "undefined" ? window.location.host : "";
+
   if (p.bad) return <Shell><h2>Invalid request</h2><p className="err">Needs response_type=code, PKCE code_challenge_method=S256, client_id, and redirect_uri.</p></Shell>;
   if (p.isLoading) return <Shell><p className="muted mono">…</p></Shell>;
-  if (!p.isAuthenticated) return <Shell><h2>Sign in required</h2><p className="sub">Sign in to models.rahmanef.com, then reopen this authorization link.</p><Link className="btn accent" href="/app">Go to sign in</Link></Shell>;
+  if (!p.isAuthenticated) return <Shell><h2>Sign in required</h2><p className="sub">Sign in to {selfHost || "your account"}, then reopen this authorization link.</p><Link className="btn accent" href="/app">Go to sign in</Link></Shell>;
   if (client === undefined) return <Shell><p className="muted mono">…</p></Shell>;
   if (client === null || !client.redirectUris.includes(p.redirectUri)) return <Shell><h2>Cannot authorize</h2><p className="err">Unknown client or the redirect_uri is not registered for it.</p></Shell>;
 
@@ -78,7 +80,7 @@ function Inner(p: {
     <Shell>
       <h2>Authorize an MCP connection</h2>
       <p className="sub">
-        An app calling itself <b>“{client.name}”</b> <span className="muted">(self-reported, unverified)</span> wants to connect to your models.rahmanef.com gateway
+        An app calling itself <b>“{client.name}”</b> <span className="muted">(self-reported, unverified)</span> wants to connect to your {selfHost || "gateway"}
         (scope <span className="mono">{p.scope}</span>).
       </p>
       <div className="mcp-endpoint mono" style={{ marginBottom: "0.6rem" }}>access code will be sent to → {destHost || p.redirectUri}</div>

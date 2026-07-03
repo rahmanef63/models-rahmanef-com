@@ -3,6 +3,7 @@
 import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { requireUser } from "./_shared/auth";
 
 export const _storeToken = internalMutation({
   args: { userId: v.id("users"), tokenHash: v.string(), label: v.string(), clientId: v.optional(v.string()), scope: v.optional(v.string()) },
@@ -36,8 +37,7 @@ export const listMcpTokens = query({
 export const revokeMcpToken = mutation({
   args: { id: v.id("mcpTokens") },
   handler: async (ctx, a) => {
-    const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("unauthenticated");
+    const userId = await requireUser(ctx);
     const row = await ctx.db.get(a.id);
     if (!row || row.userId !== userId) return; // not the caller's token — no-op
     await ctx.db.patch(a.id, { revoked: true });
@@ -56,7 +56,9 @@ export const _providersForUser = internalQuery({
 export const _usageForUser = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, a) => {
-    const rows = await ctx.db.query("usage").withIndex("by_user_at", (q) => q.eq("userId", a.userId)).collect();
+    // bounded like usage.ts's myUsage — this is exposed to the MCP client as a tool result, an
+    // unbounded scan here would grow forever as the user keeps chatting
+    const rows = await ctx.db.query("usage").withIndex("by_user_at", (q) => q.eq("userId", a.userId)).order("desc").take(500);
     let promptTokens = 0, completionTokens = 0, errors = 0;
     const byModel: Record<string, number> = {};
     for (const r of rows) {
