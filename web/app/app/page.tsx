@@ -225,7 +225,7 @@ function Dashboard() {
           </>
         )}
 
-        {section === "chat" && <WorkbenchCard models={myModels} />}
+        {section === "chat" && <WorkbenchCard models={myModels} providers={providers} catalog={catalog} />}
 
         {section === "agents" && <AgentsCard models={myModels} />}
 
@@ -581,7 +581,7 @@ function AgentsCard({ models }: { models: string[] }) {
       <button
         className="btn accent"
         disabled={!model || !task || busy}
-        onClick={async () => { setBusy(true); setErr(""); try { await runAgent({ model, task }); setTask(""); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); } }}
+        onClick={async () => { setBusy(true); setErr(""); try { await runAgent({ model, task }); setTask(""); } catch (e) { setErr(errMsg(e)); } finally { setBusy(false); } }}
       >
         {busy ? "running…" : "Run agent"}
       </button>
@@ -616,18 +616,134 @@ function AgentsCard({ models }: { models: string[] }) {
 }
 
 type Msg = { _id: string; role: string; content: string };
+type Thread = { _id: string; title: string; model: string };
 
-function WorkbenchCard({ models }: { models: string[] }) {
-  const threads = useQuery(api.threads.listThreads) as { _id: string; title: string; model: string }[] | undefined;
+// ConvexError from an action arrives with the real message in `.data`; plain errors use `.message`.
+function errMsg(e: unknown): string {
+  const d = (e as { data?: unknown })?.data;
+  if (typeof d === "string" && d) return d;
+  return e instanceof Error ? e.message : String(e);
+}
+const splitModel = (m: string): [string, string] => { const i = m.indexOf("/"); return [m.slice(0, i), m.slice(i + 1)]; };
+const route = (kind?: string) => (kind === "oauth" ? { label: "OAUTH", cls: "oauth" } : { label: "API KEY", cls: "key" });
+const kfmt = (n?: number) => (n == null ? "—" : n >= 1000 ? Math.round(n / 1000) + "k" : String(n));
+
+// pull models.dev metadata (context, cost, modalities…) for the inspector. null for oauth models
+// or anything not in the catalog.
+function modelMeta(catalog: Catalog, provider: string, id: string) {
+  const m = (catalog[provider]?.models as Record<string, any> | undefined)?.[id];
+  if (!m) return null;
+  const cells: [string, string][] = [];
+  if (m.limit?.context != null) cells.push(["context", kfmt(m.limit.context) + " tok"]);
+  if (m.limit?.output != null) cells.push(["max out", kfmt(m.limit.output) + " tok"]);
+  if (m.cost?.input != null) cells.push(["in $/M", "$" + m.cost.input]);
+  if (m.cost?.output != null) cells.push(["out $/M", "$" + m.cost.output]);
+  if (m.tool_call != null) cells.push(["tools", m.tool_call ? "yes" : "no"]);
+  if (m.reasoning != null) cells.push(["reasoning", m.reasoning ? "yes" : "no"]);
+  if (Array.isArray(m.modalities?.input) && m.modalities.input.length) cells.push(["input", m.modalities.input.join(" · ")]);
+  if (m.knowledge) cells.push(["knowledge", String(m.knowledge)]);
+  if (m.release_date) cells.push(["released", String(m.release_date)]);
+  return cells;
+}
+
+function ModelInspector({ catalog, model }: { catalog: Catalog; model: string }) {
+  const [provider, id] = splitModel(model);
+  const cells = modelMeta(catalog, provider, id);
+  return (
+    <div className="wb-inspector">
+      <div className="insp-id mono">{provider}<span className="muted">/</span>{id}</div>
+      {!cells || cells.length === 0 ? (
+        <p className="muted mono" style={{ fontSize: ".74rem", margin: 0 }}>No catalog metadata for this model.</p>
+      ) : (
+        <div className="insp-grid">
+          {cells.map(([k, val]) => (
+            <div className="insp-cell" key={k}><span className="mono muted">{k}</span><b>{val}</b></div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// provider-first model picker — never dumps every model at once. Pick a provider, then its models.
+function ModelPicker({ byProvider, providers, catalog, onPick }: {
+  byProvider: Record<string, string[]>;
+  providers: Cred[] | undefined;
+  catalog: Catalog;
+  onPick: (m: string) => void;
+}) {
+  const provs = Object.keys(byProvider).sort((a, b) => (PROVIDER_LABEL[a] ?? a).localeCompare(PROVIDER_LABEL[b] ?? b));
+  const [prov, setProv] = useState<string | null>(provs.length === 1 ? provs[0] : null);
+  const [q, setQ] = useState("");
+  if (provs.length === 0) return <p className="sub">No models available — connect a provider in the <b>Providers</b> tab first.</p>;
+  const list = prov ? byProvider[prov] ?? [] : []; // ?? [] — the live query can drop the selected provider mid-mount
+  const ids = list.filter((id) => id.toLowerCase().includes(q.toLowerCase()));
+  return (
+    <div className="picker">
+      <div className="picker-step mono muted">1 · provider</div>
+      <div className="prov-chips">
+        {provs.map((p) => {
+          const r = route(providers?.find((x) => x.provider === p)?.kind);
+          return (
+            <button key={p} className={`prov-chip ${prov === p ? "on" : ""}`} onClick={() => { setProv(p); setQ(""); }}>
+              <strong>{PROVIDER_LABEL[p] ?? p}</strong>
+              <span className={`badge ${r.cls}`}>{r.label}</span>
+              <em>{byProvider[p].length}</em>
+            </button>
+          );
+        })}
+      </div>
+      {prov && (
+        <>
+          <div className="picker-step mono muted">2 · model · {list.length} available</div>
+          <input placeholder={`search ${PROVIDER_LABEL[prov] ?? prov} models…`} value={q} onChange={(e) => setQ(e.target.value)} />
+          <div className="model-list">
+            {ids.length === 0 ? (
+              <p className="muted mono" style={{ fontSize: ".78rem", padding: ".55rem .85rem", margin: 0 }}>no match</p>
+            ) : (
+              ids.slice(0, 200).map((id) => {
+                const ctx = (catalog[prov]?.models as Record<string, any> | undefined)?.[id]?.limit?.context as number | undefined;
+                return (
+                  <button key={id} className="model-row" onClick={() => onPick(`${prov}/${id}`)}>
+                    <span className="mono">{id}</span>
+                    {ctx != null && <span className="mono muted" style={{ fontSize: ".72rem" }}>{kfmt(ctx)} tok</span>}
+                  </button>
+                );
+              })
+            )}
+            {ids.length > 200 && <p className="muted mono" style={{ fontSize: ".72rem", padding: ".4rem .85rem", margin: 0 }}>+{ids.length - 200} more — refine search</p>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+function WorkbenchCard({ models, providers, catalog }: { models: string[]; providers: Cred[] | undefined; catalog: Catalog }) {
+  const threads = useQuery(api.threads.listThreads) as Thread[] | undefined;
   const createThread = useMutation(api.threads.createThread);
   const deleteThread = useMutation(api.threads.deleteThread);
   const sendMessage = useAction(api.threads.sendMessage);
   const [active, setActive] = useState<string | null>(null);
-  const [model, setModel] = useState("");
+  const [model, setModel] = useState(""); // model chosen for a NEW (not-yet-created) thread
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [showInsp, setShowInsp] = useState(false);
   const msgs = useQuery(api.threads.threadMessages, active ? { threadId: active as any } : "skip") as Msg[] | undefined;
+
+  const byProvider = useMemo(() => {
+    const g: Record<string, string[]> = {};
+    for (const m of models) { const [p, id] = splitModel(m); if (p && id) (g[p] ??= []).push(id); }
+    return g;
+  }, [models]);
+
+  const activeThread = threads?.find((t) => t._id === active);
+  const currentModel = activeThread?.model ?? (model || null); // model in the header/composer context
+  const currentProvider = currentModel ? splitModel(currentModel)[0] : null;
+  const r = route(providers?.find((p) => p.provider === currentProvider)?.kind);
+
+  function newChat() { setActive(null); setModel(""); setInput(""); setErr(""); setShowInsp(false); }
 
   async function send() {
     if (!input.trim() || busy) return;
@@ -644,7 +760,7 @@ function WorkbenchCard({ models }: { models: string[] }) {
       setInput("");
       await sendMessage({ threadId: tid as any, content });
     } catch (e) {
-      setErr(e instanceof Error ? e.message : String(e));
+      setErr(errMsg(e));
     } finally {
       setBusy(false);
     }
@@ -652,49 +768,77 @@ function WorkbenchCard({ models }: { models: string[] }) {
 
   return (
     <section className="card">
-      <h2>Chat workbench</h2>
-      <p className="sub">Threaded, persisted conversations. Token savers + agent mode apply.</p>
+      <div className="wb-head">
+        <div>
+          <h2>Chat workbench</h2>
+          <p className="sub" style={{ margin: 0 }}>Threaded, persisted conversations. Token savers + agent mode apply.</p>
+        </div>
+        <button className="btn" onClick={newChat}>+ New chat</button>
+      </div>
       <div className="wb">
         <aside className="wb-threads">
-          <button className="btn" onClick={() => { setActive(null); setInput(""); setErr(""); }}>+ New</button>
+          <div className="wb-threads-h mono muted">threads</div>
           <ul>
-            {(threads ?? []).map((t) => (
-              <li key={t._id} className={active === t._id ? "on" : ""}>
-                <button className="link" title={t.model} onClick={() => { setActive(t._id); setModel(t.model); }}>{t.title}</button>
-                <button className="link danger" onClick={() => { if (active === t._id) setActive(null); void deleteThread({ threadId: t._id as any }); }}>×</button>
-              </li>
-            ))}
+            {threads === undefined ? <li className="empty muted mono">…</li> : threads.length === 0 ? <li className="empty muted mono">no threads yet</li> : null}
+            {(threads ?? []).map((t) => {
+              const [tp] = splitModel(t.model);
+              const tr = route(providers?.find((p) => p.provider === tp)?.kind);
+              return (
+                <li key={t._id} className={active === t._id ? "on" : ""}>
+                  <button className="thread-btn" onClick={() => { setActive(t._id); setShowInsp(false); setErr(""); }}>
+                    <span className="t-title">{t.title}</span>
+                    <span className="t-model mono muted">{PROVIDER_LABEL[tp] ?? tp} · <span className={`t-route ${tr.cls}`}>{tr.label.toLowerCase()}</span></span>
+                  </button>
+                  <button className="link del" title="delete thread" aria-label="delete thread" onClick={() => { if (active === t._id) newChat(); void deleteThread({ threadId: t._id as any }); }}>×</button>
+                </li>
+              );
+            })}
           </ul>
         </aside>
+
         <div className="wb-main">
-          {!active && (
-            <div className="row">
-              <input list="wbmodels" placeholder="provider/model" value={model} onChange={(e) => setModel(e.target.value)} />
-              <datalist id="wbmodels">{models.map((m) => <option key={m} value={m} />)}</datalist>
+          {currentModel && currentProvider && (
+            <div className="wb-modelbar">
+              <div className="wb-mb-id">
+                <span className="wb-mb-prov">{PROVIDER_LABEL[currentProvider] ?? currentProvider}</span>
+                <span className="wb-mb-model mono">{splitModel(currentModel)[1]}</span>
+              </div>
+              <div className="wb-mb-right">
+                <span className={`badge ${r.cls}`}>{r.label}</span>
+                <button className="link" aria-expanded={showInsp} onClick={() => setShowInsp((v) => !v)}>{showInsp ? "hide details" : "details"}</button>
+              </div>
             </div>
           )}
-          <div className="wb-msgs">
-            {!active ? (
-              <p className="sub">Pick a model, then send a message to start a thread.</p>
-            ) : msgs === undefined ? (
-              <p className="muted mono">…</p>
-            ) : msgs.length === 0 ? (
-              <p className="sub">Empty thread — say something.</p>
-            ) : (
-              msgs.map((m) => (
-                <div key={m._id} className={`msg ${m.role}`}>
-                  <span className="who mono muted">{m.role}</span>
-                  <div>{m.content}</div>
-                </div>
-              ))
-            )}
-            {busy && <div className="msg assistant"><span className="who mono muted">assistant</span><div className="muted">…</div></div>}
-          </div>
-          <div className="wb-composer">
-            <textarea rows={2} placeholder="message  (⌘/Ctrl+Enter to send)" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void send(); }} />
-            <button className="btn accent" disabled={busy || !input.trim() || (!active && !model)} onClick={() => void send()}>{busy ? "…" : "Send"}</button>
-          </div>
-          {err && <p className="err">{err}</p>}
+          {currentModel && showInsp && <ModelInspector catalog={catalog} model={currentModel} />}
+
+          {!active && !model ? (
+            <ModelPicker byProvider={byProvider} providers={providers} catalog={catalog} onPick={(m) => { setModel(m); setErr(""); }} />
+          ) : (
+            <>
+              <div className="wb-msgs">
+                {!active ? (
+                  <p className="sub">Model ready — send a message to start the thread. <button className="link" onClick={() => setModel("")}>change model</button></p>
+                ) : msgs === undefined ? (
+                  <p className="muted mono">…</p>
+                ) : msgs.length === 0 ? (
+                  <p className="sub">Empty thread — say something.</p>
+                ) : (
+                  msgs.map((m) => (
+                    <div key={m._id} className={`msg ${m.role}`}>
+                      <span className="who mono muted">{m.role}</span>
+                      <div>{m.content}</div>
+                    </div>
+                  ))
+                )}
+                {busy && <div className="msg assistant"><span className="who mono muted">assistant</span><div className="wb-typing"><i /><i /><i /></div></div>}
+              </div>
+              <div className="wb-composer">
+                <textarea rows={2} placeholder="message  (⌘/Ctrl+Enter to send)" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void send(); }} />
+                <button className="btn accent" disabled={busy || !input.trim()} onClick={() => void send()}>{busy ? "…" : "Send"}</button>
+              </div>
+              {err && <p className="err">{err}</p>}
+            </>
+          )}
         </div>
       </div>
     </section>

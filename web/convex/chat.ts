@@ -4,7 +4,7 @@
 // bespoke ChatGPT-backend path (codexLib); everyone else goes through the AI SDK.
 import { action } from "./_generated/server";
 import { api, internal } from "./_generated/api";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { generateText, tool, jsonSchema, stepCountIs } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
@@ -52,7 +52,9 @@ function modelFor(provider: string, model: string, apiKey: string) {
     case "google": return createGoogleGenerativeAI({ apiKey })(model);
     case "openrouter": return createOpenRouter({ apiKey })(model);
     default:
-      if (OPENAI_COMPAT[provider]) return createOpenAI({ apiKey, baseURL: OPENAI_COMPAT[provider] })(model);
+      // .chat() = /chat/completions. The shorthand `(model)` defaults to OpenAI's /responses
+      // API, which third-party OpenAI-compatible hosts (Mistral, Groq, …) don't implement → 404.
+      if (OPENAI_COMPAT[provider]) return createOpenAI({ apiKey, baseURL: OPENAI_COMPAT[provider] }).chat(model);
       return null;
   }
 }
@@ -167,7 +169,8 @@ export async function callForUser(
       }
     } catch (e) {
       await logUsage("error", 0, 0);
-      throw e;
+      // surface the real provider error — Convex masks plain thrown errors as "Server Error" in prod
+      throw new ConvexError((e instanceof Error ? e.message : String(e)).slice(0, 400));
     }
 
     await logUsage("ok", promptTokens, completionTokens);
@@ -204,7 +207,7 @@ export const runAgent = action({
     } catch (e: any) {
       await ctx.runMutation(internal.agents.finish, { runId, status: "error", error: String(e?.message ?? e).slice(0, 500) });
       await ctx.runMutation(internal.usage.log, { userId, provider, model: a.model, promptTokens: 0, completionTokens: 0, status: "error" });
-      throw e;
+      throw new ConvexError(String(e?.message ?? e).slice(0, 400)); // unmask the real provider error (Convex hides plain throws)
     }
   },
 });

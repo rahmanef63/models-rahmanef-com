@@ -47,7 +47,8 @@ Last updated: 2026-07-02.
 - ✅ Agent mode (AI-SDK tool calls)
 - ✅ Typed tool calls (`list_my_providers`, `get_my_usage`)
 - ✅ Usage telemetry (every chat logged)
-- 🟡 Model picker (editable datalist, not a rich picker w/ params)
+- ✅ Model picker — **provider-first** (pick provider → then its models, never dumps all), route badge (oauth / api-key), model **inspector** (context / cost / tools / modalities from models.dev), model header bar per thread
+- ✅ Fixed: OpenAI-compat providers (Mistral, Groq, …) were hitting OpenAI's `/responses` API via the SDK shorthand → now `.chat()` = `/chat/completions`; provider errors now surface (ConvexError) instead of a masked "Server Error"
 - ⬜ **Sidebar copilot** mode (embed in another app)
 - ⬜ **Search** mode (Perplexity-style Q + answer + citations)
 - ⬜ Streaming (resumable SSE) — we do request/response
