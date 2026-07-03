@@ -3,7 +3,7 @@
 // ponytail: no streaming — request/response, persist both sides. Reactive queries update the UI.
 import { query, mutation, action, internalMutation, internalQuery } from "./_generated/server";
 import { api, internal } from "./_generated/api";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
 export const createThread = mutation({
@@ -73,10 +73,18 @@ export const sendMessage = action({
   args: { threadId: v.id("threads"), content: v.string() },
   handler: async (ctx, a): Promise<{ text: string }> => {
     const userId = await getAuthUserId(ctx);
-    if (!userId) throw new Error("unauthenticated");
+    if (!userId) throw new ConvexError("Please sign in.");
     const model = await ctx.runMutation(internal.threads._append, { userId, threadId: a.threadId, role: "user", content: a.content });
     const history = await ctx.runQuery(internal.threads._history, { userId, threadId: a.threadId });
-    const { text } = await ctx.runAction(api.chat.chat, { model, messages: history });
+    let text: string;
+    try {
+      ({ text } = await ctx.runAction(api.chat.chat, { model, messages: history }));
+    } catch (e) {
+      // re-throw as a fresh ConvexError HERE (V8 runtime) so the real reason reaches the client — a
+      // ConvexError thrown inside the "use node" chat action loses its data across the runAction boundary.
+      const msg = (e as { data?: unknown })?.data ?? (e instanceof Error ? e.message : String(e));
+      throw new ConvexError(String(msg).slice(0, 400));
+    }
     await ctx.runMutation(internal.threads._append, { userId, threadId: a.threadId, role: "assistant", content: text });
     return { text };
   },

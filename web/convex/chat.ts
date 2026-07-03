@@ -107,12 +107,15 @@ export async function callForUser(
     const row = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider });
     if (!row) throw new Error(`no credentials for "${provider}" — connect or add a key first`);
 
-    // token-savers: prepend a Caveman/Ponytail system prompt when the user has them on
+    // token-savers: a Caveman/Ponytail system prompt when the user has them on
     const settings = await ctx.runQuery(internal.settings._getForChat, { userId });
     const sys: string[] = [];
     if (settings.cavemanEnabled) sys.push(CAVEMAN_PROMPT);
     if (settings.ponytailEnabled) sys.push(PONYTAIL_PROMPT);
-    const messages = sys.length ? [{ role: "system", content: sys.join("\n\n") }, ...inputMessages] : inputMessages;
+    const systemPrompt = sys.length ? sys.join("\n\n") : undefined;
+    // codex/claude custom paths take the system prompt inline as a message; the AI SDK (ai@7)
+    // REJECTS a {role:"system"} message inside `messages` — it must be passed via the `system` param.
+    const messages = systemPrompt ? [{ role: "system", content: systemPrompt }, ...inputMessages] : inputMessages;
 
     const logUsage = (status: string, promptTokens: number, completionTokens: number) =>
       ctx.runMutation(internal.usage.log, { userId, provider, model: modelRef, promptTokens, completionTokens, status });
@@ -161,7 +164,8 @@ export async function callForUser(
         if (!m) throw new Error(`unknown provider "${provider}"`);
         // agent mode: give the model tools to inspect the user's own gateway (needs a tool-capable model)
         const tools = settings.agentMode ? gatewayTools(ctx) : undefined;
-        const result = await generateText({ model: m, messages: messages as any, ...(tools ? { tools, stopWhen: stepCountIs(5) } : {}) });
+        // system via the `system` param (NOT a message) — ai@7 rejects system-in-messages; use inputMessages (no system role)
+        const result = await generateText({ model: m, ...(systemPrompt ? { system: systemPrompt } : {}), messages: inputMessages as any, ...(tools ? { tools, stopWhen: stepCountIs(5) } : {}) });
         text = result.text || "(no text)";
         const u: any = result.usage ?? {};
         promptTokens = u.inputTokens ?? u.promptTokens ?? 0;
