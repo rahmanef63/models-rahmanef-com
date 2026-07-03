@@ -260,10 +260,10 @@ Convex schema: `authTables` + `modelCreds` (`userId`, `provider`, `kind` = `api_
 
 ### Self-host / deploy
 
-The build is **decoupled**: Convex Cloud hosts the backend, Vercel (or any Next host) hosts the frontend.
+The build is **decoupled**: Convex Cloud hosts the backend, Dokploy (self-hosted, `output: "standalone"`, any Next host works) hosts the frontend.
 
-1. **Convex Cloud** — `npx convex deploy`. Set backend env: `MODELS_ENC_KEY` (`openssl rand -base64 32`), `SITE_URL` (e.g. `https://models.rahmanef.com`, used to build the OpenRouter callback). Auth keys (`JWT_PRIVATE_KEY` + JWKS) are provisioned by `npx @convex-dev/auth`.
-2. **Frontend** — set `NEXT_PUBLIC_CONVEX_URL` (inlined at build), then `next build`. `vercel.json` pins `framework: nextjs`.
+1. **Convex Cloud** — `npx convex deploy`. Set backend env: `MODELS_ENC_KEY` (`openssl rand -base64 32`), `SITE_URL` (e.g. `https://models.rahmanef.com`, used to build the OpenRouter callback and to resolve the public origin behind a reverse proxy). Auth keys (`JWT_PRIVATE_KEY` + JWKS) are provisioned by `npx @convex-dev/auth`.
+2. **Frontend** — set `NEXT_PUBLIC_CONVEX_URL` + `SITE_URL` in the host's env (inlined/read at build+runtime), then `next build`. Deploys auto-trigger on push to `main` (Dokploy `autoDeploy`). Behind a proxy, always resolve the public origin via `lib/origin.ts`'s `publicOrigin()` — never `req.nextUrl.origin` (resolves to the standalone server's own bind address, `0.0.0.0:3000`, not the public host).
 3. **OAuth callback** — `web/app/oauth/openrouter/callback/route.ts` exchanges the OpenRouter code as the logged-in user and bounces back to the dashboard.
 
 ---
@@ -298,7 +298,7 @@ Runs three offline self-checks — no network, no real keys:
 - [x] **Phase 0 — core library**: catalog auto-update, connection registry, `resolveModel` + host-gate, env/memory/file stores, `chat` caller, self-check.
 - [x] **Phase 1 — Convex multi-tenant adapter**: encrypted per-tenant BYOK table + store + mutations.
 - [x] **Phase 2 — two front-ends over one surface**: HTTP CRUD API (`createModelsApi`), terminal CLI (`add/ls/rm/models/init`, local file store or remote API), and a single-file demo dashboard. `models init` scaffolds the Convex adapter into a host project.
-- [x] **Phase 3 — deploy**: **LIVE at [models.rahmanef.com](https://models.rahmanef.com)** (Vercel + Convex Cloud). Per-user encrypted BYOK, three connect methods (OpenAI Codex device-code, OpenRouter PKCE, paste key), models.dev catalog, chat tester.
+- [x] **Phase 3 — deploy**: **LIVE at [models.rahmanef.com](https://models.rahmanef.com)** (Dokploy + Convex Cloud). Per-user encrypted BYOK, three connect methods (OpenAI Codex device-code, OpenRouter PKCE, paste key), models.dev catalog, chat tester.
 - [ ] **Phase 4 (optional)**: per-provider live `/v1/models` merge for local/custom endpoints (Ollama / LM Studio), multi-key rotation on rate-limit, and more PKCE OAuth flows (openclaw/hermes patterns).
 
 ---
