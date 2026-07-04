@@ -1,6 +1,7 @@
 // OAuth token endpoint. authorization_code grant only, PKCE required. Accepts form or JSON.
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
+import { clientIp } from "@/lib/origin";
 
 export const runtime = "nodejs";
 const CONVEX_URL = process.env.NEXT_PUBLIC_CONVEX_URL || process.env.CONVEX_URL || "";
@@ -18,9 +19,10 @@ export async function POST(req: Request) {
   if (!p.code || !p.code_verifier || !p.client_id || !p.redirect_uri) return json({ error: "invalid_request" }, 400);
   try {
     const client = new ConvexHttpClient(CONVEX_URL);
-    const r = await client.action(api.mcpOauthNode.exchangeCode, { code: p.code, clientId: p.client_id, redirectUri: p.redirect_uri, codeVerifier: p.code_verifier });
+    const r = await client.action(api.mcpOauthNode.exchangeCode, { code: p.code, clientId: p.client_id, redirectUri: p.redirect_uri, codeVerifier: p.code_verifier, ip: clientIp(req) });
     return json({ access_token: r.access_token, token_type: "Bearer", scope: r.scope }, 200);
-  } catch {
+  } catch (e: any) {
+    if (e?.data?.code === "rate_limited") return Response.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(e.data.retryAfter ?? 60), "Cache-Control": "no-store" } });
     // never echo internals — every failure is an opaque invalid_grant
     return json({ error: "invalid_grant" }, 400);
   }

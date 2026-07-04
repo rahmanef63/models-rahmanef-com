@@ -3,7 +3,7 @@
 // convex.site) means the OAuth .well-known metadata can live on the same host later.
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/convex/_generated/api";
-import { publicOrigin } from "@/lib/origin";
+import { publicOrigin, clientIp } from "@/lib/origin";
 
 export const runtime = "nodejs";
 
@@ -24,9 +24,12 @@ export async function POST(req: Request) {
     return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "parse error" } }, { status: 400 });
   }
   const client = new ConvexHttpClient(CONVEX_URL);
-  const result: any = await client.action(api.mcpNode.rpc, { token, request: body });
+  const result: any = await client.action(api.mcpNode.rpc, { token, request: body, ip: clientIp(req) });
   if (result?.error?.code === -32001) {
     return Response.json(result, { status: 401, headers: { "WWW-Authenticate": challenge } });
+  }
+  if (result?.error?.code === -32029) {
+    return Response.json(result, { status: 429, headers: { "Retry-After": "60" } });
   }
   return Response.json(result, { status: 200 });
 }

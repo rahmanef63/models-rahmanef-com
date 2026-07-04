@@ -36,16 +36,23 @@ const asText = (text: string) => ({ content: [{ type: "text", text }] });
 
 // Public action (the Next /mcp route proxies here); auth is the MCP bearer token, validated inside.
 export const rpc = action({
-  args: { token: v.string(), request: v.any() },
+  args: { token: v.string(), request: v.any(), ip: v.optional(v.string()) },
   handler: async (ctx, a): Promise<any> => {
     const req = a.request ?? {};
     const id = req.id ?? null;
     const ok = (result: any) => ({ jsonrpc: "2.0", id, result });
     const fail = (code: number, message: string) => ({ jsonrpc: "2.0", id, error: { code, message } });
 
+    // Pre-auth flood guard by IP (invalid-token spam still costs a sha256 + query per hit).
+    const ipRl = await ctx.runMutation(internal.rateLimit.hit, { key: `mcpip:${a.ip ?? "?"}`, max: 240, windowMs: 60_000 });
+    if (!ipRl.ok) return fail(-32029, `rate limited — retry in ${ipRl.retryAfter}s`);
+
     const row = await ctx.runQuery(internal.mcp._validateToken, { tokenHash: await sha256hex(a.token || "") });
     if (!row) return fail(-32001, "unauthorized — invalid or revoked MCP token");
     const userId = row.userId;
+
+    const rl = await ctx.runMutation(internal.rateLimit.hit, { key: `mcp:${row._id}`, max: 120, windowMs: 60_000 }); // 120 calls / min / token
+    if (!rl.ok) return fail(-32029, `rate limited — retry in ${rl.retryAfter}s`);
 
     switch (req.method) {
       case "initialize":

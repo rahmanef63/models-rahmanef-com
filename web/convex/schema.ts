@@ -130,4 +130,11 @@ export default defineSchema({
     userCode: v.optional(v.string()),
     createdAt: v.number(),
   }).index("by_user_provider", ["userId", "provider"]),
+  // Anti-abuse fixed-window counters (OAuth DCR / token / MCP). One row per "<bucket>:<key>";
+  // Convex OCC makes the read-modify-write race-safe, so no rate-limiter library or lock is needed.
+  rateLimits: defineTable({
+    key: v.string(), // "<bucket>:<ip-or-token>", e.g. "dcr:1.2.3.4"
+    count: v.number(),
+    resetAt: v.number(), // window end (ms epoch); past it the window resets
+  }).index("by_key", ["key"]).index("by_reset", ["resetAt"]),
 });

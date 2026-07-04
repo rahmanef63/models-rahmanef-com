@@ -3,7 +3,7 @@
 // pre-registered, codes single-use w/ 60s TTL bound to client+challenge, tokens stored as sha256.
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { v } from "convex/values";
+import { v, ConvexError } from "convex/values";
 import { requireUser } from "./_shared/auth";
 
 const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -20,8 +20,10 @@ const okRedirect = (u: string) => { try { const x = new URL(u); return x.protoco
 // Dynamic Client Registration (RFC 7591). Open registration — a client is inert until a USER
 // approves it on the consent page and completes PKCE, so this only records redirect_uris.
 export const registerClient = action({
-  args: { name: v.optional(v.string()), redirectUris: v.array(v.string()) },
+  args: { name: v.optional(v.string()), redirectUris: v.array(v.string()), ip: v.optional(v.string()) },
   handler: async (ctx, a): Promise<{ client_id: string; redirect_uris: string[] }> => {
+    const rl = await ctx.runMutation(internal.rateLimit.hit, { key: `dcr:${a.ip ?? "?"}`, max: 10, windowMs: 3_600_000 }); // 10 registrations / hour / IP
+    if (!rl.ok) throw new ConvexError({ code: "rate_limited", retryAfter: rl.retryAfter });
     const uris = [...new Set(a.redirectUris.filter(okRedirect))];
     if (uris.length === 0) throw new Error("at least one https redirect_uri required");
     if (uris.length > 8) throw new Error("too many redirect_uris");
@@ -51,8 +53,10 @@ export const createAuthCode = action({
 
 // Backing for /oauth/token. Validates the code + PKCE verifier, mints the bearer (sha256-stored).
 export const exchangeCode = action({
-  args: { code: v.string(), clientId: v.string(), redirectUri: v.string(), codeVerifier: v.string() },
+  args: { code: v.string(), clientId: v.string(), redirectUri: v.string(), codeVerifier: v.string(), ip: v.optional(v.string()) },
   handler: async (ctx, a): Promise<{ access_token: string; token_type: string; scope: string }> => {
+    const rl = await ctx.runMutation(internal.rateLimit.hit, { key: `token:${a.ip ?? "?"}`, max: 30, windowMs: 60_000 }); // 30 exchanges / min / IP
+    if (!rl.ok) throw new ConvexError({ code: "rate_limited", retryAfter: rl.retryAfter });
     const rec = await ctx.runMutation(internal.mcpOauth._consumeAuthCode, { codeHash: await sha256hex(a.code) });
     if (!rec) throw new Error("invalid_grant");
     if (rec.clientId !== a.clientId || rec.redirectUri !== a.redirectUri) throw new Error("invalid_grant");
