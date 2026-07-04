@@ -24,6 +24,7 @@ import type * as credentials from "../credentials.js";
 import type * as crons from "../crons.js";
 import type * as crypto from "../crypto.js";
 import type * as features_byok_index from "../features/byok/index.js";
+import type * as features_workspaces_tables from "../features/workspaces/tables.js";
 import type * as http from "../http.js";
 import type * as mcp from "../mcp.js";
 import type * as mcpNode from "../mcpNode.js";
@@ -61,6 +62,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   crypto: typeof crypto;
   "features/byok/index": typeof features_byok_index;
+  "features/workspaces/tables": typeof features_workspaces_tables;
   http: typeof http;
   mcp: typeof mcp;
   mcpNode: typeof mcpNode;

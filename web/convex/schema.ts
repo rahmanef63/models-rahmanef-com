@@ -1,14 +1,18 @@
 import { defineSchema, defineTable } from "convex/server";
 import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
+import { workspaceTables } from "./features/workspaces/tables";
 
 // authTables = users, authAccounts, authSessions, ... (from @convex-dev/auth).
+// workspaceTables = workspaces/memberships/invites (the tenant boundary — see features/workspaces).
 // modelCreds = one row per (user, provider); ciphertext = AES-256-GCM(base64 iv||ct).
 export default defineSchema({
   ...authTables,
+  ...workspaceTables,
   // kind: "api_key" (ciphertext = the key) | "oauth" (ciphertext = JSON {access,refresh,expires,accountId})
   modelCreds: defineTable({
     userId: v.id("users"),
+    workspaceId: v.optional(v.id("workspaces")), // set = workspace-SHARED cred; unset = personal
     provider: v.string(),
     kind: v.optional(v.string()),
     ciphertext: v.string(),
@@ -23,10 +27,12 @@ export default defineSchema({
     lastCheckedDetail: v.optional(v.string()),
   })
     .index("by_user", ["userId"])
-    .index("by_user_provider", ["userId", "provider"]),
+    .index("by_user_provider", ["userId", "provider"])
+    .index("by_ws_provider", ["workspaceId", "provider"]),
   // per-call usage log — powers the stats dashboard (like 9router's usageHistory)
   usage: defineTable({
     userId: v.id("users"),
+    workspaceId: v.optional(v.id("workspaces")),
     provider: v.string(),
     model: v.string(), // full "provider/model" ref
     promptTokens: v.number(),
@@ -35,10 +41,12 @@ export default defineSchema({
     at: v.number(),
   })
     .index("by_user_at", ["userId", "at"])
-    .index("by_at", ["at"]),
+    .index("by_at", ["at"])
+    .index("by_ws_at", ["workspaceId", "at"]),
   // per-user token-saver settings (Caveman/Ponytail system-prompt injection)
   settings: defineTable({
     userId: v.id("users"),
+    activeWorkspaceId: v.optional(v.id("workspaces")), // last-selected workspace (switcher persistence)
     cavemanEnabled: v.optional(v.boolean()),
     cavemanLevel: v.optional(v.string()),
     ponytailEnabled: v.optional(v.boolean()),
@@ -48,6 +56,7 @@ export default defineSchema({
   // AI Agents: one row per task run. steps = a compact trace (assistant text + tool names per step).
   agentRuns: defineTable({
     userId: v.id("users"),
+    workspaceId: v.optional(v.id("workspaces")),
     task: v.string(),
     model: v.string(),
     agentId: v.optional(v.id("agentDefs")), // set when run via a saved agent (vs an ad-hoc model+task)
@@ -61,10 +70,12 @@ export default defineSchema({
     completionTokens: v.optional(v.number()),
     at: v.number(),
     finishedAt: v.optional(v.number()), // set by finish() → per-run duration = finishedAt - at
-  }).index("by_user_at", ["userId", "at"]),
+  }).index("by_user_at", ["userId", "at"]).index("by_ws_at", ["workspaceId", "at"]),
   // AI Agents: saved, reusable agent configs (named: skill × model × tools × max-iter).
   agentDefs: defineTable({
     userId: v.id("users"),
+    workspaceId: v.optional(v.id("workspaces")),
+    visibility: v.optional(v.string()), // 'private'(default) | 'workspace' (admin+ editable, all members see)
     name: v.string(),
     model: v.string(), // "provider/model" — the agent's fixed model
     instructions: v.optional(v.string()), // system prompt / skill description
@@ -74,16 +85,17 @@ export default defineSchema({
     temperature: v.optional(v.number()), // clamped [0,2]; unset = provider default
     createdAt: v.number(),
     updatedAt: v.number(),
-  }).index("by_user", ["userId"]),
+  }).index("by_user", ["userId"]).index("by_ws", ["workspaceId"]),
   // AI Chat workbench: persisted threaded conversations. messages owned via their thread.
   threads: defineTable({
     userId: v.id("users"),
+    workspaceId: v.optional(v.id("workspaces")),
     title: v.string(),
     model: v.string(), // denormalized from the bound agent's model when agentId is set (see agentDefs.model)
     agentId: v.optional(v.id("agentDefs")), // set = replies route through this agent's instructions/skills/tools
     agentName: v.optional(v.string()), // denormalized so the thread list still reads fine if the agent is later renamed/deleted (matches agentRuns' pattern)
     at: v.number(),
-  }).index("by_user_at", ["userId", "at"]),
+  }).index("by_user_at", ["userId", "at"]).index("by_ws_user_at", ["workspaceId", "userId", "at"]),
   messages: defineTable({
     threadId: v.id("threads"),
     role: v.string(), // "user" | "assistant"
@@ -93,6 +105,7 @@ export default defineSchema({
   // MCP access tokens — one per issued bearer. We store only sha256(token); raw shown once.
   mcpTokens: defineTable({
     userId: v.id("users"),
+    workspaceId: v.optional(v.id("workspaces")), // bearer acts in this workspace; unset legacy = issuer's personal ws
     tokenHash: v.string(),
     label: v.string(),
     createdAt: v.number(),
