@@ -44,6 +44,19 @@ export const revokeMcpToken = mutation({
   },
 });
 
+// Panic button: revoke every active token the caller owns. Returns how many were revoked.
+// by_user scan matches listMcpTokens; a single user's token count is small.
+export const revokeAllMcpTokens = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUser(ctx);
+    const rows = await ctx.db.query("mcpTokens").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
+    let n = 0;
+    for (const r of rows) if (!r.revoked) { await ctx.db.patch(r._id, { revoked: true }); n++; }
+    return n;
+  },
+});
+
 // ---- tool data for an EXPLICIT userId (called by mcpNode.rpc AFTER token validation) ----
 export const _providersForUser = internalQuery({
   args: { userId: v.id("users") },

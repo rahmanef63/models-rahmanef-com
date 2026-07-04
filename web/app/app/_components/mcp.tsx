@@ -9,6 +9,7 @@ export function McpCard() {
   const issue = useAction(api.mcpNode.issueMcpToken);
   const tokens = useQuery(api.mcp.listMcpTokens) as Tok[] | undefined;
   const revoke = useMutation(api.mcp.revokeMcpToken);
+  const revokeAll = useMutation(api.mcp.revokeAllMcpTokens);
   const [label, setLabel] = useState("");
   const [fresh, setFresh] = useState("");
   const [busy, setBusy] = useState(false);
@@ -31,7 +32,13 @@ export function McpCard() {
         </div>
       )}
       {tokens && tokens.length > 0 && (
-        <ul className="creds" style={{ marginTop: "1.2rem" }}>
+        <>
+          {tokens.filter((t) => !t.revoked).length > 1 && (
+            <div className="row" style={{ justifyContent: "flex-end", marginTop: "1rem", marginBottom: "-0.4rem" }}>
+              <button className="link danger" onClick={() => { if (confirm("Revoke ALL active MCP tokens? Every client using them stops working immediately.")) void revokeAll(); }}>revoke all</button>
+            </div>
+          )}
+          <ul className="creds" style={{ marginTop: "1.2rem" }}>
           {tokens.map((t) => (
             <li key={t.id}>
               <span className="name mono" style={{ fontSize: ".85rem", textDecoration: t.revoked ? "line-through" : "none" }}>{t.label}</span>
@@ -39,7 +46,8 @@ export function McpCard() {
               {t.revoked ? <span className="badge">revoked</span> : <button className="link danger" onClick={() => void revoke({ id: t.id as any })}>revoke</button>}
             </li>
           ))}
-        </ul>
+          </ul>
+        </>
       )}
       <details className="apikey">
         <summary style={{ cursor: "pointer" }} className="mono muted">Claude Code / Cursor config</summary>

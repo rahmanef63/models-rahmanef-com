@@ -18,7 +18,7 @@ Last updated: 2026-07-04 (validated against code; cost estimate + per-run durati
 | **AI Admin** — console (8 tabs) | scaffold-only | 🟡 providers/models/audit + content totals | ~40% |
 | **AI Studio** — generation canvas | scaffold-only | ⬜ not started | 0% |
 | **shared/agentic** — the tool kit | implemented (lib) | 🟡 AI-SDK tools + tool/skill registries | ~30% |
-| **Create Your MCP** — MCP server | partial (templates) | 🟡 **bearer + OAuth 2.1 + rate-limit live**; revoke-all next | ~75% |
+| **Create Your MCP** — MCP server | partial (templates) | 🟡 **bearer + OAuth 2.1 + rate-limit + revoke-all live**; more tools next | ~78% |
 
 ---
 
@@ -130,7 +130,7 @@ Last updated: 2026-07-04 (validated against code; cost estimate + per-run durati
 - ✅ **Hardened** (paranoid review caught pre-ship): app-wide `X-Frame-Options: DENY` + CSP `frame-ancestors 'none'` (anti-clickjacking) + consent shows the destination host & marks DCR names unverified (anti consent-phishing)
 - ⬜ More tools (`run_agent`, `list_models`, add/remove key)
 - ✅ Rate limiting / anti-abuse — fixed-window counters: open DCR 10/hr/IP, token exchange 30/min/IP, `/mcp` 240/min/IP + 120/min/token; 429 + `Retry-After`. IP taken from the trusted proxy hop (not the spoofable leftmost XFF); expired rows swept by a 6h cron. Convex-OCC, zero deps (`convex/rateLimit.ts`, `crons.ts`)
-- ⬜ Revoke-all tokens — **5c tail, next**
+- ✅ Revoke-all tokens — one-click panic button (revokes every active token you own) in the MCP tab
 
 ---
 
@@ -145,6 +145,6 @@ Last updated: 2026-07-04 (validated against code; cost estimate + per-run durati
 
 ## What's next (loop order)
 - ✅ **AI Admin console** — providers/models/audit + content totals
-- 🟡 **Create Your MCP** — bearer (5a) + OAuth 2.1 (5b) + rate-limit (5c) **live + ChatGPT-connectable**; revoke-all next
+- 🟡 **Create Your MCP** — bearer (5a) + OAuth 2.1 (5b) + rate-limit + revoke-all (5c) **live + ChatGPT-connectable**; more tools (run_agent / list_models) next
 6. **AI Studio** — generation canvas
 - backlog: chat Search mode, agent scheduling, public `/v1` router (🅿️), the 8-tab admin registries
