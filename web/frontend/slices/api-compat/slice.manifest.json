@@ -1,0 +1,15 @@
+{
+  "$schema": "../../../docs/slice.manifest.schema.json",
+  "name": "api-compat",
+  "version": "0.1.0",
+  "description": "Workspace-bound sk-rr API keys + /v1/chat/completions + /v1/models over callForUser.",
+  "category": "feature",
+  "stability": "alpha",
+  "deps": { "shared": [], "slices": ["workspaces", "byok"], "convexFeatures": [], "npm": {}, "env": [] },
+  "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
+  "permissions": ["authed-user", "api-key"],
+  "schemaTables": ["apiKeys"],
+  "compatibility": { "next": ">=16 <17", "react": "^19", "convex": "^1.16", "tailwind": "any", "auth": "@convex-dev/auth" },
+  "tags": ["ai", "openai-compatible", "gateway", "api-key", "v1", "convex"],
+  "notes": "Uses the /mcp proxy pattern (Next /v1/[...path] route → api.apiV1.handle) rather than the Convex httpRouter — no CONVEX_SITE_URL rewrite needed. API-key auth only, never session. v0.1 = non-streaming + pseudo-stream; real streaming + tool passthrough (2.6) + Anthropic /v1/messages (2.7) next."
+}

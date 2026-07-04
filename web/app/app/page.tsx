@@ -15,6 +15,7 @@ import { ConnectProviders, ConnectedCreds } from "@/features/byok";
 import { AgentsCard } from "./_components/agents-card";
 import { WorkbenchCard } from "./_components/workbench";
 import { WorkspaceProvider, WorkspaceSwitcher, MembersCard } from "@/features/workspaces";
+import { ApiKeysCard } from "@/features/api-compat";
 
 export default function AppPage() {
   const { isLoading, isAuthenticated } = useConvexAuth();
@@ -128,6 +129,7 @@ function Dashboard() {
     { id: "settings", label: "Settings" },
     { id: "members", label: "Members" },
     { id: "mcp", label: "MCP" },
+    { id: "api", label: "API" },
     ...(me?.isSuperAdmin ? [{ id: "admin", label: "Admin" }] : []),
   ];
 
@@ -179,6 +181,8 @@ function Dashboard() {
         {section === "members" && <MembersCard />}
 
         {section === "mcp" && <McpCard />}
+
+        {section === "api" && <ApiKeysCard />}
 
         {section === "admin" && me?.isSuperAdmin && <AdminCard />}
       </div>

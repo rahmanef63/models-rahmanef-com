@@ -2,6 +2,7 @@ import { defineSchema, defineTable } from "convex/server";
 import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { workspaceTables } from "./features/workspaces/tables";
+import { apiCompatTables } from "./features/apiCompat/tables";
 
 // authTables = users, authAccounts, authSessions, ... (from @convex-dev/auth).
 // workspaceTables = workspaces/memberships/invites (the tenant boundary — see features/workspaces).
@@ -9,6 +10,7 @@ import { workspaceTables } from "./features/workspaces/tables";
 export default defineSchema({
   ...authTables,
   ...workspaceTables,
+  ...apiCompatTables,
   // kind: "api_key" (ciphertext = the key) | "oauth" (ciphertext = JSON {access,refresh,expires,accountId})
   modelCreds: defineTable({
     userId: v.id("users"),

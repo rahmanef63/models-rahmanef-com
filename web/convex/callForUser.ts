@@ -28,7 +28,7 @@ export async function callForUser(
   modelRef: string,
   inputMessages: { role: string; content: string }[],
   agentOpts?: { system?: string; tools?: Record<string, any>; maxSteps?: number; temperature?: number },
-): Promise<{ text: string }> {
+): Promise<{ text: string; promptTokens: number; completionTokens: number }> {
     const i = modelRef.indexOf("/");
     if (i < 1 || i === modelRef.length - 1) throw new ConvexError({ code: "invalid_request", detail: 'model must be "provider/model"' } satisfies ChatErrorInfo);
     const provider = modelRef.slice(0, i);
@@ -124,5 +124,5 @@ export async function callForUser(
     }
 
     await logUsage("ok", promptTokens, completionTokens);
-    return { text };
+    return { text, promptTokens, completionTokens };
 }
