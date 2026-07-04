@@ -1,0 +1,21 @@
+{
+  "$schema": "https://resource.rahmanef.com/slice-schema.json",
+  "slug": "spend-caps",
+  "version": "0.1.0",
+  "category": "feature",
+  "kind": "feature",
+  "title": "Workspace spend caps",
+  "description": "Optional per-workspace monthly USD budget. checkSpendCap sums this month's workspaceUsageDaily estimated cost and, once the workspace's cap is reached, callForUser rejects new model calls (quota_exceeded). setSpendCap (admin) / getSpendStatus (viewer) drive a SpendCapCard bar. Reuses the existing workspaces.capUsdPerMonth field — no new table. Cost is an estimate, not a bill.",
+  "namespace": "@/features/spend-caps",
+  "convex": {
+    "tablesExport": null,
+    "schemaPath": "convex/schema.ts",
+    "rootPaths": ["convex/spendCaps.ts"]
+  },
+  "frontend": { "slicePath": "frontend/slices/spend-caps", "configExport": null },
+  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth"] },
+  "registers": [],
+  "license": "MIT",
+  "tags": ["ai", "billing", "cost", "budget", "quota", "workspace", "convex"],
+  "providers": []
+}

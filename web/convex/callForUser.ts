@@ -49,6 +49,13 @@ export async function callForUser(
     const logUsage = (status: string, promptTokens: number, completionTokens: number) =>
       ctx.runMutation(internal.usage.log, { userId, workspaceId, provider, model: modelRef, promptTokens, completionTokens, status });
 
+    // spend-caps (5.3): a workspace with a monthly USD budget blocks NEW calls once it's exceeded.
+    // Soft guardrail — a single in-flight call can cross the cap by its own cost. Personal (no ws) = no cap.
+    if (workspaceId) {
+      const cap = await ctx.runQuery(internal.spendCaps.checkSpendCap, { workspaceId });
+      if (cap.over) throw new ConvexError({ code: "quota_exceeded", detail: `Workspace monthly budget reached ($${cap.spentUsd.toFixed(2)} / $${cap.capUsd})` } satisfies ChatErrorInfo);
+    }
+
     // Everything below — including the credential/settings lookups — is inside ONE try so every
     // failure (not just the model call itself) gets classified into a structured ConvexError
     // instead of escaping as a plain Error (which Convex redacts to a bare "Server Error").
@@ -112,24 +119,41 @@ export async function callForUser(
         promptTokens = res.promptTokens;
         completionTokens = res.completionTokens;
       } else {
-        const apiKey = await decryptSecret(row.ciphertext);
-        const m = modelFor(provider, model, apiKey);
-        if (!m) throw new ConvexError({ code: "internal", detail: `Unknown provider "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
-        // explicit agentOpts.tools (from a saved agent) wins over the "agent mode" user setting;
-        // agent mode: give the model tools to inspect the user's own gateway (needs a tool-capable model)
+        // provider-pool (2.3): graceful ≤3-attempt failover over LIVE creds (personal +
+        // workspace-shared), skipping any in cooldown / marked dead. On a fallback-worthy error we
+        // cool the bad cred and try the next; a non-fallback error (400/404) aborts immediately.
+        // If the pool is empty we fall back to the resolveCred row. codex/claude OAuth are NOT pooled.
         const tools = agentOpts?.tools ?? (settings.agentMode ? await gatewayTools(ctx, userId) : undefined);
-        // system via the `system` param (NOT a message) — ai@7 rejects system-in-messages; use inputMessages (no system role)
-        const result = await generateText({
-          model: m,
+        const genBase = {
           ...(systemPrompt ? { system: systemPrompt } : {}),
           messages: inputMessages as any,
           ...(tools ? { tools, stopWhen: stepCountIs(agentOpts?.maxSteps ?? 5) } : {}),
           ...(agentOpts?.temperature != null ? { temperature: agentOpts.temperature } : {}),
-        });
-        text = result.text || "(no text)";
-        const u: any = result.usage ?? {};
-        promptTokens = u.inputTokens ?? u.promptTokens ?? 0;
-        completionTokens = u.outputTokens ?? u.completionTokens ?? 0;
+        };
+        const pool = await ctx.runQuery(internal.providerPool.pickCredentials, { userId, workspaceId, provider });
+        const candidates = pool.length ? pool : [{ credId: row._id, ciphertext: row.ciphertext }];
+        let lastErr: unknown, done = false;
+        for (const cred of candidates) {
+          const apiKey = await decryptSecret(cred.ciphertext);
+          const m = modelFor(provider, model, apiKey);
+          if (!m) throw new ConvexError({ code: "internal", detail: `Unknown provider "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
+          try {
+            const result = await generateText({ model: m, ...genBase });
+            text = result.text || "(no text)";
+            const u: any = result.usage ?? {};
+            promptTokens = u.inputTokens ?? u.promptTokens ?? 0;
+            completionTokens = u.outputTokens ?? u.completionTokens ?? 0;
+            await ctx.runMutation(internal.providerPool.markCredResult, { credId: cred.credId, ok: true });
+            done = true;
+            break;
+          } catch (err) {
+            lastErr = err;
+            const info = classifyError(err, provider);
+            const verdict = await ctx.runMutation(internal.providerPool.markCredResult, { credId: cred.credId, ok: false, code: info.code });
+            if (!verdict.retryable && !verdict.dead) throw err; // non-fallback-worthy → surface now
+          }
+        }
+        if (!done) throw lastErr; // every candidate exhausted → surface the last provider error
       }
     } catch (e) {
       await logUsage("error", 0, 0);

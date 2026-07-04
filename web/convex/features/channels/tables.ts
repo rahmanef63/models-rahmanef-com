@@ -15,6 +15,9 @@ export const channelTables = {
     slug: v.string(), // random url segment: <origin>/channels/<kind>/<slug> — LOOKUP ONLY, auth = platform secret
     secretCiphertext: v.string(), // AES-256-GCM JSON {botToken, secretToken} (crypto.ts)
     config: v.optional(v.any()), // per-kind extras (e.g. { model } fallback)
+    // access policy: who may spend the owner's tokens via this bot. 'open' = any inbound sender;
+    // 'allowlist' (default when unset — safe) = only channelIdentities flagged allowed (+ paired owner).
+    accessPolicy: v.optional(v.string()), // 'open' | 'allowlist'
     agentId: v.optional(v.id("agentDefs")), // bound agent; unset → config.model fallback
     enabled: v.optional(v.boolean()),
     lastInboundAt: v.optional(v.number()),
@@ -30,6 +33,8 @@ export const channelTables = {
     userId: v.optional(v.id("users")), // paired app user (optional; unset = runs as channel owner)
     threadId: v.optional(v.id("threads")), // the conversation thread for this sender
     displayName: v.optional(v.string()),
+    allowed: v.optional(v.boolean()), // allowlist policy: true = this sender may spend (owner-approved)
+    denyNotifiedAt: v.optional(v.number()), // one-time "ask the owner to add you" sent → don't repeat
     createdAt: v.number(),
   }).index("by_channel_external", ["channelId", "externalUserId"]),
 

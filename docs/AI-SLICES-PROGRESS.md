@@ -22,6 +22,37 @@ Last updated: 2026-07-04 (validated against code; cost estimate + per-run durati
 
 ---
 
+## Vertical-slice trio status (rr metadata)
+
+> Audit 2026-07-04: every dir under `web/frontend/slices/` was checked for the mandatory rr
+> metadata trio — `slice.json` + `slice.contract.ts` + `slice.manifest.json` (mirror of
+> `frontend/slices/usage-rollups/`). **All 10 slices ship a complete, accurate trio.** No trio
+> was missing this pass. Each slice's `convex.tablesExport` maps to a live `convex/features/<camel>/`
+> table export (byok is the exception — extracted in-place, its tables live directly in `schema.ts`
+> and the feature dir re-exports crypto helpers only, by design).
+
+| Slice | shipped? | trio? | convex feature dir | tables export | catalog-ready? | notes |
+|---|---|---|---|---|---|---|
+| **byok** | ✅ | ✅ | `byok/` (helpers barrel) | `modelCreds` | 🟡 | extracted in-place from monolith; tables in `schema.ts` not a `tables.ts`; needs `MODELS_ENC_KEY` + ai-sdk provider peers before lift |
+| **workspaces** | ✅ | ✅ | `workspaces/` | `workspaces,memberships,invites` | ✅ | authz core (`requireWorkspaceRole`); peer for most other slices |
+| **api-compat** | ✅ | ✅ | `apiCompat/` | `apiKeys` | ✅ | `/v1` gateway; non-streaming + pseudo-stream in v0.1 |
+| **memory** | ✅ | ✅ | `memory/` | `memories` | ✅ | v0.2.0; registers registry + cron |
+| **combos** | ✅ | ✅ | `combos/` | `combos` | ✅ | resolved in callForUser; peers workspaces + byok |
+| **mcp-client** | ✅ | ✅ | `mcpClient/` | `mcpServers` | ✅ | needs `MODELS_ENC_KEY` + `@modelcontextprotocol/sdk` |
+| **audit-log** | ✅ | ✅ | `auditLog/` | `auditEvents` | ✅ | append-only + 90-day prune cron; peers workspaces |
+| **channels** | ✅ | ✅ | `channels/` | `channels` | ✅ | Telegram/Slack/WhatsApp/Discord inbound webhooks |
+| **scheduled-agents** | ✅ | ✅ | `scheduledAgents/` | `agentSchedules` | ✅ | minute-tick cron; peers workspaces + byok |
+| **usage-rollups** | ✅ | ✅ | `usageRollups/` | `workspaceUsageDaily` | ✅ | reference trio shape; reads app-provided `usage` table |
+
+**rr-catalog-ready:** all 10 trios are structurally complete and validate against the usage-rollups
+shape. Each declares slug/title/description, `convex.tablesExport` + `rootPaths`, frontend
+`slicePath` + `configExport`, deps/peers, and a `bidir.generalization` block in the contract. Lift
+blockers before pushing UP to rr: sanitize `forbiddenTerms` (`models-rahmanef`, `rahmanef`) per
+contract, and `byok` still needs its tables promoted to a `convex/features/byok/tables.ts` export
+to match the other nine (currently schema-inline).
+
+---
+
 ## AI Router — Backend Provider Proxy
 > rr routes 3 tiers (nano/mid/flagship) through **one shared OpenRouter key**. **We went further**: real per-user BYOK across 22 providers.
 

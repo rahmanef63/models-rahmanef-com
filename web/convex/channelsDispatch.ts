@@ -10,6 +10,10 @@ import { SKILLS_REGISTRY } from "./skillsRegistry";
 const NOT_CONFIGURED =
   "This channel isn't configured yet — bind an agent or set a model in the workspace admin.";
 
+// one-time hint for a sender the allowlist doesn't cover — includes their id so the owner can add it.
+export const notAuthorizedText = (externalUserId: string) =>
+  `You're not authorized to use this bot yet. Ask the owner to add you — your id is: ${externalUserId}`;
+
 // Returns { configured:false } when nothing is bound (caller sends the hint but skips the out-log),
 // else { configured:true, reply } with the model text (or a friendly error string on model failure).
 export async function computeReply(

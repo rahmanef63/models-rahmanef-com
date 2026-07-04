@@ -1,0 +1,15 @@
+{
+  "$schema": "../../../docs/slice.manifest.schema.json",
+  "name": "spend-caps",
+  "version": "0.1.0",
+  "description": "Optional per-workspace monthly USD budget. checkSpendCap (internal) gates callForUser — once this month's estimated workspaceUsageDaily cost >= the workspace cap, new model calls throw quota_exceeded. setSpendCap (admin) / getSpendStatus (viewer) power a SpendCapCard bar.",
+  "category": "feature",
+  "stability": "alpha",
+  "deps": { "shared": ["convex/_shared/auth"], "slices": ["workspaces", "usage-rollups"], "convexFeatures": [], "npm": {}, "env": [] },
+  "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
+  "permissions": ["workspace-viewer", "workspace-admin"],
+  "schemaTables": [],
+  "compatibility": { "next": ">=16 <17", "react": "^19", "convex": "^1.16", "tailwind": "any", "auth": "@convex-dev/auth" },
+  "tags": ["ai", "billing", "cost", "budget", "quota", "workspace", "convex"],
+  "notes": "Reuses the EXISTING workspaces.capUsdPerMonth field (added in Phase 5) as the cap — this slice adds NO new table/column. Reads workspaceUsageDaily (by_ws_day) provided by the usage-rollups slice, so that slice + its rollupDay cron must be installed for spend to accumulate. Consumer must: wire the callForUser cap-check (see callForUserProposal in the build output), and add a nav entry rendering <SpendCapCard/> (or fold it beside <WorkspaceUsageCard/>). Enforcement is workspace-scoped only — undefined workspaceId (personal creds / MCP path) is NOT budgeted. Cost is an ESTIMATE from the rate table, not a real bill; the cap is a soft guardrail (checked before the call, so a single call can cross it)."
+}

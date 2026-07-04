@@ -9,7 +9,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { decryptSecret } from "./crypto";
 import { verifyEd25519Hex } from "./channelsCrypto";
-import { computeReply } from "./channelsDispatch";
+import { computeReply, notAuthorizedText } from "./channelsDispatch";
 
 const MAX = 2000; // Discord message content cap
 const say = (content: string) => ({ type: 4, data: { content: content.slice(0, MAX) } });
@@ -47,6 +47,10 @@ export const ingest = action({
     const dedupeKey = `discord:${ch._id}:${String(body.id ?? body.token)}`;
     const res = await ctx.runMutation(internal.channelsIngest._ingest, { channelId: ch._id, dedupeKey, externalUserId: msg.externalUserId, chatId: msg.externalUserId, text: msg.text, senderName: msg.senderName });
     if (!("threadId" in res) || !res.threadId) return { json: say("(already handled)") };
+    // access gate: allowlist bot only spends for approved senders. Denied → reply inline (a slash
+    // command always gets one response) with the how-to-get-added hint, but NO callForUser spend.
+    const access = await ctx.runMutation(internal.channelsAccess._checkAccess, { channelId: ch._id, externalUserId: msg.externalUserId });
+    if (!access.allowed) return { json: say(notAuthorizedText(msg.externalUserId)) };
     // Discord wants the answer in this response, so run the model INLINE (no scheduler defer here).
     const cx = await ctx.runQuery(internal.channelsIngest._getDispatchContext, { channelId: ch._id, threadId: res.threadId });
     if (!cx) return { json: say("(no context)") };

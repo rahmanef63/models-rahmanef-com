@@ -23,6 +23,7 @@ import { ChannelsCard } from "@/features/channels";
 import { SchedulesCard } from "@/features/scheduled-agents";
 import { WorkspaceUsageCard } from "@/features/usage-rollups";
 import { AuditLogCard } from "@/features/audit-log";
+import { SpendCapCard } from "@/features/spend-caps";
 
 export default function AppPage() {
   const { isLoading, isAuthenticated } = useConvexAuth();
@@ -144,6 +145,7 @@ function Dashboard() {
     { id: "channels", label: "Channels" },
     { id: "schedules", label: "Schedules" },
     { id: "workspace-usage", label: "Billing" },
+    { id: "budget", label: "Budget" },
     { id: "audit", label: "Audit" },
     ...(me?.isSuperAdmin ? [{ id: "admin", label: "Admin" }] : []),
   ];
@@ -210,6 +212,8 @@ function Dashboard() {
         {section === "schedules" && <SchedulesCard />}
 
         {section === "workspace-usage" && <WorkspaceUsageCard />}
+
+        {section === "budget" && <SpendCapCard />}
 
         {section === "audit" && <AuditLogCard />}
 

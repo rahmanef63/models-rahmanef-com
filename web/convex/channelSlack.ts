@@ -8,7 +8,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { decryptSecret } from "./crypto";
 import { hmacSha256Hex, timingSafeEqual } from "./channelsCrypto";
-import { computeReply } from "./channelsDispatch";
+import { computeReply, notAuthorizedText } from "./channelsDispatch";
 
 const CHUNK = 3900;
 const MAX_SKEW = 5 * 60; // seconds
@@ -51,7 +51,7 @@ export const ingest = action({
   handler: async (ctx, a): Promise<{ ok: boolean; challenge?: string }> => {
     const ch = await ctx.runQuery(internal.channelsCore._resolveChannelBySlug, { slug: a.slug });
     if (!ch || ch.enabled === false || ch.kind !== "slack") return { ok: true }; // ACK; don't leak existence
-    const { signingSecret } = JSON.parse(await decryptSecret(ch.secretCiphertext));
+    const { signingSecret, botToken } = JSON.parse(await decryptSecret(ch.secretCiphertext));
     if (!(await verifySlack(signingSecret, a.signature, a.timestamp, a.rawBody))) return { ok: true }; // bad sig → drop
     let body: any;
     try { body = JSON.parse(a.rawBody); } catch { return { ok: true }; }
@@ -65,6 +65,12 @@ export const ingest = action({
     const dedupeKey = `slack:${ch._id}:${msg.eventId}`;
     const res = await ctx.runMutation(internal.channelsIngest._ingest, { channelId: ch._id, dedupeKey, externalUserId: msg.externalUserId, chatId: msg.channel, text: msg.text, senderName: msg.senderName });
     if (!("threadId" in res) || !res.threadId) return { ok: true }; // duplicate or skipped
+    // access gate: allowlist bot only spends for approved senders. Denied → no dispatch; hint once.
+    const access = await ctx.runMutation(internal.channelsAccess._checkAccess, { channelId: ch._id, externalUserId: msg.externalUserId });
+    if (!access.allowed) {
+      if (access.firstDeny) await sendMessage(botToken, msg.channel, notAuthorizedText(msg.externalUserId), msg.threadTs).catch(() => {});
+      return { ok: true };
+    }
     await ctx.scheduler.runAfter(0, internal.channelSlack.dispatch, { channelId: ch._id, threadId: res.threadId, channel: msg.channel, threadTs: msg.threadTs });
     return { ok: true };
   },

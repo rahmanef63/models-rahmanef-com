@@ -8,7 +8,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { decryptSecret } from "./crypto";
 import { hmacSha256Hex, timingSafeEqual } from "./channelsCrypto";
-import { computeReply } from "./channelsDispatch";
+import { computeReply, notAuthorizedText } from "./channelsDispatch";
 
 const GRAPH = "https://graph.facebook.com/v21.0";
 const CHUNK = 4000;
@@ -67,7 +67,7 @@ export const ingest = action({
   handler: async (ctx, a): Promise<{ ok: boolean }> => {
     const ch = await ctx.runQuery(internal.channelsCore._resolveChannelBySlug, { slug: a.slug });
     if (!ch || ch.enabled === false || ch.kind !== "whatsapp") return { ok: true }; // ACK; don't leak existence
-    const { appSecret } = JSON.parse(await decryptSecret(ch.secretCiphertext));
+    const { appSecret, phoneNumberId, accessToken } = JSON.parse(await decryptSecret(ch.secretCiphertext));
     if (!(await verifyWhatsapp(appSecret, a.signature, a.rawBody))) return { ok: true }; // bad sig → drop
     let body: any;
     try { body = JSON.parse(a.rawBody); } catch { return { ok: true }; }
@@ -80,6 +80,12 @@ export const ingest = action({
     const dedupeKey = `whatsapp:${ch._id}:${msg.messageId}`;
     const res = await ctx.runMutation(internal.channelsIngest._ingest, { channelId: ch._id, dedupeKey, externalUserId: msg.externalUserId, chatId: msg.from, text: msg.text, senderName: msg.senderName });
     if (!("threadId" in res) || !res.threadId) return { ok: true }; // duplicate or skipped
+    // access gate: allowlist bot only spends for approved senders. Denied → no dispatch; hint once.
+    const access = await ctx.runMutation(internal.channelsAccess._checkAccess, { channelId: ch._id, externalUserId: msg.externalUserId });
+    if (!access.allowed) {
+      if (access.firstDeny) await sendMessage(phoneNumberId, accessToken, msg.from, notAuthorizedText(msg.externalUserId)).catch(() => {});
+      return { ok: true };
+    }
     await ctx.scheduler.runAfter(0, internal.channelWhatsapp.dispatch, { channelId: ch._id, threadId: res.threadId, to: msg.from });
     return { ok: true };
   },

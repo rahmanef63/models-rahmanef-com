@@ -9,6 +9,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
 import { CHANNEL_KINDS } from "./channel-kinds";
+import { ChannelAccess } from "./channel-access";
 
 type Channel = { id: string; kind: string; name: string; slug: string; agentId: string | null; enabled: boolean; lastInboundAt: number | null; lastError: string | null; createdAt: number };
 type Agent = { _id: string; name: string; model: string };
@@ -100,6 +101,7 @@ export function ChannelsCard() {
                 <button className="link" onClick={() => void setEnabled({ id: c.id as never, enabled: !c.enabled })}>{c.enabled ? "disable" : "enable"}</button>
                 <button className="link danger" onClick={() => { if (confirm(`Delete channel "${c.name}"?`)) void del({ id: c.id as never }); }}>delete</button>
               </span>
+              <ChannelAccess channelId={c.id} />
             </li>
           ))}
         </ul>

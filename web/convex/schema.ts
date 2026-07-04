@@ -35,6 +35,14 @@ export default defineSchema({
     updatedAt: v.number(),
     expires: v.optional(v.number()), // plaintext token expiry (oauth) — lets the lease check staleness without decrypting
     refreshLeaseUntil: v.optional(v.number()), // single-flight refresh lease
+    // provider-pool (2.3) — graceful multi-credential failover. All additive/optional; existing rows
+    // read as a single-cred pool (undefined priority = default, undefined status = live).
+    label: v.optional(v.string()),          // human tag for this key in the multi-key UI
+    priority: v.optional(v.number()),       // pool order, asc (default 100); lower tried first
+    status: v.optional(v.string()),         // 'ok' | 'exhausted' (cooling) | 'dead' (excluded until re-auth)
+    cooldownUntil: v.optional(v.number()),  // epoch ms; while now < this the cred is skipped
+    backoffLevel: v.optional(v.number()),   // consecutive-failure count → exponential 429 cooldown
+    lastErrorCode: v.optional(v.string()),  // last classifyError() code (429 → rate_limited, etc.)
     // last connectivity test result (a real 1-token call through the SAME path chat uses) —
     // lets the Providers list show a health badge instead of only failing deep in a chat.
     lastCheckedAt: v.optional(v.number()),

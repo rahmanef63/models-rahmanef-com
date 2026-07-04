@@ -10,7 +10,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { decryptSecret } from "./crypto";
 import { requireWorkspaceRoleAction } from "./_shared/auth";
-import { computeReply } from "./channelsDispatch";
+import { computeReply, notAuthorizedText } from "./channelsDispatch";
 
 const API = "https://api.telegram.org/bot";
 const CHUNK = 4096;
@@ -68,7 +68,7 @@ export const ingest = action({
   handler: async (ctx, a): Promise<{ ok: boolean }> => {
     const ch = await ctx.runQuery(internal.channelsCore._resolveChannelBySlug, { slug: a.slug });
     if (!ch || ch.enabled === false || ch.kind !== "telegram") return { ok: true }; // ACK; don't leak existence
-    const { secretToken } = JSON.parse(await decryptSecret(ch.secretCiphertext));
+    const { secretToken, botToken } = JSON.parse(await decryptSecret(ch.secretCiphertext));
     if (!verifyAndParse(a.secretToken, secretToken)) return { ok: true }; // bad secret → drop, still ACK
     const msg = extractMessage(a.update);
     if (!msg) return { ok: true }; // non-text / non-message update — nothing to do
@@ -82,6 +82,13 @@ export const ingest = action({
       channelId: ch._id, dedupeKey, externalUserId: msg.externalUserId, chatId: msg.chatId, text: msg.text, senderName: msg.senderName,
     });
     if (!("threadId" in res) || !res.threadId) return { ok: true }; // duplicate or skipped
+    // access gate: an allowlist bot only spends for approved senders. Denied → no dispatch (no spend);
+    // hint them once so they know how to get added, then stay silent.
+    const access = await ctx.runMutation(internal.channelsAccess._checkAccess, { channelId: ch._id, externalUserId: msg.externalUserId });
+    if (!access.allowed) {
+      if (access.firstDeny) await sendMessage(botToken, msg.chatId, notAuthorizedText(msg.externalUserId)).catch(() => {});
+      return { ok: true };
+    }
     await ctx.scheduler.runAfter(0, internal.channelTelegram.dispatch, { channelId: ch._id, threadId: res.threadId, chatId: msg.chatId });
     return { ok: true };
   },

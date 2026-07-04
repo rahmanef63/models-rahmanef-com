@@ -83,7 +83,7 @@ export const createChannel = mutation({
   },
 });
 
-async function requireChannelAdmin(ctx: any, id: any) {
+export async function requireChannelAdmin(ctx: any, id: any) {
   const row = await ctx.db.get(id);
   if (!row) throw bad("Channel not found.");
   await requireWorkspaceRole(ctx, row.workspaceId, "admin");

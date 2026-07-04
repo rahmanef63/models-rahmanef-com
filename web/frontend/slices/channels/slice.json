@@ -10,7 +10,7 @@
   "convex": {
     "tablesExport": "channels",
     "schemaPath": "convex/schema.ts",
-    "rootPaths": ["convex/channelsCore.ts", "convex/channelsIngest.ts", "convex/channelsDispatch.ts", "convex/channelsCrypto.ts", "convex/channelTelegram.ts", "convex/channelSlack.ts", "convex/channelWhatsapp.ts", "convex/channelDiscord.ts", "convex/features/channels"]
+    "rootPaths": ["convex/channelsCore.ts", "convex/channelsAccess.ts", "convex/channelsIngest.ts", "convex/channelsDispatch.ts", "convex/channelsCrypto.ts", "convex/channelTelegram.ts", "convex/channelSlack.ts", "convex/channelWhatsapp.ts", "convex/channelDiscord.ts", "convex/features/channels"]
   },
   "frontend": { "slicePath": "frontend/slices/channels", "configExport": "channelsConfig" },
   "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth"] },
