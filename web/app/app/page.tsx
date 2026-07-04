@@ -11,8 +11,7 @@ import { UsageCard } from "./_components/usage";
 import { TokenSaverCard } from "./_components/settings";
 import { McpCard } from "./_components/mcp";
 import { AdminCard } from "./_components/admin";
-import { ConnectedCreds } from "./_components/providers";
-import { ConnectProviders } from "./_components/connect-providers";
+import { ConnectProviders, ConnectedCreds } from "@/features/byok";
 import { AgentsCard } from "./_components/agents-card";
 import { WorkbenchCard } from "./_components/workbench";
 

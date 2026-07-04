@@ -1,0 +1,18 @@
+{
+  "$schema": "https://resource.rahmanef.com/schemas/kitab-consumer.json",
+  "kitabSlug": "byok",
+  "kitabVersion": "0.1.0",
+  "consumerVersion": "0.1.0",
+  "syncDirection": "up-only",
+  "generalization": {
+    "status": "consumer-locked",
+    "auditedAt": "2026-07-04",
+    "blockers": [
+      "UI imports app-owned shared.tsx (PROVIDER_LABEL/ErrorLine/FRIENDLY) — promote to shared/ or pass as props",
+      "connect-providers.tsx hardwires oauth.ts device-code/PKCE actions — extract the oauth flows as a peer slice or inject as props",
+      "modelCreds table + api.credentials.* live in convex root, not convex/features/byok — physical relocation deferred to avoid churn"
+    ]
+  },
+  "lastPullAt": null,
+  "lastPushAt": null
+}

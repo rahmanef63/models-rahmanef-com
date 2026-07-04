@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { PROVIDER_LABEL, SUPPORTED, FRIENDLY, ErrorLine, type Cred, type Catalog } from "./shared";
+import { PROVIDER_LABEL, SUPPORTED, FRIENDLY, ErrorLine, type Cred, type Catalog } from "@/app/app/_components/shared";
 
 // lowest cost.input CHAT-capable model.dev knows for a provider — used as the throwaway 1-token
 // connectivity test, and as the default when a provider has no catalog entry at all (5 of 22

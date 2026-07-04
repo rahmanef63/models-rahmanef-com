@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { SUPPORTED, type Catalog } from "./shared";
+import { SUPPORTED, type Catalog } from "@/app/app/_components/shared";
 import { ApiKeyForm } from "./providers";
 
 // Owns the three OAuth connect flows (OpenAI Codex device-code, Claude PKCE manual-paste,

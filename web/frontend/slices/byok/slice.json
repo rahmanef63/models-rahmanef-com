@@ -1,0 +1,26 @@
+{
+  "$schema": "https://resource.rahmanef.com/slice-schema.json",
+  "slug": "byok",
+  "version": "0.1.0",
+  "category": "feature",
+  "kind": "feature",
+  "title": "BYOK Provider Registry",
+  "description": "Bring-your-own-key credential vault + provider-connection registry. Owns modelCreds (AES-256-GCM at rest), per-user credential CRUD, the OpenAI-compatible provider map (modelFor), and the Providers UI (connect OAuth / paste key / 1-token connectivity test). First rr vertical slice — extracted IN PLACE from the models-rahmanef-com monolith.",
+  "namespace": "@/features/byok",
+  "convex": {
+    "tablesExport": "modelCreds",
+    "schemaPath": "convex/schema.ts",
+    "rootPaths": ["convex/credentials.ts", "convex/crypto.ts", "convex/chatProviders.ts", "convex/features/byok"]
+  },
+  "frontend": { "slicePath": "frontend/slices/byok", "configExport": "byokConfig" },
+  "deps": {
+    "npm": ["@ai-sdk/openai@^4", "@ai-sdk/anthropic@^4", "@ai-sdk/google@^4", "@openrouter/ai-sdk-provider@^2"],
+    "shadcn": [],
+    "env": ["MODELS_ENC_KEY"],
+    "peers": ["@convex-dev/auth"]
+  },
+  "registers": ["registry"],
+  "license": "MIT",
+  "tags": ["ai", "byok", "credentials", "providers", "encryption", "convex"],
+  "providers": []
+}

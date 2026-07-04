@@ -23,6 +23,7 @@ import type * as codexLib from "../codexLib.js";
 import type * as credentials from "../credentials.js";
 import type * as crons from "../crons.js";
 import type * as crypto from "../crypto.js";
+import type * as features_byok_index from "../features/byok/index.js";
 import type * as http from "../http.js";
 import type * as mcp from "../mcp.js";
 import type * as mcpNode from "../mcpNode.js";
@@ -58,6 +59,7 @@ declare const fullApi: ApiFromModules<{
   credentials: typeof credentials;
   crons: typeof crons;
   crypto: typeof crypto;
+  "features/byok/index": typeof features_byok_index;
   http: typeof http;
   mcp: typeof mcp;
   mcpNode: typeof mcpNode;
