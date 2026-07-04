@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useWorkspace } from "@/features/workspaces";
 
 type Tok = { id: string; label: string; createdAt: number; lastUsedAt: number | null; revoked: boolean };
 
@@ -10,6 +11,7 @@ export function McpCard() {
   const tokens = useQuery(api.mcp.listMcpTokens) as Tok[] | undefined;
   const revoke = useMutation(api.mcp.revokeMcpToken);
   const revokeAll = useMutation(api.mcp.revokeAllMcpTokens);
+  const { workspaceId } = useWorkspace();
   const [label, setLabel] = useState("");
   const [fresh, setFresh] = useState("");
   const [busy, setBusy] = useState(false);
@@ -21,7 +23,7 @@ export function McpCard() {
       <div className="mcp-endpoint mono">{endpoint}</div>
       <div className="row" style={{ marginTop: "1rem" }}>
         <input placeholder="token label (e.g. my-laptop)" value={label} onChange={(e) => setLabel(e.target.value)} />
-        <button className="btn accent" disabled={busy} onClick={async () => { setBusy(true); setFresh(""); try { const { token } = await issue({ label: label || "token" }); setFresh(token); setLabel(""); } finally { setBusy(false); } }}>
+        <button className="btn accent" disabled={busy} onClick={async () => { setBusy(true); setFresh(""); try { const { token } = await issue({ label: label || "token", workspaceId: (workspaceId ?? undefined) as any }); setFresh(token); setLabel(""); } finally { setBusy(false); } }}>
           {busy ? "…" : "Generate token"}
         </button>
       </div>

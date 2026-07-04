@@ -4,7 +4,7 @@
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
-import { requireUser } from "./_shared/auth";
+import { requireUser, resolveWorkspaceAction } from "./_shared/auth";
 import { TOOL_REGISTRY } from "./toolRegistry";
 import { TOOL_HANDLERS } from "./toolHandlers";
 
@@ -18,11 +18,12 @@ function selfHost(): string {
 const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 
 export const issueMcpToken = action({
-  args: { label: v.string() },
+  args: { label: v.string(), workspaceId: v.optional(v.id("workspaces")) },
   handler: async (ctx, a): Promise<{ token: string }> => {
     const userId = await requireUser(ctx);
+    const workspaceId = await resolveWorkspaceAction(ctx, userId, a.workspaceId, "member"); // the bearer acts in this workspace
     const raw = "mcp_" + b64url(crypto.getRandomValues(new Uint8Array(32)));
-    await ctx.runMutation(internal.mcp._storeToken, { userId, tokenHash: await sha256hex(raw), label: a.label || "token" });
+    await ctx.runMutation(internal.mcp._storeToken, { userId, workspaceId, tokenHash: await sha256hex(raw), label: a.label || "token" });
     return { token: raw }; // shown to the user exactly once
   },
 });
@@ -51,6 +52,16 @@ export const rpc = action({
     if (!row) return fail(-32001, "unauthorized — invalid or revoked MCP token");
     const userId = row.userId;
 
+    // bind the call to the token's workspace; re-check membership EVERY call so removing a member
+    // instantly kills their live bearer. legacy tokens (no workspaceId) act in the owner's personal ws.
+    let workspaceId = row.workspaceId;
+    if (workspaceId) {
+      const m = await ctx.runQuery(internal.workspaces.checkMembership, { userId, workspaceId });
+      if (!m) return fail(-32001, "this token's workspace access was revoked");
+    } else {
+      workspaceId = await ctx.runMutation(internal.workspaces._ensurePersonalFor, { userId });
+    }
+
     const rl = await ctx.runMutation(internal.rateLimit.hit, { key: `mcp:${row._id}`, max: 120, windowMs: 60_000 }); // 120 calls / min / token
     if (!rl.ok) return fail(-32029, `rate limited — retry in ${rl.retryAfter}s`);
 
@@ -72,7 +83,7 @@ export const rpc = action({
           if (!entry) return fail(-32602, `unknown tool: ${name}`);
           const required = ((entry.inputSchema as any)?.required ?? []) as string[];
           for (const k of required) if (args[k] == null) return fail(-32602, `${name} needs { ${required.join(", ")} }`);
-          const result = await TOOL_HANDLERS[entry.id](ctx, userId, args);
+          const result = await TOOL_HANDLERS[entry.id](ctx, userId, args, workspaceId);
           return ok(asText(typeof result === "string" ? result : JSON.stringify(result)));
         } catch (e: any) {
           return ok({ content: [{ type: "text", text: "error: " + String(e?.message ?? e).slice(0, 400) }], isError: true });

@@ -1,0 +1,15 @@
+{
+  "$schema": "../../../docs/slice.manifest.schema.json",
+  "name": "workspaces",
+  "version": "0.1.0",
+  "description": "The tenant boundary (org/team/individual): workspaces/memberships/invites + RBAC + provider WorkspaceProvider/switcher/Members + /invite accept.",
+  "category": "feature",
+  "stability": "alpha",
+  "deps": { "shared": [], "slices": [], "convexFeatures": [], "npm": {}, "env": [] },
+  "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
+  "permissions": ["authed-user"],
+  "schemaTables": ["workspaces", "memberships", "invites"],
+  "compatibility": { "next": ">=16 <17", "react": "^19", "convex": "^1.16", "tailwind": "any", "auth": "@convex-dev/auth" },
+  "tags": ["workspace", "multi-tenant", "rbac", "team", "org", "invites", "convex"],
+  "notes": "Convex fns (workspaces.ts, workspaceInvites.ts) declared in-place via slice.json rootPaths — not moved, to keep api.workspaces.* / internal.workspaces.* stable. requireWorkspaceRole lives in convex/_shared/auth.ts (shared authz), not the slice, so all app code uses one helper. Consumer-locked: Members UI copy + switcher shell classes are app-specific; generalize before an UP push."
+}

@@ -8,7 +8,8 @@ import { internal } from "./_generated/api";
 import { fetchModelsCatalog } from "./chatProviders";
 import { callForUser } from "./callForUser";
 
-export type ToolHandler = (ctx: any, userId: any, args: any) => Promise<unknown>;
+// workspaceId (4th arg) is only used by the MCP `chat` tool (the sole spend tool); read-only tools ignore it.
+export type ToolHandler = (ctx: any, userId: any, args: any, workspaceId?: any) => Promise<unknown>;
 
 export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   list_my_providers: (ctx, userId) => ctx.runQuery(internal.credentials.providersForUser, { userId }),
@@ -25,8 +26,8 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
     const defs = await ctx.runQuery(internal.agentDefs.listForUser, { userId });
     return defs.map((d: any) => ({ name: d.name, model: d.model, tools: d.tools.length, skills: d.skills?.length ?? 0 }));
   },
-  chat: async (ctx, userId, args) => {
-    const r = await callForUser(ctx, userId, undefined, String(args.model), [{ role: "user", content: String(args.prompt) }]); // personal creds; MCP workspace-binding is 1.9
+  chat: async (ctx, userId, args, workspaceId) => {
+    const r = await callForUser(ctx, userId, workspaceId, String(args.model), [{ role: "user", content: String(args.prompt) }]); // token-bound workspace creds
     return r.text; // string → MCP asText(); chat is MCP-only, so no agent path hits this
   },
 };
