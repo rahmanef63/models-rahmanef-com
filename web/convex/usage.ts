@@ -1,5 +1,5 @@
 // Usage stats — per-user (self) + global (super-admin). Reactive: the dashboard updates live.
-import { internalMutation, query } from "./_generated/server";
+import { internalMutation, internalQuery, query } from "./_generated/server";
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireAdmin } from "./_shared/auth";
@@ -45,6 +45,16 @@ export const myUsage = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return null;
     const rows = await ctx.db.query("usage").withIndex("by_user_at", (q) => q.eq("userId", userId)).order("desc").take(500);
+    return aggregate(rows as Row[]);
+  },
+});
+
+// explicit-userId sibling of myUsage — feeds the shared get_my_usage tool (agent + MCP). Same
+// aggregate shape; take(500) bound matches myUsage. userId is pre-authorized by the caller.
+export const usageForUser = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, a) => {
+    const rows = await ctx.db.query("usage").withIndex("by_user_at", (q) => q.eq("userId", a.userId)).order("desc").take(500);
     return aggregate(rows as Row[]);
   },
 });

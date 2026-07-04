@@ -8,24 +8,33 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUser } from "./_shared/auth";
 import { encryptSecret } from "./crypto";
 
+// never the ciphertext — last-check fields drive the health badge in the Providers list
+const mapCred = (r: any) => ({
+  provider: r.provider,
+  kind: r.kind ?? "api_key",
+  lastCheckedAt: r.lastCheckedAt,
+  lastCheckedOk: r.lastCheckedOk,
+  lastCheckedCode: r.lastCheckedCode,
+  lastCheckedDetail: r.lastCheckedDetail,
+});
+
 export const listConfiguredProviders = query({
   args: {},
   handler: async (ctx) => {
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
-    const rows = await ctx.db
-      .query("modelCreds")
-      .withIndex("by_user", (q) => q.eq("userId", userId))
-      .collect();
-    // never the ciphertext — last-check fields drive the health badge in the Providers list
-    return rows.map((r) => ({
-      provider: r.provider,
-      kind: r.kind ?? "api_key",
-      lastCheckedAt: r.lastCheckedAt,
-      lastCheckedOk: r.lastCheckedOk,
-      lastCheckedCode: r.lastCheckedCode,
-      lastCheckedDetail: r.lastCheckedDetail,
-    }));
+    const rows = await ctx.db.query("modelCreds").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
+    return rows.map(mapCred);
+  },
+});
+
+// explicit-userId sibling of listConfiguredProviders — feeds the shared list_my_providers tool
+// (agent + MCP). Same rich shape; never the ciphertext. userId is pre-authorized by the caller.
+export const providersForUser = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, a) => {
+    const rows = await ctx.db.query("modelCreds").withIndex("by_user", (q) => q.eq("userId", a.userId)).collect();
+    return rows.map(mapCred);
   },
 });
 

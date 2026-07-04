@@ -99,7 +99,7 @@ export async function callForUser(
         if (!m) throw new ConvexError({ code: "internal", detail: `Unknown provider "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
         // explicit agentOpts.tools (from a saved agent) wins over the "agent mode" user setting;
         // agent mode: give the model tools to inspect the user's own gateway (needs a tool-capable model)
-        const tools = agentOpts?.tools ?? (settings.agentMode ? gatewayTools(ctx) : undefined);
+        const tools = agentOpts?.tools ?? (settings.agentMode ? gatewayTools(ctx, userId) : undefined);
         // system via the `system` param (NOT a message) — ai@7 rejects system-in-messages; use inputMessages (no system role)
         const result = await generateText({
           model: m,

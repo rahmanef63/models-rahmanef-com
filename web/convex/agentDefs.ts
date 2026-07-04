@@ -5,7 +5,7 @@ import { query, mutation, internalQuery } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUser } from "./_shared/auth";
-import { TOOL_REGISTRY, TOOL_IDS } from "./toolRegistry";
+import { AGENT_TOOLS, AGENT_TOOL_IDS } from "./toolRegistry";
 import { SKILLS_REGISTRY, SKILL_IDS } from "./skillsRegistry";
 
 const MAX_STEPS_MIN = 1;
@@ -34,7 +34,7 @@ function validateModel(model: string): string {
   return trimmed;
 }
 function validateTools(tools: string[]): string[] {
-  const bad = tools.filter((t) => !TOOL_IDS.includes(t));
+  const bad = tools.filter((t) => !AGENT_TOOL_IDS.includes(t));
   if (bad.length) throw new ConvexError({ code: "invalid_request", detail: `Unknown tool(s): ${bad.join(", ")}` });
   return [...new Set(tools)];
 }
@@ -46,7 +46,8 @@ function validateSkills(skills: string[]): string[] {
 
 export const listToolRegistry = query({
   args: {},
-  handler: () => TOOL_REGISTRY,
+  // agent-surface tools only (never `chat`), in the {id,label,description} shape the Agents UI reads.
+  handler: () => AGENT_TOOLS.map(({ id, label, description }) => ({ id, label, description })),
 });
 
 export const listSkillsRegistry = query({
@@ -139,4 +140,11 @@ export const getOwned = internalQuery({
     if (!row || row.userId !== a.userId) return null;
     return row;
   },
+});
+
+// explicit-userId sibling of `list` — feeds the list_my_agents tool from the MCP path (no auth
+// session) as well as the agent path, so both go through one handler. Mirrors `list` exactly.
+export const listForUser = internalQuery({
+  args: { userId: v.id("users") },
+  handler: (ctx, a) => ctx.db.query("agentDefs").withIndex("by_user", (q) => q.eq("userId", a.userId)).order("desc").collect(),
 });

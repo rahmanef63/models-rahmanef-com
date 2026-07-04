@@ -5,7 +5,8 @@ import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { requireUser } from "./_shared/auth";
-import { callForUser } from "./callForUser";
+import { TOOL_REGISTRY } from "./toolRegistry";
+import { TOOL_HANDLERS } from "./toolHandlers";
 
 async function sha256hex(s: string): Promise<string> {
   const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
@@ -26,11 +27,10 @@ export const issueMcpToken = action({
   },
 });
 
-const TOOLS = [
-  { name: "list_providers", description: "List the AI providers you have connected (BYOK).", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
-  { name: "get_usage", description: "Your model usage stats: requests, tokens in/out, per model.", inputSchema: { type: "object", properties: {}, additionalProperties: false } },
-  { name: "chat", description: "Send a prompt to one of your connected models. 'model' is a 'provider/model' ref.", inputSchema: { type: "object", properties: { model: { type: "string" }, prompt: { type: "string" } }, required: ["model", "prompt"], additionalProperties: false } },
-];
+// MCP-surface tools derived from the shared registry (wire name = mcpName ?? id).
+const MCP_TOOLS = TOOL_REGISTRY.filter((t) => t.surfaces.includes("mcp"));
+const MCP_TOOL_LIST = MCP_TOOLS.map((t) => ({ name: t.mcpName ?? t.id, description: t.description, inputSchema: t.inputSchema }));
+const MCP_BY_NAME = new Map(MCP_TOOLS.map((t) => [t.mcpName ?? t.id, t]));
 
 const asText = (text: string) => ({ content: [{ type: "text", text }] });
 
@@ -61,21 +61,19 @@ export const rpc = action({
       case "ping":
         return ok({});
       case "tools/list":
-        return ok({ tools: TOOLS });
+        return ok({ tools: MCP_TOOL_LIST });
       case "tools/call": {
         const params = req.params ?? {};
         const name = params.name;
         const args = params.arguments ?? {};
         await ctx.runMutation(internal.mcp._touchToken, { id: row._id });
         try {
-          if (name === "list_providers") return ok(asText(JSON.stringify(await ctx.runQuery(internal.mcp._providersForUser, { userId }))));
-          if (name === "get_usage") return ok(asText(JSON.stringify(await ctx.runQuery(internal.mcp._usageForUser, { userId }))));
-          if (name === "chat") {
-            if (!args.model || !args.prompt) return fail(-32602, "chat needs { model, prompt }");
-            const r = await callForUser(ctx, userId, String(args.model), [{ role: "user", content: String(args.prompt) }]);
-            return ok(asText(r.text));
-          }
-          return fail(-32602, `unknown tool: ${name}`);
+          const entry = MCP_BY_NAME.get(name);
+          if (!entry) return fail(-32602, `unknown tool: ${name}`);
+          const required = ((entry.inputSchema as any)?.required ?? []) as string[];
+          for (const k of required) if (args[k] == null) return fail(-32602, `${name} needs { ${required.join(", ")} }`);
+          const result = await TOOL_HANDLERS[entry.id](ctx, userId, args);
+          return ok(asText(typeof result === "string" ? result : JSON.stringify(result)));
         } catch (e: any) {
           return ok({ content: [{ type: "text", text: "error: " + String(e?.message ?? e).slice(0, 400) }], isError: true });
         }

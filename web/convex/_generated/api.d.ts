@@ -34,6 +34,7 @@ import type * as rateLimit from "../rateLimit.js";
 import type * as settings from "../settings.js";
 import type * as skillsRegistry from "../skillsRegistry.js";
 import type * as threads from "../threads.js";
+import type * as toolHandlers from "../toolHandlers.js";
 import type * as toolRegistry from "../toolRegistry.js";
 import type * as usage from "../usage.js";
 
@@ -70,6 +71,7 @@ declare const fullApi: ApiFromModules<{
   settings: typeof settings;
   skillsRegistry: typeof skillsRegistry;
   threads: typeof threads;
+  toolHandlers: typeof toolHandlers;
   toolRegistry: typeof toolRegistry;
   usage: typeof usage;
 }>;

@@ -57,29 +57,5 @@ export const revokeAllMcpTokens = mutation({
   },
 });
 
-// ---- tool data for an EXPLICIT userId (called by mcpNode.rpc AFTER token validation) ----
-export const _providersForUser = internalQuery({
-  args: { userId: v.id("users") },
-  handler: async (ctx, a) => {
-    const rows = await ctx.db.query("modelCreds").withIndex("by_user", (q) => q.eq("userId", a.userId)).collect();
-    return rows.map((r) => ({ provider: r.provider, kind: r.kind ?? "api_key" })); // never the ciphertext
-  },
-});
-
-export const _usageForUser = internalQuery({
-  args: { userId: v.id("users") },
-  handler: async (ctx, a) => {
-    // bounded like usage.ts's myUsage — this is exposed to the MCP client as a tool result, an
-    // unbounded scan here would grow forever as the user keeps chatting
-    const rows = await ctx.db.query("usage").withIndex("by_user_at", (q) => q.eq("userId", a.userId)).order("desc").take(500);
-    let promptTokens = 0, completionTokens = 0, errors = 0;
-    const byModel: Record<string, number> = {};
-    for (const r of rows) {
-      promptTokens += r.promptTokens;
-      completionTokens += r.completionTokens;
-      if (r.status === "error") errors++;
-      byModel[r.model] = (byModel[r.model] ?? 0) + 1;
-    }
-    return { requests: rows.length, promptTokens, completionTokens, errors, byModel };
-  },
-});
+// (tool data for an explicit userId now lives with its slice: credentials.providersForUser +
+// usage.usageForUser — the shared toolHandlers use those so the agent + MCP surfaces can't diverge.)
