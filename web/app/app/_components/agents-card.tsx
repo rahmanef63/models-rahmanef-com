@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ErrorLine } from "./shared";
+import { Button } from "@/components/ui/button";
 import { AgentForm, type AgentDef, type AgentPatch, type AgentPrefill, type SkillMeta, type ToolMeta } from "./agent-form";
 import { ImportMenu } from "./agent-import";
 import { exportAgentFile } from "./agent-io";
@@ -63,7 +64,7 @@ export function AgentsCard({ models, isAdmin }: { models: string[]; isAdmin: boo
               onImport={(prefill) => { setImportPrefill(prefill); setShowForm("new"); }}
             />
           )}
-          {showForm !== "new" && <button className="btn" onClick={() => { setImportPrefill(null); setShowForm("new"); }}>+ New agent</button>}
+          {showForm !== "new" && <Button variant="outline" size="sm" onClick={() => { setImportPrefill(null); setShowForm("new"); }}>+ New agent</Button>}
         </div>
       </div>
 

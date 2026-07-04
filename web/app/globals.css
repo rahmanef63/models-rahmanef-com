@@ -1,3 +1,33 @@
+/* Tailwind v4 — theme + utilities only. Preflight is intentionally OMITTED: its UA
+   margin/typography reset would shift the hand-rolled UI below (bare <p class="err">,
+   headings, lists, bare <button class="del">). The existing CSS stays UNLAYERED so it wins
+   every conflict with Tailwind's layered output. The `border` utility's needed default
+   border-style is supplied per-component via `border-solid` in components/ui/*. */
+@layer theme, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+@theme inline {
+  --color-background: var(--bg);
+  --color-foreground: var(--fg);
+  --color-card: var(--bg-2);
+  --color-card-foreground: var(--fg);
+  --color-popover: var(--bg-2);
+  --color-popover-foreground: var(--fg);
+  --color-primary: var(--accent);
+  --color-primary-foreground: var(--accent-ink);
+  --color-secondary: var(--bg-3);
+  --color-secondary-foreground: var(--fg);
+  --color-muted: var(--bg-3);
+  --color-muted-foreground: var(--muted);
+  --color-accent: var(--bg-3);
+  --color-accent-foreground: var(--fg);
+  --color-destructive: var(--danger);
+  --color-border: var(--line-2);
+  --color-input: var(--line-2);
+  --color-ring: var(--accent);
+}
+:root { --radius: 4px; }
+
 :root {
   --bg: #0a0a09;
   --bg-2: #111110;
