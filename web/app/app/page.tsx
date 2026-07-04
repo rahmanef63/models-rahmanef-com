@@ -14,6 +14,7 @@ import { AdminCard } from "./_components/admin";
 import { ConnectProviders, ConnectedCreds } from "@/features/byok";
 import { AgentsCard } from "./_components/agents-card";
 import { WorkbenchCard } from "./_components/workbench";
+import { WorkspaceProvider, WorkspaceSwitcher } from "@/features/workspaces";
 
 export default function AppPage() {
   const { isLoading, isAuthenticated } = useConvexAuth();
@@ -23,7 +24,7 @@ export default function AppPage() {
         <Link href="/" className="brand">models<b>.</b></Link>
         <TopRight authed={isAuthenticated} />
       </div>
-      {isLoading ? <p className="muted mono">loading…</p> : isAuthenticated ? <Dashboard /> : <SignIn />}
+      {isLoading ? <p className="muted mono">loading…</p> : isAuthenticated ? <WorkspaceProvider><Dashboard /></WorkspaceProvider> : <SignIn />}
     </main>
   );
 }
@@ -132,6 +133,7 @@ function Dashboard() {
   return (
     <div className="app-body">
       <nav className="side">
+        <WorkspaceSwitcher />
         {nav.map((s) => (
           <button key={s.id} className={`side-link ${section === s.id ? "on" : ""}`} onClick={() => setSection(s.id)}>{s.label}</button>
         ))}

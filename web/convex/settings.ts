@@ -27,6 +27,17 @@ export const setSettings = mutation({
   },
 });
 
+// switcher persistence — the user's last-selected workspace
+export const setActiveWorkspace = mutation({
+  args: { workspaceId: v.id("workspaces") },
+  handler: async (ctx, a) => {
+    const userId = await requireUser(ctx);
+    const existing = await ctx.db.query("settings").withIndex("by_user", (q) => q.eq("userId", userId)).unique();
+    if (existing) await ctx.db.patch(existing._id, { activeWorkspaceId: a.workspaceId });
+    else await ctx.db.insert("settings", { userId, activeWorkspaceId: a.workspaceId });
+  },
+});
+
 // internal: read settings inside the chat action
 export const _getForChat = internalQuery({
   args: { userId: v.id("users") },
