@@ -4,18 +4,18 @@
   "version": "0.1.0",
   "category": "feature",
   "kind": "feature",
-  "title": "Inbound channels (Telegram)",
-  "description": "Inbound messaging surface: paste a bot token, DM the bot, the bound agent replies using workspace creds — always back to the same surface. Webhook auth is the per-channel platform secret; every reply lands in callForUser. Wave 1 ships Telegram; the ChannelAdapter shape generalizes to Slack/WhatsApp/Discord.",
+  "title": "Inbound channels (Telegram · Slack · WhatsApp · Discord)",
+  "description": "Inbound messaging surfaces: connect a bot per platform, DM/slash-command it, the bound agent replies using workspace creds — always back to the same surface. Webhook auth is the per-channel platform secret (Telegram secret_token · Slack v0 HMAC · WhatsApp X-Hub-Signature-256 · Discord Ed25519); every reply lands in callForUser. Telegram/Slack/WhatsApp ACK-fast then defer the model turn; Discord answers slash commands inline.",
   "namespace": "@/features/channels",
   "convex": {
     "tablesExport": "channels",
     "schemaPath": "convex/schema.ts",
-    "rootPaths": ["convex/channelsCore.ts", "convex/channelsIngest.ts", "convex/channelTelegram.ts", "convex/features/channels"]
+    "rootPaths": ["convex/channelsCore.ts", "convex/channelsIngest.ts", "convex/channelsDispatch.ts", "convex/channelsCrypto.ts", "convex/channelTelegram.ts", "convex/channelSlack.ts", "convex/channelWhatsapp.ts", "convex/channelDiscord.ts", "convex/features/channels"]
   },
   "frontend": { "slicePath": "frontend/slices/channels", "configExport": "channelsConfig" },
   "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth"] },
   "registers": ["registry"],
   "license": "MIT",
-  "tags": ["ai", "channels", "telegram", "webhook", "messaging", "convex"],
+  "tags": ["ai", "channels", "telegram", "slack", "whatsapp", "discord", "webhook", "messaging", "convex"],
   "providers": []
 }

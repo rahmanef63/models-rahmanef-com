@@ -7,6 +7,9 @@ import { memoryTables } from "./features/memory/tables";
 import { comboTables } from "./features/combos/tables";
 import { mcpClientTables } from "./features/mcpClient/tables";
 import { channelTables } from "./features/channels/tables";
+import { scheduledAgentTables } from "./features/scheduledAgents/tables";
+import { usageRollupTables } from "./features/usageRollups/tables";
+import { auditLogTables } from "./features/auditLog/tables";
 
 // authTables = users, authAccounts, authSessions, ... (from @convex-dev/auth).
 // workspaceTables = workspaces/memberships/invites (the tenant boundary — see features/workspaces).
@@ -19,6 +22,9 @@ export default defineSchema({
   ...comboTables,
   ...mcpClientTables,
   ...channelTables,
+  ...scheduledAgentTables,
+  ...usageRollupTables,
+  ...auditLogTables,
   // kind: "api_key" (ciphertext = the key) | "oauth" (ciphertext = JSON {access,refresh,expires,accountId})
   modelCreds: defineTable({
     userId: v.id("users"),

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://resource.rahmanef.com/slice-schema.json",
+  "slug": "audit-log",
+  "version": "0.1.0",
+  "category": "feature",
+  "kind": "feature",
+  "title": "Audit log",
+  "description": "Append-only trail of sensitive workspace actions (member role changes, removals, invite acceptance, shared-credential deletes). audit.record + inlined db.insert hooks write one immutable row inside the acting mutation's transaction; an admin-only AuditLogCard lists recent events with actor + action + time + action-prefix filter pills; a daily cron prunes rows older than 90 days.",
+  "namespace": "@/features/audit-log",
+  "convex": {
+    "tablesExport": "auditEvents",
+    "schemaPath": "convex/schema.ts",
+    "rootPaths": ["convex/audit.ts", "convex/features/auditLog"]
+  },
+  "frontend": { "slicePath": "frontend/slices/audit-log", "configExport": "auditLogConfig" },
+  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth", "workspaces"] },
+  "registers": ["cron"],
+  "license": "MIT",
+  "tags": ["ai", "audit", "compliance", "workspaces", "convex"],
+  "providers": []
+}

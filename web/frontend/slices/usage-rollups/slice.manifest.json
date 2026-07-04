@@ -1,0 +1,15 @@
+{
+  "$schema": "../../../docs/slice.manifest.schema.json",
+  "name": "usage-rollups",
+  "version": "0.1.0",
+  "description": "Per-workspace daily usage rollups (calls, tokens) + estimated cost from a static rate map. 6-hour rollupDay cron upserts workspaceUsageDaily; workspaceUsage query feeds a per-day WorkspaceUsageCard scoped to the active workspace.",
+  "category": "feature",
+  "stability": "alpha",
+  "deps": { "shared": ["convex/_shared/auth"], "slices": ["workspaces"], "convexFeatures": [], "npm": {}, "env": [] },
+  "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
+  "permissions": ["workspace-viewer"],
+  "schemaTables": ["workspaceUsageDaily"],
+  "compatibility": { "next": ">=16 <17", "react": "^19", "convex": "^1.16", "tailwind": "any", "auth": "@convex-dev/auth" },
+  "tags": ["ai", "usage", "billing", "cost", "workspace", "convex"],
+  "notes": "Reads the existing `usage` table (by_ws_at index) — that table is provided by the app, not this slice. Cost is an ESTIMATE from a static RATES map in features/usageRollups/rates.ts (ponytail: a code map, not a table — swap to a table only if rates must be user-editable). Missing/stale model rates floor cost to 0 and flag hasRate=false. Consumer must add: the workspaceUsageDaily table (schema spread), the rollupDay cron line, and a nav entry rendering <WorkspaceUsageCard/>. rollupDay is bounded (<=1000 workspaces, <=5000 usage rows/ws/window); very high-volume windows may truncate — narrow the cron interval or paginate if that trips."
+}

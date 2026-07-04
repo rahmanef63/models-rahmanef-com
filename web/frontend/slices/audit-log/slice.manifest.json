@@ -1,0 +1,15 @@
+{
+  "$schema": "../../../docs/slice.manifest.schema.json",
+  "name": "audit-log",
+  "version": "0.1.0",
+  "description": "Append-only workspace audit trail. audit.record inserts one bounded, immutable row; the highest-value hooks db.insert directly inside the acting mutation (member role change/remove, leave, invite accept, shared-credential delete) so the audit row commits in the SAME transaction — no action hop. Admin-only AuditLogCard lists recent events with actor + action + time + action-prefix filter pills; a daily cron prunes rows >90 days.",
+  "category": "feature",
+  "stability": "alpha",
+  "deps": { "shared": [], "slices": ["workspaces"], "convexFeatures": ["workspaces"], "npm": {}, "env": [] },
+  "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
+  "permissions": ["authed-user"],
+  "schemaTables": ["auditEvents"],
+  "compatibility": { "next": ">=16 <17", "react": "^19", "convex": "^1.16", "tailwind": "any", "auth": "@convex-dev/auth" },
+  "tags": ["ai", "audit", "compliance", "workspaces", "convex"],
+  "notes": "Consumer must add: the auditEvents table (schemaImports/spreads), the prune-audit cron line, an 'Audit' nav entry (the card self-gates to admin+ and hides on personal workspaces), and the sharedEdits wiring audit rows into member/invite/credential mutations. Append-only — rows are never patched, only pruned by the 90-day cron. Credential-delete hook fires ONLY for workspace-shared creds (personal-cred deletes are not workspace events and have no workspaceId to attribute)."
+}

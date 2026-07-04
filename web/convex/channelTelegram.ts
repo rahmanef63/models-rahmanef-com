@@ -10,9 +10,7 @@ import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { decryptSecret } from "./crypto";
 import { requireWorkspaceRoleAction } from "./_shared/auth";
-import { callForUser } from "./callForUser";
-import { gatewayTools } from "./chatTools";
-import { SKILLS_REGISTRY } from "./skillsRegistry";
+import { computeReply } from "./channelsDispatch";
 
 const API = "https://api.telegram.org/bot";
 const CHUNK = 4096;
@@ -96,29 +94,8 @@ export const dispatch = internalAction({
     const cx = await ctx.runQuery(internal.channelsIngest._getDispatchContext, { channelId: a.channelId, threadId: a.threadId });
     if (!cx) return;
     const { botToken } = JSON.parse(await decryptSecret(cx.secretCiphertext));
-
-    let modelRef = cx.model;
-    let agentOpts: any = undefined;
-    if (cx.agent) {
-      modelRef = cx.agent.model;
-      const skillText = (cx.agent.skills ?? []).map((id: string) => SKILLS_REGISTRY.find((s) => s.id === id)?.instructions).filter(Boolean).join("\n\n");
-      const system = [cx.agent.instructions, skillText].filter(Boolean).join("\n\n") || undefined;
-      agentOpts = { system, tools: gatewayTools(ctx, cx.userId, cx.agent.tools), maxSteps: cx.agent.maxSteps, temperature: cx.agent.temperature };
-    }
-    if (!modelRef) {
-      await sendMessage(botToken, a.chatId, "This channel isn't configured yet — bind an agent or set a model in the workspace admin.").catch(() => {});
-      return;
-    }
-
-    let reply: string;
-    try {
-      const r = await callForUser(ctx, cx.userId, cx.workspaceId, modelRef, cx.history, agentOpts);
-      reply = r.text || "(no reply)";
-    } catch (e: any) {
-      const detail = e?.data && typeof e.data === "object" ? e.data.detail ?? e.data.code : String(e?.message ?? e);
-      await ctx.runMutation(internal.channelsIngest._setChannelError, { channelId: a.channelId, error: String(detail) });
-      reply = `Sorry — couldn't reach the model (${String(detail).slice(0, 120)}).`;
-    }
+    const { configured, reply } = await computeReply(ctx, cx, a.channelId);
+    if (!configured) { await sendMessage(botToken, a.chatId, reply).catch(() => {}); return; }
     try { await sendMessage(botToken, a.chatId, reply); } catch (e: any) {
       await ctx.runMutation(internal.channelsIngest._setChannelError, { channelId: a.channelId, error: String(e?.message ?? e) });
       return; // couldn't deliver — don't log an out row that never arrived

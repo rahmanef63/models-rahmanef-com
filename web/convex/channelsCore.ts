@@ -1,8 +1,9 @@
-// channels-core — CRUD for inbound messaging channels + the slug resolver. Secrets (bot token +
-// the platform webhook secret_token) are AES-256-GCM encrypted (crypto.ts); the webhook secret is
-// shown ONCE on create/rotate so the user can register it with the platform. Admin-only writes
-// (requireWorkspaceRole 'admin'). Web Crypto works in the default runtime — no "use node".
-// The ingest→callForUser→reply loop lives in the sibling channelsIngest.ts + channelTelegram.ts.
+// channels-core — CRUD for inbound messaging channels + the slug resolver. Secrets are a per-kind
+// JSON bag (telegram {botToken,secretToken} · slack {signingSecret,botToken} · whatsapp {appSecret,
+// verifyToken,phoneNumberId,accessToken} · discord {publicKey,botToken?,applicationId?}) AES-256-GCM
+// encrypted (crypto.ts) into secretCiphertext; telegram's minted secret_token is shown ONCE. Admin-
+// only writes (requireWorkspaceRole 'admin'). Web Crypto works in the default runtime — no "use node".
+// The ingest→callForUser→reply loop lives in channelsIngest.ts + channel<Kind>.ts (via channelsDispatch).
 import { query, mutation, internalQuery } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { requireWorkspaceRole } from "./_shared/auth";
@@ -10,8 +11,28 @@ import { encryptSecret, decryptSecret } from "./crypto";
 
 const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const rand = (n: number) => b64url(crypto.getRandomValues(new Uint8Array(n)));
-const KINDS = ["telegram"]; // registry-driven; only telegram ships in this wave
+const KINDS = ["telegram", "slack", "whatsapp", "discord"]; // registry-driven adapters
 const bad = (detail: string) => new ConvexError({ code: "invalid_request", detail });
+
+// Per-kind secret builder. Returns the plaintext object to encrypt into secretCiphertext + (telegram
+// only) the freshly-minted webhook secretToken to surface once. Discord botToken/applicationId are
+// optional (only needed to register the /command); everything else is required for verify + reply.
+function channelSecret(kind: string, s: any): { secret: Record<string, string>; secretToken?: string } {
+  const need = (k: string) => {
+    const val = String(s?.[k] ?? "").trim();
+    if (!val) throw bad(`"${k}" is required for a ${kind} channel.`);
+    return val;
+  };
+  const opt = (k: string) => String(s?.[k] ?? "").trim();
+  if (kind === "telegram") {
+    const secretToken = rand(24); // header value WE choose; set via setWebhook, compared on ingest
+    return { secret: { botToken: need("botToken"), secretToken }, secretToken };
+  }
+  if (kind === "slack") return { secret: { signingSecret: need("signingSecret"), botToken: need("botToken") } };
+  if (kind === "whatsapp") return { secret: { appSecret: need("appSecret"), verifyToken: need("verifyToken"), phoneNumberId: need("phoneNumberId"), accessToken: need("accessToken") } };
+  if (kind === "discord") return { secret: { publicKey: need("publicKey"), botToken: opt("botToken"), applicationId: opt("applicationId") } };
+  throw bad(`Unsupported channel kind "${kind}".`);
+}
 
 // list channels for a workspace (viewer+). Never returns the ciphertext.
 export const listChannels = query({
@@ -26,22 +47,39 @@ export const listChannels = query({
   },
 });
 
-// create a channel: store the bot token + a freshly-minted webhook secret_token, encrypted. Returns
-// the slug (→ webhook URL) and the raw secretToken (shown once — set it on the platform via setWebhook).
+// create a channel: store the per-kind secret JSON (encrypted) + a random slug. Returns the slug
+// (→ webhook URL) and, for telegram, the raw secretToken (shown once — set it via setWebhook).
 export const createChannel = mutation({
-  args: { workspaceId: v.id("workspaces"), kind: v.string(), name: v.string(), botToken: v.string(), agentId: v.optional(v.id("agentDefs")) },
+  args: {
+    workspaceId: v.id("workspaces"),
+    kind: v.string(),
+    name: v.string(),
+    // per-kind secret bag — only the fields the chosen kind needs are read (validated in channelSecret):
+    //   telegram {botToken} · slack {signingSecret,botToken} · whatsapp {appSecret,verifyToken,
+    //   phoneNumberId,accessToken} · discord {publicKey, botToken?, applicationId?}
+    secrets: v.object({
+      botToken: v.optional(v.string()),
+      signingSecret: v.optional(v.string()),
+      appSecret: v.optional(v.string()),
+      verifyToken: v.optional(v.string()),
+      phoneNumberId: v.optional(v.string()),
+      accessToken: v.optional(v.string()),
+      publicKey: v.optional(v.string()),
+      applicationId: v.optional(v.string()),
+    }),
+    agentId: v.optional(v.id("agentDefs")),
+  },
   handler: async (ctx, a) => {
     const { userId } = await requireWorkspaceRole(ctx, a.workspaceId, "admin");
     if (!KINDS.includes(a.kind)) throw bad(`Unsupported channel kind "${a.kind}".`);
-    if (!a.botToken.trim()) throw bad("Bot token is required.");
-    const secretToken = rand(24);
+    const { secret, secretToken } = channelSecret(a.kind, a.secrets);
     const slug = rand(18);
     const id = await ctx.db.insert("channels", {
       workspaceId: a.workspaceId, userId, kind: a.kind, name: a.name.trim().slice(0, 60) || a.kind,
-      slug, secretCiphertext: await encryptSecret(JSON.stringify({ botToken: a.botToken.trim(), secretToken })),
+      slug, secretCiphertext: await encryptSecret(JSON.stringify(secret)),
       agentId: a.agentId, enabled: true, createdAt: Date.now(),
     });
-    return { id, slug, secretToken }; // secretToken shown once — never stored in plaintext
+    return { id, slug, secretToken }; // secretToken (telegram only) shown once — never stored in plaintext
   },
 });
 
@@ -70,11 +108,14 @@ export const setModel = mutation({
   },
 });
 
-// rotate the webhook secret_token (keep the bot token). Returns the new secretToken (shown once).
+// rotate the Telegram webhook secret_token (keep the bot token). Returns the new secretToken (shown
+// once). Only telegram mints a webhook secret — the other kinds' secrets are platform-issued, so
+// rotate them by editing the channel on the platform + recreating (or a future kind-aware editor).
 export const rotateSecret = mutation({
   args: { id: v.id("channels") },
   handler: async (ctx, a) => {
     const row = await requireChannelAdmin(ctx, a.id);
+    if (row.kind !== "telegram") throw bad("Only Telegram channels have a rotatable webhook secret.");
     // re-encrypt with a fresh secretToken; keep the stored botToken (Web Crypto decrypt works here).
     const cur = JSON.parse(await decryptSecret(row.secretCiphertext)) as { botToken: string };
     const secretToken = rand(24);

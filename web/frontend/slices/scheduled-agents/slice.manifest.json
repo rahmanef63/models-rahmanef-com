@@ -1,0 +1,15 @@
+{
+  "$schema": "../../../docs/slice.manifest.schema.json",
+  "name": "scheduled-agents",
+  "version": "0.1.0",
+  "description": "Run a saved agent on a recurring interval. A 5-min cron claims due enabled schedules (bounded 50, OCC-safe via lastRunAt claim-stamp) and runs each through the SAME callForUser pipeline as a normal agent run (`agent/<id>` model ref). Runs AS the creator, spending that workspace's creds; interval floored at 15 min.",
+  "category": "feature",
+  "stability": "alpha",
+  "deps": { "shared": [], "slices": ["workspaces", "byok"], "convexFeatures": [], "npm": {}, "env": [] },
+  "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
+  "permissions": ["authed-user", "workspace-member"],
+  "schemaTables": ["agentSchedules"],
+  "compatibility": { "next": ">=16 <17", "react": "^19", "convex": "^1.16", "tailwind": "any", "auth": "@convex-dev/auth" },
+  "tags": ["ai", "agents", "cron", "scheduler", "convex"],
+  "notes": "v0.1 = CRUD + a 5-min sweep. Cron: crons.interval('run due agent schedules', { minutes: 5 }, internal.scheduledAgentsRun.runDue, {}). runDue lives in a 'use node' module (scheduledAgentsRun.ts) so it can import callForUser; the DB halves (_claimDue/_markRun) stay in the default-runtime scheduledAgents.ts. Spend is bounded by the enabled-gate + 15-min interval floor + 50-row claim cap. SECURITY: schedules run AS their creator under that creator's creds — create requires you own the agent; toggle/remove require you be the creator or a ws admin. `agent/<id>` resolves the agent's fixed model (agent instructions/tools are applied by callForUser's own settings path, not re-injected here)."
+}

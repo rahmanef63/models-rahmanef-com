@@ -120,6 +120,7 @@ export const updateRole = mutation({
     if (m.role === "owner") throw bad("the owner role is fixed (transfer ownership instead)");
     if (a.role === "admin" && me.role !== "owner") throw bad("only the owner can grant admin");
     await ctx.db.patch(m._id, { role: a.role });
+    await ctx.db.insert("auditEvents", { workspaceId: a.workspaceId, actorUserId: me.userId, action: "member.role_changed", target: a.userId, meta: { from: m.role, to: a.role }, at: Date.now() });
   },
 });
 
@@ -132,6 +133,7 @@ export const removeMember = mutation({
     if (m.role === "owner") throw bad("cannot remove the owner");
     if (m.role === "admin" && me.role !== "owner") throw bad("only the owner can remove an admin");
     await ctx.db.delete(m._id);
+    await ctx.db.insert("auditEvents", { workspaceId: a.workspaceId, actorUserId: me.userId, action: "member.removed", target: a.userId, meta: { role: m.role }, at: Date.now() });
   },
 });
 

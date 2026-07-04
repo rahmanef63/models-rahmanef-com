@@ -20,6 +20,9 @@ import { MemoryPanel } from "@/features/memory";
 import { ComboBuilderCard } from "@/features/combos";
 import { McpServersCard } from "@/features/mcp-client";
 import { ChannelsCard } from "@/features/channels";
+import { SchedulesCard } from "@/features/scheduled-agents";
+import { WorkspaceUsageCard } from "@/features/usage-rollups";
+import { AuditLogCard } from "@/features/audit-log";
 
 export default function AppPage() {
   const { isLoading, isAuthenticated } = useConvexAuth();
@@ -139,6 +142,9 @@ function Dashboard() {
     { id: "api", label: "API" },
     { id: "combos", label: "Combos" },
     { id: "channels", label: "Channels" },
+    { id: "schedules", label: "Schedules" },
+    { id: "workspace-usage", label: "Billing" },
+    { id: "audit", label: "Audit" },
     ...(me?.isSuperAdmin ? [{ id: "admin", label: "Admin" }] : []),
   ];
 
@@ -200,6 +206,12 @@ function Dashboard() {
         {section === "mcp-servers" && <McpServersCard />}
 
         {section === "channels" && <ChannelsCard />}
+
+        {section === "schedules" && <SchedulesCard />}
+
+        {section === "workspace-usage" && <WorkspaceUsageCard />}
+
+        {section === "audit" && <AuditLogCard />}
 
         {section === "admin" && me?.isSuperAdmin && <AdminCard />}
       </div>

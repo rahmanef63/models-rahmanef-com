@@ -21,7 +21,11 @@ export const contract = defineSliceContract({
   requires: { deps: ["@convex-dev/auth"] },
   provides: {
     components: ["ChannelsCard"],
-    convex: ["channelsCore.listChannels", "channelsCore.createChannel", "channelsCore.setEnabled", "channelsCore.bindAgent", "channelsCore.deleteChannel", "channelTelegram.setWebhook"],
+    convex: [
+      "channelsCore.listChannels", "channelsCore.createChannel", "channelsCore.setEnabled", "channelsCore.bindAgent", "channelsCore.deleteChannel", "channelsCore.rotateSecret",
+      "channelTelegram.setWebhook", "channelTelegram.ingest",
+      "channelSlack.ingest", "channelWhatsapp.verify", "channelWhatsapp.ingest", "channelDiscord.ingest",
+    ],
     tables: ["channels", "channelIdentities", "channelEvents"],
     routes: ["/channels/[kind]/[slug]"],
   },

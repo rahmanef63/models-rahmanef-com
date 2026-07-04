@@ -1,0 +1,21 @@
+{
+  "$schema": "https://resource.rahmanef.com/slice-schema.json",
+  "slug": "usage-rollups",
+  "version": "0.1.0",
+  "category": "feature",
+  "kind": "feature",
+  "title": "Workspace usage rollups",
+  "description": "Rolls raw per-call `usage` rows into per-workspace daily aggregates (calls, tokens) with an ESTIMATED cost from a static rate map. A 6-hour cron (usageRollups.rollupDay) upserts workspaceUsageDaily; workspaceUsage feeds a per-day WorkspaceUsageCard. Cost is an estimate, not a bill — missing-rate models flag hasRate=false and floor to 0.",
+  "namespace": "@/features/usage-rollups",
+  "convex": {
+    "tablesExport": "workspaceUsageDaily",
+    "schemaPath": "convex/schema.ts",
+    "rootPaths": ["convex/usageRollups.ts", "convex/features/usageRollups"]
+  },
+  "frontend": { "slicePath": "frontend/slices/usage-rollups", "configExport": "usageRollupsConfig" },
+  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth"] },
+  "registers": ["cron"],
+  "license": "MIT",
+  "tags": ["ai", "usage", "billing", "cost", "workspace", "convex"],
+  "providers": []
+}
