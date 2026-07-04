@@ -38,6 +38,7 @@ import type * as threads from "../threads.js";
 import type * as toolHandlers from "../toolHandlers.js";
 import type * as toolRegistry from "../toolRegistry.js";
 import type * as usage from "../usage.js";
+import type * as workspaces from "../workspaces.js";
 
 import type {
   ApiFromModules,
@@ -76,6 +77,7 @@ declare const fullApi: ApiFromModules<{
   toolHandlers: typeof toolHandlers;
   toolRegistry: typeof toolRegistry;
   usage: typeof usage;
+  workspaces: typeof workspaces;
 }>;
 
 /**
