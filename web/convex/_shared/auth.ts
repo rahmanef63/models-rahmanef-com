@@ -62,3 +62,14 @@ export async function requireWorkspaceRoleAction(ctx: ActionCtx, workspaceId: Id
   if (!m || (ROLE_RANK[m.role] ?? -1) < (ROLE_RANK[minRole] ?? 99)) throw forbidden();
   return { userId, workspaceId, role: m.role };
 }
+
+// Spend-path helper for actions: given an explicit workspaceId → enforce minRole and return it;
+// given none (legacy client) → resolve the user's personal workspace. Never returns an unscoped call.
+export async function resolveWorkspaceAction(ctx: ActionCtx, userId: Id<"users">, workspaceId: Id<"workspaces"> | undefined, minRole: string): Promise<Id<"workspaces">> {
+  if (workspaceId) {
+    const m = await ctx.runQuery(internal.workspaces.checkMembership, { userId, workspaceId });
+    if (!m || (ROLE_RANK[m.role] ?? -1) < (ROLE_RANK[minRole] ?? 99)) throw forbidden();
+    return workspaceId;
+  }
+  return await ctx.runMutation(internal.workspaces._ensurePersonalFor, { userId });
+}

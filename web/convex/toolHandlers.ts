@@ -26,7 +26,7 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
     return defs.map((d: any) => ({ name: d.name, model: d.model, tools: d.tools.length, skills: d.skills?.length ?? 0 }));
   },
   chat: async (ctx, userId, args) => {
-    const r = await callForUser(ctx, userId, String(args.model), [{ role: "user", content: String(args.prompt) }]);
+    const r = await callForUser(ctx, userId, undefined, String(args.model), [{ role: "user", content: String(args.prompt) }]); // personal creds; MCP workspace-binding is 1.9
     return r.text; // string → MCP asText(); chat is MCP-only, so no agent path hits this
   },
 };

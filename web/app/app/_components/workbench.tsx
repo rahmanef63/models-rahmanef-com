@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
+import { useWorkspace } from "@/features/workspaces";
 import { PROVIDER_LABEL, ErrorLine, type Cred, type Catalog } from "./shared";
 import { splitModel, route, ModelInspector, ModelPicker, type AgentPickMeta } from "./chat-model-picker";
 import { AgentMentionPicker, type MentionAgent } from "./agent-mention";
@@ -21,6 +22,7 @@ export function WorkbenchCard({ models, providers, catalog, isAdmin }: { models:
   const deleteThread = useMutation(api.threads.deleteThread);
   const rebindThreadAgent = useMutation(api.threads.rebindThreadAgent);
   const sendMessage = useAction(api.threads.sendMessage);
+  const { workspaceId } = useWorkspace();
   const [active, setActive] = useState<string | null>(null);
   const [model, setModel] = useState(""); // model chosen for a NEW (not-yet-created) thread
   const [pendingAgentId, setPendingAgentId] = useState<string | null>(null); // agent chosen for a NEW thread (wins over `model`)
@@ -78,7 +80,7 @@ export function WorkbenchCard({ models, providers, catalog, isAdmin }: { models:
       }
       const content = input;
       setInput("");
-      await sendMessage({ threadId: tid as any, content });
+      await sendMessage({ threadId: tid as any, content, workspaceId: (workspaceId ?? undefined) as any });
     } catch (e) {
       setErr(e);
     } finally {

@@ -138,14 +138,14 @@ export const _history = internalQuery({
 });
 
 export const sendMessage = action({
-  args: { threadId: v.id("threads"), content: v.string() },
+  args: { threadId: v.id("threads"), content: v.string(), workspaceId: v.optional(v.id("workspaces")) },
   handler: async (ctx, a): Promise<{ text: string }> => {
     const userId = await requireUser(ctx);
     const { model, agentId } = await ctx.runMutation(internal.threads._append, { userId, threadId: a.threadId, role: "user", content: a.content });
     const history = await ctx.runQuery(internal.threads._history, { userId, threadId: a.threadId });
     let text: string;
     try {
-      ({ text } = await ctx.runAction(api.chat.chat, agentId ? { agentId, messages: history } : { model, messages: history }));
+      ({ text } = await ctx.runAction(api.chat.chat, agentId ? { workspaceId: a.workspaceId, agentId, messages: history } : { workspaceId: a.workspaceId, model, messages: history }));
     } catch (e) {
       // re-throw as a fresh ConvexError HERE (V8 runtime) so the real reason reaches the client — a
       // ConvexError thrown inside the "use node" chat action loses its data across the runAction boundary.

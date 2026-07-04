@@ -107,11 +107,38 @@ export const deleteCredential = mutation({
 });
 
 // internal: hand the ciphertext row to the chat action (which decrypts server-side)
+// the caller's PERSONAL cred for a provider (workspaceId unset). Used by the codex/claude OAuth
+// paths (always personal — subscriptions can't be shared). `.first()` not `.unique()` so a stray
+// workspace-shared row for the same provider can't break the personal read.
 export const getCiphertext = internalQuery({
   args: { userId: v.id("users"), provider: v.string() },
   handler: (ctx, a) =>
     ctx.db
       .query("modelCreds")
       .withIndex("by_user_provider", (q) => q.eq("userId", a.userId).eq("provider", a.provider))
-      .unique(),
+      .filter((q) => q.eq(q.field("workspaceId"), undefined))
+      .first(),
+});
+
+// Resolve which credential a call uses, honoring the workspace's credPolicy:
+//   personal-first (default): my key, else the workspace-shared key
+//   workspace-first: shared key, else my personal   ·   *-only: no fallback
+// A workspace-shared cred (workspaceId set) lets a team burn ONE key; removing a member cuts their
+// access because the SPEND path (chat/runAgent) requires live membership before it ever gets here.
+export const resolveCred = internalQuery({
+  args: { userId: v.id("users"), workspaceId: v.optional(v.id("workspaces")), provider: v.string() },
+  handler: async (ctx, a) => {
+    let policy = "personal-first";
+    if (a.workspaceId) policy = ((await ctx.db.get(a.workspaceId)) as { credPolicy?: string } | null)?.credPolicy ?? "personal-first";
+    const personal = () =>
+      ctx.db.query("modelCreds").withIndex("by_user_provider", (q) => q.eq("userId", a.userId).eq("provider", a.provider)).filter((q) => q.eq(q.field("workspaceId"), undefined)).first();
+    const shared = () =>
+      a.workspaceId ? ctx.db.query("modelCreds").withIndex("by_ws_provider", (q) => q.eq("workspaceId", a.workspaceId!).eq("provider", a.provider)).first() : Promise.resolve(null);
+    const order = policy.startsWith("workspace") ? [shared, personal] : [personal, shared];
+    for (const get of (policy.endsWith("-only") ? [order[0]] : order)) {
+      const row = await get();
+      if (row) return row;
+    }
+    return null;
+  },
 });

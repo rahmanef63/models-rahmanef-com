@@ -4,6 +4,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ErrorLine } from "./shared";
 import { Button } from "@/components/ui/button";
+import { useWorkspace } from "@/features/workspaces";
 import { AgentForm, type AgentDef, type AgentPatch, type AgentPrefill, type SkillMeta, type ToolMeta } from "./agent-form";
 import { ImportMenu } from "./agent-import";
 import { exportAgentFile } from "./agent-io";
@@ -12,6 +13,7 @@ type Run = { _id: string; task: string; model: string; agentId?: string; agentNa
 
 export function AgentsCard({ models, isAdmin }: { models: string[]; isAdmin: boolean }) {
   const runAgent = useAction(api.chat.runAgent);
+  const { workspaceId } = useWorkspace();
   const runs = useQuery(api.agents.myRuns) as Run[] | undefined;
   const agentDefs = useQuery(api.agentDefs.list) as AgentDef[] | undefined;
   const toolRegistry = useQuery(api.agentDefs.listToolRegistry) as ToolMeta[] | undefined;
@@ -39,8 +41,8 @@ export function AgentsCard({ models, isAdmin }: { models: string[]; isAdmin: boo
     setBusy(true);
     setErr(null);
     try {
-      if (selectedAgent) await runAgent({ agentId: selectedAgent._id as any, task });
-      else await runAgent({ model, task });
+      if (selectedAgent) await runAgent({ agentId: selectedAgent._id as any, task, workspaceId: (workspaceId ?? undefined) as any });
+      else await runAgent({ model, task, workspaceId: (workspaceId ?? undefined) as any });
       setTask("");
     } catch (e) {
       setErr(e);

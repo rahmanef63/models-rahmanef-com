@@ -24,6 +24,7 @@ const PONYTAIL_PROMPT =
 export async function callForUser(
   ctx: any,
   userId: any,
+  workspaceId: any, // Id<"workspaces"> | undefined — undefined = personal creds only (MCP tool / cred test)
   modelRef: string,
   inputMessages: { role: string; content: string }[],
   agentOpts?: { system?: string; tools?: Record<string, any>; maxSteps?: number; temperature?: number },
@@ -34,14 +35,14 @@ export async function callForUser(
     const model = modelRef.slice(i + 1);
 
     const logUsage = (status: string, promptTokens: number, completionTokens: number) =>
-      ctx.runMutation(internal.usage.log, { userId, provider, model: modelRef, promptTokens, completionTokens, status });
+      ctx.runMutation(internal.usage.log, { userId, workspaceId, provider, model: modelRef, promptTokens, completionTokens, status });
 
     // Everything below — including the credential/settings lookups — is inside ONE try so every
     // failure (not just the model call itself) gets classified into a structured ConvexError
     // instead of escaping as a plain Error (which Convex redacts to a bare "Server Error").
     let text = "", promptTokens = 0, completionTokens = 0;
     try {
-      const row = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider });
+      const row = await ctx.runQuery(internal.credentials.resolveCred, { userId, workspaceId, provider });
       if (!row) throw new ConvexError({ code: "not_connected", detail: `No credentials for "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
 
       // token-savers: a Caveman/Ponytail system prompt when the user has them on — still applied

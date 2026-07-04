@@ -1,7 +1,7 @@
 // Workspace tenancy — the deterministic CRUD half of the `workspaces` slice (tables in
 // features/workspaces/tables.ts). A workspace is the tenant boundary; an individual = a personal
 // workspace of one. api.workspaces.* / internal.workspaces.checkMembership (used by _shared/auth).
-import { query, mutation, internalQuery } from "./_generated/server";
+import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUser, requireWorkspaceRole, ROLE_RANK } from "./_shared/auth";
@@ -19,19 +19,27 @@ export const checkMembership = internalQuery({
 });
 
 // idempotent: the caller's personal workspace (auto-created once). OCC makes concurrent calls safe.
+async function ensurePersonalWs(ctx: any, userId: any) {
+  const owned = await ctx.db.query("workspaces").withIndex("by_owner", (q: any) => q.eq("ownerId", userId)).take(50);
+  const existing = owned.find((w: any) => w.personal);
+  if (existing) return existing._id;
+  const user = await ctx.db.get(userId);
+  const name = ((user as any)?.name || (user as any)?.email?.split("@")[0] || "Personal").slice(0, 40);
+  const wsId = await ctx.db.insert("workspaces", { name, slug: `personal-${userId}`, personal: true, ownerId: userId, credPolicy: "personal-first", createdAt: Date.now() });
+  await ctx.db.insert("memberships", { workspaceId: wsId, userId, role: "owner", createdAt: Date.now() });
+  return wsId;
+}
+
 export const ensurePersonal = mutation({
   args: {},
-  handler: async (ctx) => {
-    const userId = await requireUser(ctx);
-    const owned = await ctx.db.query("workspaces").withIndex("by_owner", (q) => q.eq("ownerId", userId)).take(50);
-    const existing = owned.find((w) => w.personal);
-    if (existing) return existing._id;
-    const user = await ctx.db.get(userId);
-    const name = ((user as any)?.name || (user as any)?.email?.split("@")[0] || "Personal").slice(0, 40);
-    const wsId = await ctx.db.insert("workspaces", { name, slug: `personal-${userId}`, personal: true, ownerId: userId, credPolicy: "personal-first", createdAt: Date.now() });
-    await ctx.db.insert("memberships", { workspaceId: wsId, userId, role: "owner", createdAt: Date.now() });
-    return wsId;
-  },
+  handler: async (ctx) => ensurePersonalWs(ctx, await requireUser(ctx)),
+});
+
+// action-safe twin: resolve the personal ws for an EXPLICIT userId (chat/runAgent when the client
+// passes no workspaceId — an action can't run the authed ensurePersonal via runMutation).
+export const _ensurePersonalFor = internalMutation({
+  args: { userId: v.id("users") },
+  handler: (ctx, a) => ensurePersonalWs(ctx, a.userId),
 });
 
 export const myWorkspaces = query({

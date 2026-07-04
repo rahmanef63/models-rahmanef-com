@@ -6,7 +6,7 @@
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v, ConvexError } from "convex/values";
-import { requireUser } from "./_shared/auth";
+import { requireUser, resolveWorkspaceAction } from "./_shared/auth";
 import { generateText, stepCountIs } from "ai";
 import { decryptSecret } from "./crypto";
 import { SKILLS_REGISTRY } from "./skillsRegistry";
@@ -20,12 +20,15 @@ import { classifyError, traceOf, type ChatErrorInfo } from "./chatErrors";
 // lets a thread be "bound" to an agent. Either `agentId` or `model` must be given.
 export const chat = action({
   args: {
+    workspaceId: v.optional(v.id("workspaces")),
     model: v.optional(v.string()),
     agentId: v.optional(v.id("agentDefs")),
     messages: v.array(v.object({ role: v.string(), content: v.string() })),
   },
   handler: async (ctx, a): Promise<{ text: string }> => {
     const userId = await requireUser(ctx);
+    // spend requires 'member' (viewers never reach callForUser); no workspaceId → the personal ws
+    const workspaceId = await resolveWorkspaceAction(ctx, userId, a.workspaceId, "member");
     if (a.agentId) {
       const def = await ctx.runQuery(internal.agentDefs.getOwned, { userId, id: a.agentId });
       if (!def) throw new ConvexError({ code: "not_found", detail: "Agent not found" } satisfies ChatErrorInfo);
@@ -42,10 +45,10 @@ export const chat = action({
         .filter(Boolean)
         .join("\n\n");
       const system = [def.instructions, skillText].filter(Boolean).join("\n\n") || undefined;
-      return callForUser(ctx, userId, def.model, a.messages, { system, tools: gatewayTools(ctx, userId, def.tools), maxSteps: def.maxSteps, temperature: def.temperature });
+      return callForUser(ctx, userId, workspaceId, def.model, a.messages, { system, tools: gatewayTools(ctx, userId, def.tools), maxSteps: def.maxSteps, temperature: def.temperature });
     }
     if (!a.model) throw new ConvexError({ code: "invalid_request", detail: "model or agentId required" } satisfies ChatErrorInfo);
-    return callForUser(ctx, userId, a.model, a.messages);
+    return callForUser(ctx, userId, workspaceId, a.model, a.messages);
   },
 });
 
@@ -55,9 +58,10 @@ export const chat = action({
 // from there) or `model` (ad-hoc: all gateway tools, maxSteps 8, no instructions — the original
 // pre-agentDefs behavior, unchanged) must be given.
 export const runAgent = action({
-  args: { task: v.string(), model: v.optional(v.string()), agentId: v.optional(v.id("agentDefs")) },
+  args: { workspaceId: v.optional(v.id("workspaces")), task: v.string(), model: v.optional(v.string()), agentId: v.optional(v.id("agentDefs")) },
   handler: async (ctx, a): Promise<{ runId: string; text: string }> => {
     const userId = await requireUser(ctx);
+    const workspaceId = await resolveWorkspaceAction(ctx, userId, a.workspaceId, "member");
 
     let modelRef: string, instructions: string | undefined, toolIds: string[] | undefined, maxSteps: number, temperature: number | undefined, agentName: string | undefined;
     if (a.agentId) {
@@ -89,7 +93,7 @@ export const runAgent = action({
 
     let row: any, m: any;
     try {
-      row = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider });
+      row = await ctx.runQuery(internal.credentials.resolveCred, { userId, workspaceId, provider });
       if (!row) throw new ConvexError({ code: "not_connected", detail: `No credentials for "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
       m = modelFor(provider, model, await decryptSecret(row.ciphertext));
       if (!m) throw new ConvexError({ code: "internal", detail: `Unknown provider "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
@@ -99,7 +103,7 @@ export const runAgent = action({
       throw new ConvexError({ ...classifyError(e, provider), provider, model });
     }
 
-    const runId = await ctx.runMutation(internal.agents.create, { userId, task: a.task, model: modelRef, agentId: a.agentId, agentName, at: Date.now() });
+    const runId = await ctx.runMutation(internal.agents.create, { userId, workspaceId, task: a.task, model: modelRef, agentId: a.agentId, agentName, at: Date.now() });
     try {
       const result = await generateText({
         model: m,
@@ -112,12 +116,12 @@ export const runAgent = action({
       const { steps, promptTokens, completionTokens } = traceOf(result);
       const text = result.text || "(no text)";
       await ctx.runMutation(internal.agents.finish, { runId, status: "done", steps, result: text, promptTokens, completionTokens });
-      await ctx.runMutation(internal.usage.log, { userId, provider, model: modelRef, promptTokens, completionTokens, status: "ok" });
+      await ctx.runMutation(internal.usage.log, { userId, workspaceId, provider, model: modelRef, promptTokens, completionTokens, status: "ok" });
       return { runId, text };
     } catch (e: any) {
       const info = classifyError(e, provider);
       await ctx.runMutation(internal.agents.finish, { runId, status: "error", error: info.detail, errorCode: info.code });
-      await ctx.runMutation(internal.usage.log, { userId, provider, model: modelRef, promptTokens: 0, completionTokens: 0, status: "error" });
+      await ctx.runMutation(internal.usage.log, { userId, workspaceId, provider, model: modelRef, promptTokens: 0, completionTokens: 0, status: "error" });
       throw new ConvexError({ ...info, provider, model }); // unmask the real provider error (Convex hides plain throws)
     }
   },
@@ -134,7 +138,7 @@ export const testCredential = action({
     const userId = await requireUser(ctx);
     if (!a.model) throw new ConvexError({ code: "invalid_request", detail: "model required" } satisfies ChatErrorInfo);
     try {
-      await callForUser(ctx, userId, `${a.provider}/${a.model}`, [{ role: "user", content: "ping" }]);
+      await callForUser(ctx, userId, undefined, `${a.provider}/${a.model}`, [{ role: "user", content: "ping" }]); // personal cred test
       // never let the bookkeeping write itself throw — a hiccup here must not surface as a false
       // "key is bad" (or an uncaught rejection) when the actual connectivity check succeeded
       try { await ctx.runMutation(internal.credentials._recordCheck, { userId, provider: a.provider, ok: true }); } catch { /* best-effort */ }

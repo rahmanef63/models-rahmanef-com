@@ -5,7 +5,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireAdmin } from "./_shared/auth";
 
 export const log = internalMutation({
-  args: { userId: v.id("users"), provider: v.string(), model: v.string(), promptTokens: v.number(), completionTokens: v.number(), status: v.string() },
+  args: { userId: v.id("users"), workspaceId: v.optional(v.id("workspaces")), provider: v.string(), model: v.string(), promptTokens: v.number(), completionTokens: v.number(), status: v.string() },
   handler: (ctx, a) => ctx.db.insert("usage", { ...a, at: Date.now() }),
 });
 
