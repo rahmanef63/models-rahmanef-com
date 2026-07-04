@@ -96,8 +96,21 @@ export const deleteThread = mutation({
     const userId = await requireUser(ctx);
     const t = await ctx.db.get(a.threadId);
     if (!t || t.userId !== userId) return;
-    for (const m of await ctx.db.query("messages").withIndex("by_thread", (q) => q.eq("threadId", a.threadId)).collect()) await ctx.db.delete(m._id);
     await ctx.db.delete(a.threadId);
+    // messages deleted in a scheduled batch loop — a long thread could exceed the per-mutation
+    // write limit if deleted inline. The thread is gone immediately; orphaned messages clean async.
+    await ctx.scheduler.runAfter(0, internal.threads._deleteMessages, { threadId: a.threadId });
+  },
+});
+
+// batched cleanup for a deleted thread's messages — reschedules until the thread is drained.
+const DELETE_BATCH = 200;
+export const _deleteMessages = internalMutation({
+  args: { threadId: v.id("threads") },
+  handler: async (ctx, a) => {
+    const batch = await ctx.db.query("messages").withIndex("by_thread", (q) => q.eq("threadId", a.threadId)).take(DELETE_BATCH);
+    for (const m of batch) await ctx.db.delete(m._id);
+    if (batch.length === DELETE_BATCH) await ctx.scheduler.runAfter(0, internal.threads._deleteMessages, { threadId: a.threadId });
   },
 });
 

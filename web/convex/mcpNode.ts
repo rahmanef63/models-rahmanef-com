@@ -5,7 +5,7 @@ import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { requireUser } from "./_shared/auth";
-import { callForUser } from "./chat";
+import { callForUser } from "./callForUser";
 
 async function sha256hex(s: string): Promise<string> {
   const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
