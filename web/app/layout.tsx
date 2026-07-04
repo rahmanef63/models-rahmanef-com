@@ -19,7 +19,7 @@ const SITE_URL = siteUrl();
 
 export const metadata: Metadata = {
   title: "models — bring your own key",
-  description: "A multi-tenant bring-your-own-key AI gateway. Sign in with OpenAI, Claude, or OpenRouter — or paste any key — then chat, run agents, and expose your own MCP server. 23 providers, distilled from openclaw & hermes.",
+  description: "A multi-tenant bring-your-own-key AI gateway. Sign in with OpenAI, Claude, or OpenRouter — or paste any key — then chat, run agents, and expose your own MCP server. 22 providers, distilled from openclaw & hermes.",
   metadataBase: new URL(SITE_URL),
   openGraph: { title: "models — bring your own key", description: "Every model. Your keys. One dashboard.", url: SITE_URL, type: "website" },
   twitter: { card: "summary_large_image", title: "models — bring your own key", description: "Every model. Your keys. One dashboard.", images: ["/opengraph-image.png"] },

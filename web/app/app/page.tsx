@@ -144,7 +144,7 @@ function Dashboard() {
         {section === "overview" && (
           <>
             <Overview providers={providers} models={myModels} go={setSection} />
-            <UsageCard />
+            <UsageCard catalog={catalog} />
           </>
         )}
 
@@ -170,7 +170,7 @@ function Dashboard() {
           </>
         )}
 
-        {section === "usage" && <UsageCard />}
+        {section === "usage" && <UsageCard catalog={catalog} />}
 
         {section === "settings" && <TokenSaverCard />}
 

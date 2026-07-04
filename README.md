@@ -28,7 +28,7 @@
 
 The reference app is evolving into a self-hosted, BYOK alternative to hosted LLM routers — built on the library above, one left-nav shell over these sections:
 
-- **Providers** — 23 providers: OAuth sign-in (OpenAI ChatGPT/Codex device-code, OpenRouter PKCE) or paste any key. Keys are AES-256-GCM encrypted per user in Convex; never shared, never sent to another provider's host.
+- **Providers** — 22 providers: OAuth sign-in (OpenAI ChatGPT/Codex device-code, OpenRouter PKCE) or paste any key. Keys are AES-256-GCM encrypted per user in Convex; never shared, never sent to another provider's host.
 - **Chat workbench** — threaded, persisted conversations against any connected model.
 - **AI Agents** — give a tool-capable model a task; it runs a multi-step tool loop and records a step-by-step trace.
 - **Agent mode** — the chat/agents can call tools to inspect your own gateway (connected providers, usage).

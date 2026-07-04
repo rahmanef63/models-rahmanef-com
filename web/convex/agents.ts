@@ -23,7 +23,7 @@ export const finish = internalMutation({
     completionTokens: v.optional(v.number()),
   },
   handler: async (ctx, { runId, ...patch }) => {
-    await ctx.db.patch(runId, patch);
+    await ctx.db.patch(runId, { ...patch, finishedAt: Date.now() });
   },
 });
 
@@ -33,5 +33,16 @@ export const myRuns = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
     return ctx.db.query("agentRuns").withIndex("by_user_at", (q) => q.eq("userId", userId)).order("desc").take(20);
+  },
+});
+
+// Single run by id, owner-checked — for a run-detail / shareable-trace view.
+export const getRun = query({
+  args: { runId: v.id("agentRuns") },
+  handler: async (ctx, { runId }) => {
+    const userId = await getAuthUserId(ctx);
+    if (!userId) return null;
+    const run = await ctx.db.get(runId);
+    return run && run.userId === userId ? run : null;
   },
 });

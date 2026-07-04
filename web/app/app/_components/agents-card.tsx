@@ -7,7 +7,7 @@ import { AgentForm, type AgentDef, type AgentPatch, type AgentPrefill, type Skil
 import { ImportMenu } from "./agent-import";
 import { exportAgentFile } from "./agent-io";
 
-type Run = { _id: string; task: string; model: string; agentId?: string; agentName?: string; status: string; steps?: { text: string; tools: string[] }[]; result?: string; error?: string; errorCode?: string };
+type Run = { _id: string; task: string; model: string; agentId?: string; agentName?: string; status: string; steps?: { text: string; tools: string[] }[]; result?: string; error?: string; errorCode?: string; at?: number; finishedAt?: number };
 
 export function AgentsCard({ models, isAdmin }: { models: string[]; isAdmin: boolean }) {
   const runAgent = useAction(api.chat.runAgent);
@@ -156,6 +156,7 @@ export function AgentsCard({ models, isAdmin }: { models: string[]; isAdmin: boo
                   <span className="name">{r.task}</span>
                   {r.agentName && <span className="badge oauth">{r.agentName}</span>}
                   <span className="mono muted model-id" style={{ fontSize: ".72rem" }}>{r.model}</span>
+                  {r.finishedAt && r.at && <span className="badge" title="run duration">{((r.finishedAt - r.at) / 1000).toFixed(1)}s</span>}
                 </summary>
                 <div className="trace">
                   {(r.steps ?? []).map((s, i) => (

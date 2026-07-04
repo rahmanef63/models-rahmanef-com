@@ -5,7 +5,7 @@ const GITHUB = "https://github.com/rahmanef63/models-rahmanef-com";
 
 const FEATURES = [
   { t: "Sign in, don't paste", d: "OAuth with OpenAI (ChatGPT / Codex), Claude (Pro / Max) or OpenRouter — use your subscription, no key to copy. Or paste one if you prefer." },
-  { t: "23 providers, one interface", d: "resolveModel('provider/model') → a ready client. OpenAI, Anthropic, Google and twenty more, host-gated, one call." },
+  { t: "22 providers, one interface", d: "resolveModel('provider/model') → a ready client. OpenAI, Anthropic, Google and nineteen more, host-gated, one call." },
   { t: "Per-user, encrypted", d: "Every tenant brings their own credentials. Stored AES-256-GCM at rest, keyed to your own auth — never shared, never logged." },
   { t: "Chat + autonomous agents", d: "A threaded, persisted workbench and a multi-step agent runner with full tool traces — both built in, over any model you connect." },
   { t: "Your own MCP server", d: "Mint a token and expose your gateway as an MCP endpoint. Connect Claude Code, Cursor, or ChatGPT over OAuth 2.1. Each token acts as you." },
@@ -15,7 +15,7 @@ const FEATURES = [
 const MODULES = [
   { k: "chat / workbench", t: "Workbench", d: "Threaded, persisted conversations across any connected model. Agent mode and token savers apply." },
   { k: "agents / runner", t: "Agents", d: "Give a model a task; watch a multi-step tool loop run with a full, expandable trace of every step." },
-  { k: "providers / byok", t: "Providers", d: "Connect over OAuth or paste a key. 23 providers, each connection scoped to you alone." },
+  { k: "providers / byok", t: "Providers", d: "Connect over OAuth or paste a key. 22 providers, each connection scoped to you alone." },
   { k: "usage / telemetry", t: "Usage", d: "Every call logged — requests, in/out tokens, top models, and a 14-day activity sparkline." },
   { k: "mcp / server", t: "MCP server", d: "Mint tokens and expose chat + tools to Claude Code, Cursor or ChatGPT over OAuth 2.1." },
   { k: "admin / console", t: "Admin", d: "Operator console — identities, connections and aggregate usage. Never a key or message content." },
@@ -34,7 +34,7 @@ export default function Landing() {
 
       <header className="hero">
         <div>
-          <div className="eyebrow reveal" style={{ ["--d" as string]: "0.05s" }}>byok · 23 providers · mcp</div>
+          <div className="eyebrow reveal" style={{ ["--d" as string]: "0.05s" }}>byok · 22 providers · mcp</div>
           <h1 className="reveal" style={{ ["--d" as string]: "0.12s" }}>
             Every model.<br />Your keys.<br /><em>One dashboard.</em>
           </h1>

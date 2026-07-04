@@ -14,12 +14,16 @@ type Row = { provider: string; model: string; promptTokens: number; completionTo
 function aggregate(rows: Row[]) {
   let promptTokens = 0, completionTokens = 0, errors = 0;
   const byModel: Record<string, number> = {};
+  const byModelTokens: Record<string, { prompt: number; completion: number }> = {}; // per-model sums so the client can price each × its models.dev rate
   const byDay: Record<string, number> = {};
   for (const r of rows) {
     promptTokens += r.promptTokens;
     completionTokens += r.completionTokens;
     if (r.status !== "ok") errors++;
     byModel[r.model] = (byModel[r.model] ?? 0) + 1;
+    const t = (byModelTokens[r.model] ??= { prompt: 0, completion: 0 });
+    t.prompt += r.promptTokens;
+    t.completion += r.completionTokens;
     byDay[new Date(r.at).toISOString().slice(0, 10)] = (byDay[new Date(r.at).toISOString().slice(0, 10)] ?? 0) + 1;
   }
   return {
@@ -29,6 +33,7 @@ function aggregate(rows: Row[]) {
     totalTokens: promptTokens + completionTokens,
     errors,
     byModel,
+    byModelTokens,
     byDay,
     recent: rows.slice(0, 15).map((r) => ({ model: r.model, promptTokens: r.promptTokens, completionTokens: r.completionTokens, status: r.status, at: r.at })),
   };

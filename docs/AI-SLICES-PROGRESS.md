@@ -6,32 +6,32 @@ components), so "apply" = *build the real feature here* in this app's design + B
 
 **Legend:** ✅ done & deployed · 🟡 partial · ⬜ not started · 🅿️ parked (needs decision)
 
-Last updated: 2026-07-02.
+Last updated: 2026-07-04 (validated against code; cost estimate + per-run duration + `getRun` shipped this pass).
 
 ## Summary
 
 | Slice | rr status | our status | rough coverage |
 |---|---|---|---|
-| **AI Router** — backend provider proxy | partial (OpenRouter tiers) | 🟡 **we exceed rr on BYOK**, lag on the public proxy | ~45% |
-| **AI Chat** — workbench / sidebar / search | partial (FAB only) | 🟡 workbench + persistence built | ~40% |
-| **AI Agents** — autonomous workers | partial (in-memory) | 🟡 runner + traces + persistence built | ~35% |
-| **AI Admin** — console (8 tabs) | scaffold-only | 🟡 providers/models/audit + content totals | ~35% |
+| **AI Router** — backend provider proxy | partial (OpenRouter tiers) | 🟡 **we exceed rr on BYOK** + est. cost now, lag on the public proxy | ~50% |
+| **AI Chat** — workbench / sidebar / search | partial (FAB only) | 🟡 workbench + persistence + 4-tool registry | ~44% |
+| **AI Agents** — autonomous workers | partial (in-memory) | 🟡 runner + traces + persistence + duration + getRun | ~40% |
+| **AI Admin** — console (8 tabs) | scaffold-only | 🟡 providers/models/audit + content totals | ~40% |
 | **AI Studio** — generation canvas | scaffold-only | ⬜ not started | 0% |
-| **shared/agentic** — the tool kit | implemented (lib) | 🟡 we use AI-SDK tools instead of the kit | ~25% |
+| **shared/agentic** — the tool kit | implemented (lib) | 🟡 AI-SDK tools + tool/skill registries | ~30% |
 | **Create Your MCP** — MCP server | partial (templates) | 🟡 **bearer + OAuth 2.1 live**; rate-limit 5c next | ~70% |
 
 ---
 
 ## AI Router — Backend Provider Proxy
-> rr routes 3 tiers (nano/mid/flagship) through **one shared OpenRouter key**. **We went further**: real per-user BYOK across 23 providers.
+> rr routes 3 tiers (nano/mid/flagship) through **one shared OpenRouter key**. **We went further**: real per-user BYOK across 22 providers.
 
-- ✅ Provider registry — 23 providers (`src/registry.js`, `chat.ts` OPENAI_COMPAT)
+- ✅ Provider registry — 22 providers (`src/registry.js`, `chat.ts` OPENAI_COMPAT)
 - ✅ Per-user **encrypted** credentials (AES-256-GCM, `crypto.ts`) — rr uses one shared key
 - ✅ Host-gating (a key never leaves its provider's host)
 - ✅ models.dev catalog + `resolveModel`
 - ✅ Per-call usage log (requests, in/out tokens) — `usage.ts`
 - ✅ User attribution
-- 🟡 Cost (USD) per call — we log tokens, not $ cost yet
+- ✅ Cost (USD) — est. spend from models.dev $/M rates in the Usage card (per-model tokens × rate; OAuth/uncatalogued models skipped, marked an estimate)
 - ⬜ **Public `/v1` OpenAI-compatible endpoint** (point Claude Code / Codex / Cursor at us) — 🅿️ parked
 - ⬜ Combos: fallback / round-robin / fusion (panel + judge)
 - ⬜ Per-model cooldown + backoff + rate-limit guard
@@ -43,9 +43,9 @@ Last updated: 2026-07-02.
 
 - ✅ Workbench shell (thread sidebar + message view + composer) — `WorkbenchCard`
 - ✅ Thread history / **persistence** (`threads` + `messages` tables, `threads.ts`)
-- ✅ Multi-provider (23 providers — rr only calls Anthropic)
+- ✅ Multi-provider (22 providers — rr only calls Anthropic)
 - ✅ Agent mode (AI-SDK tool calls)
-- ✅ Typed tool calls (`list_my_providers`, `get_my_usage`)
+- ✅ Typed tool calls — 4 tools (`list_my_providers`, `get_my_usage`, `get_model_catalog`, `list_my_agents`)
 - ✅ Usage telemetry (every chat logged)
 - ✅ Model picker — **provider-first** (pick provider → then its models, never dumps all), route badge (oauth / api-key), model **inspector** (context / cost / tools / modalities from models.dev), model header bar per thread
 - ✅ Fixed: OpenAI-compat providers (Mistral, Groq, …) were hitting OpenAI's `/responses` API via the SDK shorthand → now `.chat()` = `/chat/completions`; provider errors now surface (ConvexError) instead of a masked "Server Error"
@@ -62,11 +62,11 @@ Last updated: 2026-07-02.
 > rr runner is real but **in-memory**; components declared-not-built. **We persist runs + traces.**
 
 - ✅ Run engine (`runAgent`, 8-step tool loop)
-- ✅ startRun / getRun / listRuns (`agents.ts`)
+- ✅ `myRuns` (list) + `getRun` (single, owner-checked) + internal create/finish (`agents.ts`) + `runAgent` action / model loop (`chat.ts`)
 - ✅ Step-by-step trace (recorded + expandable UI)
 - ✅ **Persistent** runs (`agentRuns` table — rr uses a Map)
 - ✅ On-demand trigger + AgentsCard
-- 🟡 Per-run latency/duration (we store start time only)
+- ✅ Per-run duration (`finishedAt − at`, shown per run) + per-run token counts stored
 - ⬜ Per-run **cost tally** (USD)
 - ⬜ Cancel run
 - ⬜ Run queue / status board UI
@@ -109,7 +109,8 @@ Last updated: 2026-07-02.
 > rr's kit (defineTool → registry → one agent loop → model seam). **We use the Vercel AI SDK's native tool-calling instead** — same capability, fewer abstractions (ponytail).
 
 - ✅ Tool-calling loop (AI SDK `tools` + `stopWhen`) — functional equivalent
-- ✅ Tool **registry** (`convex/toolRegistry.ts`, SSOT for id/label/description) + per-agent tool selection — still 2 tools (list_my_providers, get_my_usage), now properly infrastructure'd instead of hardcoded
+- ✅ Tool **registry** (`convex/toolRegistry.ts`, SSOT for id/label/description) + per-agent tool selection — 4 tools (list_my_providers, get_my_usage, get_model_catalog, list_my_agents), infrastructure'd not hardcoded
+- ✅ **Skills registry** (`convex/skillsRegistry.ts`, SSOT id/label/description) — 6 instruction bundles (researcher, terse, code-reviewer, planner, explainer, data-analyst), selectable per-agent, concatenated into the system prompt at run time
 - ⬜ `defineTool` authoring factory + JSON-schema builders
 - ⬜ Central tool registry / bus (many slices' tools aggregated)
 - ⬜ Dangerous + confirm safety seam
@@ -134,7 +135,7 @@ Last updated: 2026-07-02.
 
 ## Beyond rr (we have, rr does not)
 - ✅ **3 OAuth subscription logins**: OpenAI ChatGPT/Codex, **Claude Pro/Max**, OpenRouter — rr has none
-- ✅ **23-provider BYOK** with per-user AES encryption — rr = one shared OpenRouter key
+- ✅ **22-provider BYOK** with per-user AES encryption — rr = one shared OpenRouter key
 - ✅ **Token savers** (Caveman / Ponytail system-prompt injection) — not in rr
 - ✅ models.dev auto-updating catalog + host-gating
 - ✅ Landing page, OG image, super-admin gate, dashboard sidebar
@@ -145,4 +146,4 @@ Last updated: 2026-07-02.
 - ✅ **AI Admin console** — providers/models/audit + content totals
 - 🟡 **Create Your MCP** — bearer (5a) + OAuth 2.1 (5b) **live + ChatGPT-connectable**; rate-limit + revoke-all (5c) next
 6. **AI Studio** — generation canvas
-- backlog: chat Search mode, agent definitions + scheduling, cost($) tracking, public `/v1` router (🅿️), the 8-tab admin registries
+- backlog: chat Search mode, agent scheduling, public `/v1` router (🅿️), the 8-tab admin registries

@@ -60,6 +60,7 @@ export default defineSchema({
     promptTokens: v.optional(v.number()),
     completionTokens: v.optional(v.number()),
     at: v.number(),
+    finishedAt: v.optional(v.number()), // set by finish() → per-run duration = finishedAt - at
   }).index("by_user_at", ["userId", "at"]),
   // AI Agents: saved, reusable agent configs (named: skill × model × tools × max-iter).
   agentDefs: defineTable({
