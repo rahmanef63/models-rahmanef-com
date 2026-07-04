@@ -53,6 +53,11 @@ export async function callForUser(
       if (settings.cavemanEnabled) sys.push(CAVEMAN_PROMPT);
       if (settings.ponytailEnabled) sys.push(PONYTAIL_PROMPT);
       if (agentOpts?.system) sys.push(agentOpts.system);
+      // recalled memory (hermes model) — off only if the user turned it off; workspace + user scope
+      if (settings.memoryEnabled !== false) {
+        const mem = await ctx.runQuery(internal.memory._buildContext, { userId, workspaceId });
+        if (mem) sys.push(mem);
+      }
       const systemPrompt = sys.length ? sys.join("\n\n") : undefined;
       // codex/claude custom paths take the system prompt inline as a message; the AI SDK (ai@7)
       // REJECTS a {role:"system"} message inside `messages` — it must be passed via the `system` param.

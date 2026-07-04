@@ -15,7 +15,7 @@ async function sha256hex(s: string): Promise<string> {
 }
 
 export const handle = action({
-  args: { method: v.string(), path: v.string(), key: v.optional(v.string()), ip: v.optional(v.string()), body: v.any() },
+  args: { method: v.string(), path: v.string(), key: v.optional(v.string()), ip: v.optional(v.string()), body: v.optional(v.any()) },
   handler: async (ctx, a): Promise<any> => {
     const err = (status: number, code: string, message: string) => ({ kind: "error", status, code, message });
     if (!a.key) return err(401, "missing_key", "Provide an API key via 'Authorization: Bearer sk-rr-…' or 'x-api-key'.");

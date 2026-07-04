@@ -1,0 +1,15 @@
+{
+  "$schema": "../../../docs/slice.manifest.schema.json",
+  "name": "memory",
+  "version": "0.1.0",
+  "description": "Curated cross-session agent memory + memory/recall_memory tools + <memory-context> injection.",
+  "category": "feature",
+  "stability": "alpha",
+  "deps": { "shared": [], "slices": [], "convexFeatures": [], "npm": {}, "env": [] },
+  "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
+  "permissions": ["authed-user"],
+  "schemaTables": ["memories"],
+  "compatibility": { "next": ">=16 <17", "react": "^19", "convex": "^1.16", "tailwind": "any", "auth": "@convex-dev/auth" },
+  "tags": ["ai", "memory", "recall", "agents", "convex"],
+  "notes": "v0.1 = user-scope memory (add/remove tool + full-text recall_memory + injection). workspace/agent scope, auto-summarize, and daily curation cron are 2.10. Vector/semantic recall is a later phase (embedding column reserved). memory tool description IS the learning loop (save on corrections/preferences, skip task progress)."
+}

@@ -3,6 +3,7 @@ import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 import { workspaceTables } from "./features/workspaces/tables";
 import { apiCompatTables } from "./features/apiCompat/tables";
+import { memoryTables } from "./features/memory/tables";
 
 // authTables = users, authAccounts, authSessions, ... (from @convex-dev/auth).
 // workspaceTables = workspaces/memberships/invites (the tenant boundary — see features/workspaces).
@@ -11,6 +12,7 @@ export default defineSchema({
   ...authTables,
   ...workspaceTables,
   ...apiCompatTables,
+  ...memoryTables,
   // kind: "api_key" (ciphertext = the key) | "oauth" (ciphertext = JSON {access,refresh,expires,accountId})
   modelCreds: defineTable({
     userId: v.id("users"),
@@ -49,6 +51,7 @@ export default defineSchema({
   settings: defineTable({
     userId: v.id("users"),
     activeWorkspaceId: v.optional(v.id("workspaces")), // last-selected workspace (switcher persistence)
+    memoryEnabled: v.optional(v.boolean()), // inject recalled memory into chat (default ON)
     cavemanEnabled: v.optional(v.boolean()),
     cavemanLevel: v.optional(v.string()),
     ponytailEnabled: v.optional(v.boolean()),

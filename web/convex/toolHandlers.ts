@@ -26,6 +26,8 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
     const defs = await ctx.runQuery(internal.agentDefs.listForUser, { userId });
     return defs.map((d: any) => ({ name: d.name, model: d.model, tools: d.tools.length, skills: d.skills?.length ?? 0 }));
   },
+  memory: (ctx, userId, args) => ctx.runMutation(internal.memory._toolWrite, { userId, op: String(args?.op ?? "add"), text: args?.text, match: args?.match }),
+  recall_memory: (ctx, userId, args) => ctx.runQuery(internal.memory._toolSearch, { userId, query: String(args?.query ?? "") }),
   chat: async (ctx, userId, args, workspaceId) => {
     const r = await callForUser(ctx, userId, workspaceId, String(args.model), [{ role: "user", content: String(args.prompt) }]); // token-bound workspace creds
     return r.text; // string → MCP asText(); chat is MCP-only, so no agent path hits this

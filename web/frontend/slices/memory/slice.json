@@ -1,0 +1,21 @@
+{
+  "$schema": "https://resource.rahmanef.com/slice-schema.json",
+  "slug": "memory",
+  "version": "0.1.0",
+  "category": "feature",
+  "kind": "feature",
+  "title": "Agent memory",
+  "description": "Curated, budgeted cross-session memory (hermes model): facts/preferences/summaries recalled into the system prompt. `memory` + `recall_memory` registry tools (agent + MCP surfaces) let agents save proactively; a fenced <memory-context> block is injected into callForUser. Curation archives, never hard-deletes.",
+  "namespace": "@/features/memory",
+  "convex": {
+    "tablesExport": "memories",
+    "schemaPath": "convex/schema.ts",
+    "rootPaths": ["convex/memory.ts", "convex/features/memory"]
+  },
+  "frontend": { "slicePath": "frontend/slices/memory", "configExport": "memoryConfig" },
+  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth"] },
+  "registers": ["registry"],
+  "license": "MIT",
+  "tags": ["ai", "memory", "recall", "agents", "convex"],
+  "providers": []
+}

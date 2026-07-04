@@ -16,6 +16,7 @@ import { AgentsCard } from "./_components/agents-card";
 import { WorkbenchCard } from "./_components/workbench";
 import { WorkspaceProvider, WorkspaceSwitcher, MembersCard } from "@/features/workspaces";
 import { ApiKeysCard } from "@/features/api-compat";
+import { MemoryPanel } from "@/features/memory";
 
 export default function AppPage() {
   const { isLoading, isAuthenticated } = useConvexAuth();
@@ -127,6 +128,7 @@ function Dashboard() {
     { id: "providers", label: "Providers" },
     { id: "usage", label: "Usage" },
     { id: "settings", label: "Settings" },
+    { id: "memory", label: "Memory" },
     { id: "members", label: "Members" },
     { id: "mcp", label: "MCP" },
     { id: "api", label: "API" },
@@ -177,6 +179,8 @@ function Dashboard() {
         {section === "usage" && <UsageCard catalog={catalog} />}
 
         {section === "settings" && <TokenSaverCard />}
+
+        {section === "memory" && <MemoryPanel />}
 
         {section === "members" && <MembersCard />}
 
