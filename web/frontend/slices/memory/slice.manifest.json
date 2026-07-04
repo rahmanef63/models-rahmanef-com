@@ -1,8 +1,8 @@
 {
   "$schema": "../../../docs/slice.manifest.schema.json",
   "name": "memory",
-  "version": "0.1.0",
-  "description": "Curated cross-session agent memory + memory/recall_memory tools + <memory-context> injection.",
+  "version": "0.2.0",
+  "description": "Curated cross-session agent memory + memory/recall_memory tools + <memory-context> injection + opt-in auto-summarize + daily archive-only curation cron. Scope tabs (user/workspace/summaries), pin/unpin, per-scope budget bars.",
   "category": "feature",
   "stability": "alpha",
   "deps": { "shared": [], "slices": [], "convexFeatures": [], "npm": {}, "env": [] },
@@ -11,5 +11,5 @@
   "schemaTables": ["memories"],
   "compatibility": { "next": ">=16 <17", "react": "^19", "convex": "^1.16", "tailwind": "any", "auth": "@convex-dev/auth" },
   "tags": ["ai", "memory", "recall", "agents", "convex"],
-  "notes": "v0.1 = user-scope memory (add/remove tool + full-text recall_memory + injection). workspace/agent scope, auto-summarize, and daily curation cron are 2.10. Vector/semantic recall is a later phase (embedding column reserved). memory tool description IS the learning loop (save on corrections/preferences, skip task progress)."
+  "notes": "v0.2 (step 2.10) adds: opt-in per-thread auto-summarize (settings.memoryAutoSummarize, default OFF — spends the user's own BYOK; scheduled off-turn via memoryAutoSummary.maybeSummarize, NEVER inline; watermark >30 msgs or >12k chars since last summary), a daily archive-only curation cron (memoryCuration.curateMemories — dead-thread/90d-stale summaries + exact dupes; pinned bypasses), and a fuller MemoryPanel (user/workspace/summaries scope tabs, pin/unpin, per-scope budget bars). Consumer must add: settings.memoryAutoSummarize field, the curate-memory cron line, and (optional) a threads.sendMessage scheduler hook to maybeSummarize. Vector/semantic recall is a later phase (embedding column reserved). memory tool description IS the learning loop (save on corrections/preferences, skip task progress)."
 }

@@ -1,0 +1,26 @@
+{
+  "$schema": "https://resource.rahmanef.com/slice-schema.json",
+  "slug": "mcp-client",
+  "version": "0.1.0",
+  "category": "feature",
+  "kind": "feature",
+  "title": "External MCP client",
+  "description": "Let agents consume EXTERNAL MCP servers as tools. Owns mcpServers (custom auth headers AES-256-GCM at rest), CRUD + probe (enumerate + cache tools), and mcpClientTools() which turns each cached tool into an AI-SDK tool named mcp__<server>__<tool> whose execute() does a per-call connect→callTool→close via @modelcontextprotocol/sdk (HTTP/SSE). Merged into gatewayTools — agent surface ONLY, never re-exported on our own /mcp server (loop guard).",
+  "namespace": "@/features/mcp-client",
+  "convex": {
+    "tablesExport": "mcpServers",
+    "schemaPath": "convex/schema.ts",
+    "rootPaths": ["convex/mcpServers.ts", "convex/mcpClientNode.ts", "convex/features/mcpClient"]
+  },
+  "frontend": { "slicePath": "frontend/slices/mcp-client", "configExport": "mcpClientConfig" },
+  "deps": {
+    "npm": ["@modelcontextprotocol/sdk"],
+    "shadcn": [],
+    "env": ["MODELS_ENC_KEY"],
+    "peers": ["@convex-dev/auth"]
+  },
+  "registers": ["registry"],
+  "license": "MIT",
+  "tags": ["ai", "mcp", "tools", "agents", "convex"],
+  "providers": []
+}

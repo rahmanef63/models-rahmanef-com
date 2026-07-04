@@ -1,0 +1,15 @@
+{
+  "$schema": "../../../docs/slice.manifest.schema.json",
+  "name": "mcp-client",
+  "version": "0.1.0",
+  "description": "Consume external MCP servers (HTTP/SSE) as agent tools via @modelcontextprotocol/sdk — CRUD + probe + mcp__<server>__<tool> merger into gatewayTools.",
+  "category": "feature",
+  "stability": "alpha",
+  "deps": { "shared": [], "slices": [], "convexFeatures": [], "npm": { "@modelcontextprotocol/sdk": "^1.29.0" }, "env": ["MODELS_ENC_KEY"] },
+  "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
+  "permissions": ["authed-user"],
+  "schemaTables": ["mcpServers"],
+  "compatibility": { "next": ">=16 <17", "react": "^19", "convex": "^1.16", "tailwind": "any", "auth": "@convex-dev/auth" },
+  "tags": ["ai", "mcp", "tools", "agents", "convex"],
+  "notes": "probeServer + execute() reconnect per call (no persistent process; ~100-400ms). Header/credential values are stripped from error text before reaching the model. LOOP GUARD: derived tools are surfaced to AGENTS ONLY (gatewayTools) — never re-exported on our own /mcp server. Workspace-shared servers + tool-level RBAC are later phases."
+}

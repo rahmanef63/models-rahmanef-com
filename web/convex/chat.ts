@@ -45,7 +45,7 @@ export const chat = action({
         .filter(Boolean)
         .join("\n\n");
       const system = [def.instructions, skillText].filter(Boolean).join("\n\n") || undefined;
-      return callForUser(ctx, userId, workspaceId, def.model, a.messages, { system, tools: gatewayTools(ctx, userId, def.tools), maxSteps: def.maxSteps, temperature: def.temperature });
+      return callForUser(ctx, userId, workspaceId, def.model, a.messages, { system, tools: await gatewayTools(ctx, userId, def.tools), maxSteps: def.maxSteps, temperature: def.temperature });
     }
     if (!a.model) throw new ConvexError({ code: "invalid_request", detail: "model or agentId required" } satisfies ChatErrorInfo);
     return callForUser(ctx, userId, workspaceId, a.model, a.messages);
@@ -109,7 +109,7 @@ export const runAgent = action({
         model: m,
         ...(instructions ? { system: instructions } : {}),
         messages: [{ role: "user", content: a.task }],
-        tools: gatewayTools(ctx, userId, toolIds),
+        tools: await gatewayTools(ctx, userId, toolIds),
         stopWhen: stepCountIs(maxSteps),
         ...(temperature != null ? { temperature } : {}),
       });

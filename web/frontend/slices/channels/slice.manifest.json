@@ -1,0 +1,15 @@
+{
+  "$schema": "../../../docs/slice.manifest.schema.json",
+  "name": "channels",
+  "version": "0.1.0",
+  "description": "Inbound messaging channels (Telegram wave 1): webhook ingress → dedupe → thread upsert → callForUser → reply-to-origin.",
+  "category": "feature",
+  "stability": "alpha",
+  "deps": { "shared": [], "slices": ["workspaces", "byok"], "convexFeatures": [], "npm": {}, "env": ["MODELS_ENC_KEY"] },
+  "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
+  "permissions": ["authed-user", "workspace-admin", "webhook"],
+  "schemaTables": ["channels", "channelIdentities", "channelEvents"],
+  "compatibility": { "next": ">=16 <17", "react": "^19", "convex": "^1.16", "tailwind": "any", "auth": "@convex-dev/auth" },
+  "tags": ["ai", "channels", "telegram", "webhook", "messaging", "convex"],
+  "notes": "Uses the Next-route proxy pattern (app/channels/[kind]/[slug]/route.ts → api.channelTelegram.ingest), not the Convex httpRouter. Webhook auth = the per-channel platform secret (Telegram X-Telegram-Bot-Api-Secret-Token), verified server-side; the slug is lookup-only. ACK-fast: ingest dedupes + persists then defers the model turn to scheduler.runAfter(0, dispatch). Replies always route back to the origin chat. Unpaired senders currently run as the channel OWNER's userId (channel.userId) so callForUser has creds — pairing/allowlist policies are a later wave. Secrets stored AES-256-GCM (MODELS_ENC_KEY). Wave 1 = Telegram; Slack/WhatsApp/Discord adapters follow the same shape."
+}

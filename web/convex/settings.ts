@@ -18,7 +18,7 @@ export const mySettings = query({
 });
 
 export const setSettings = mutation({
-  args: { cavemanEnabled: v.optional(v.boolean()), ponytailEnabled: v.optional(v.boolean()), cavemanLevel: v.optional(v.string()), ponytailLevel: v.optional(v.string()), agentMode: v.optional(v.boolean()) },
+  args: { cavemanEnabled: v.optional(v.boolean()), ponytailEnabled: v.optional(v.boolean()), cavemanLevel: v.optional(v.string()), ponytailLevel: v.optional(v.string()), agentMode: v.optional(v.boolean()), memoryAutoSummarize: v.optional(v.boolean()) },
   handler: async (ctx, a) => {
     const userId = await requireUser(ctx);
     const existing = await ctx.db.query("settings").withIndex("by_user", (q) => q.eq("userId", userId)).unique();

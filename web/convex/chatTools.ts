@@ -6,8 +6,9 @@
 import { tool, jsonSchema } from "ai";
 import { TOOL_REGISTRY } from "./toolRegistry";
 import { TOOL_HANDLERS } from "./toolHandlers";
+import { mcpClientTools } from "./mcpClientNode";
 
-export function gatewayTools(ctx: any, userId: any, ids?: string[]): Record<string, any> {
+export async function gatewayTools(ctx: any, userId: any, ids?: string[]): Promise<Record<string, any>> {
   const out: Record<string, any> = {};
   for (const t of TOOL_REGISTRY) {
     if (!t.surfaces.includes("agent")) continue;
@@ -20,5 +21,8 @@ export function gatewayTools(ctx: any, userId: any, ids?: string[]): Record<stri
       execute: async (args: any) => handler(ctx, userId, args ?? {}),
     });
   }
+  // external MCP servers → mcp__<server>__<tool> tools. AGENT SURFACE ONLY (never re-exported on
+  // our own /mcp server — loop guard). `ids` filters them exactly like the registry tools above.
+  Object.assign(out, await mcpClientTools(ctx, userId, ids));
   return out;
 }

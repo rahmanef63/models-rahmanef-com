@@ -29,6 +29,18 @@ export async function callForUser(
   inputMessages: { role: string; content: string }[],
   agentOpts?: { system?: string; tools?: Record<string, any>; maxSteps?: number; temperature?: number },
 ): Promise<{ text: string; promptTokens: number; completionTokens: number }> {
+    // resolveModelRef: reserved prefixes indirect to a concrete "provider/model" BEFORE the split.
+    //   combo/<name> -> the combo's chosen ref (strategy-driven; fallback picks refs[0] for now).
+    //   agent/<id>   -> that agent's fixed model. Contained prefix-resolution (no retry loop — 2.3).
+    if (modelRef.startsWith("combo/")) {
+      const resolved = await ctx.runQuery(internal.combos.resolveCombo, { userId, workspaceId, name: modelRef.slice(6) });
+      if (!resolved) throw new ConvexError({ code: "invalid_request", detail: `Unknown combo "${modelRef.slice(6)}"` } satisfies ChatErrorInfo);
+      modelRef = resolved;
+    } else if (modelRef.startsWith("agent/")) {
+      const agent = await ctx.runQuery(internal.agentDefs.getOwned, { userId, id: modelRef.slice(6) as any });
+      if (!agent) throw new ConvexError({ code: "invalid_request", detail: `Unknown agent "${modelRef.slice(6)}"` } satisfies ChatErrorInfo);
+      modelRef = agent.model;
+    }
     const i = modelRef.indexOf("/");
     if (i < 1 || i === modelRef.length - 1) throw new ConvexError({ code: "invalid_request", detail: 'model must be "provider/model"' } satisfies ChatErrorInfo);
     const provider = modelRef.slice(0, i);
@@ -105,7 +117,7 @@ export async function callForUser(
         if (!m) throw new ConvexError({ code: "internal", detail: `Unknown provider "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
         // explicit agentOpts.tools (from a saved agent) wins over the "agent mode" user setting;
         // agent mode: give the model tools to inspect the user's own gateway (needs a tool-capable model)
-        const tools = agentOpts?.tools ?? (settings.agentMode ? gatewayTools(ctx, userId) : undefined);
+        const tools = agentOpts?.tools ?? (settings.agentMode ? await gatewayTools(ctx, userId) : undefined);
         // system via the `system` param (NOT a message) — ai@7 rejects system-in-messages; use inputMessages (no system role)
         const result = await generateText({
           model: m,

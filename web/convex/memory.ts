@@ -3,9 +3,10 @@
 // `recall_memory` registry tools call the internal handlers here; callForUser calls _buildContext.
 import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
 import { v } from "convex/values";
-import { requireUser } from "./_shared/auth";
+import { requireUser, requireWorkspaceRole } from "./_shared/auth";
 
-const BUDGET = { user: 1400, workspace: 2000, agent: 2200 } as const;
+// char budgets per scope (summary = per-injected-summary cap, shown as its own tab budget)
+export const BUDGET = { user: 1400, workspace: 2000, agent: 2200, summary: 1500 } as const;
 const stripFence = (s: string) => s.replace(/<\/?\s*memory-context\s*>/gi, "").trim();
 const active = <T extends { archived?: boolean }>(rows: T[]) => rows.filter((r) => !r.archived);
 
@@ -55,12 +56,41 @@ export const _toolSearch = internalQuery({
 });
 
 // ── UI CRUD ──
+// listMemories(scope): 'user' (default) | 'workspace' (needs workspaceId, viewer+) | 'summary'.
+// Returns rows + a per-scope budget bar {used,budget} so the panel can render "82% — 1,803/2,200".
 export const listMemories = query({
-  args: {},
-  handler: async (ctx) => {
+  args: { scope: v.optional(v.string()), workspaceId: v.optional(v.id("workspaces")) },
+  handler: async (ctx, a) => {
     const userId = await requireUser(ctx);
-    const rows = active(await ctx.db.query("memories").withIndex("by_user_scope", (q) => q.eq("userId", userId).eq("scope", "user")).take(200));
-    return rows.sort((a, b) => b.createdAt - a.createdAt).map((m) => ({ id: m._id, text: m.text, kind: m.kind, pinned: !!m.pinned, createdAt: m.createdAt }));
+    const scope = a.scope ?? "user";
+    let rows;
+    if (scope === "workspace") {
+      const wsId = a.workspaceId;
+      if (!wsId) return { items: [], used: 0, budget: BUDGET.workspace };
+      await requireWorkspaceRole(ctx, wsId, "viewer");
+      rows = active(await ctx.db.query("memories").withIndex("by_workspace_scope", (q) => q.eq("workspaceId", wsId).eq("scope", "workspace")).take(200));
+    } else {
+      // 'user' and 'summary' are both user-owned scopes
+      rows = active(await ctx.db.query("memories").withIndex("by_user_scope", (q) => q.eq("userId", userId).eq("scope", scope)).take(200));
+    }
+    const budget = BUDGET[scope as keyof typeof BUDGET] ?? BUDGET.user;
+    const used = rows.reduce((n, r) => n + r.text.length, 0);
+    const items = rows.sort((x, y) => (Number(!!y.pinned) - Number(!!x.pinned)) || y.createdAt - x.createdAt).map((m) => ({ id: m._id, text: m.text, kind: m.kind, pinned: !!m.pinned, createdAt: m.createdAt }));
+    return { items, used, budget };
+  },
+});
+
+export const pinMemory = mutation({
+  args: { id: v.id("memories"), pinned: v.boolean() },
+  handler: async (ctx, a) => {
+    const userId = await requireUser(ctx);
+    const row = await ctx.db.get(a.id);
+    if (!row) return;
+    if (row.userId !== userId) {
+      if (!row.workspaceId) return;
+      await requireWorkspaceRole(ctx, row.workspaceId, "member"); // throws ConvexError if not allowed
+    }
+    await ctx.db.patch(a.id, { pinned: a.pinned, updatedAt: Date.now() });
   },
 });
 

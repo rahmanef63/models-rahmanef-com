@@ -14,6 +14,8 @@ export const memoryTables = {
     text: v.string(), // fence-tags stripped at write; char-budgeted per scope
     source: v.string(), // 'explicit-tool' | 'ui' | 'auto-summary'
     sourceThreadId: v.optional(v.id("threads")),
+    summarizedMsgCount: v.optional(v.number()), // watermark: msg count at last auto-summary (summary rows)
+    summarizedChars: v.optional(v.number()), // watermark: transcript chars at last auto-summary
     pinned: v.optional(v.boolean()),
     archived: v.optional(v.boolean()),
     lastRecalledAt: v.optional(v.number()),
@@ -24,6 +26,7 @@ export const memoryTables = {
     updatedAt: v.number(),
   })
     .index("by_user_scope", ["userId", "scope", "archived"]) // hot-path injection read
+    .index("by_user_thread", ["userId", "sourceThreadId"]) // summary upsert key
     .index("by_workspace_scope", ["workspaceId", "scope", "archived"])
     .searchIndex("search_text", { searchField: "text", filterFields: ["userId", "scope", "archived"] }),
 };

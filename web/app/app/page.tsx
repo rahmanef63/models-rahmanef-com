@@ -14,9 +14,12 @@ import { AdminCard } from "./_components/admin";
 import { ConnectProviders, ConnectedCreds } from "@/features/byok";
 import { AgentsCard } from "./_components/agents-card";
 import { WorkbenchCard } from "./_components/workbench";
-import { WorkspaceProvider, WorkspaceSwitcher, MembersCard } from "@/features/workspaces";
+import { WorkspaceProvider, WorkspaceSwitcher, MembersCard, useWorkspace } from "@/features/workspaces";
 import { ApiKeysCard } from "@/features/api-compat";
 import { MemoryPanel } from "@/features/memory";
+import { ComboBuilderCard } from "@/features/combos";
+import { McpServersCard } from "@/features/mcp-client";
+import { ChannelsCard } from "@/features/channels";
 
 export default function AppPage() {
   const { isLoading, isAuthenticated } = useConvexAuth();
@@ -78,6 +81,7 @@ function SignIn() {
 
 function Dashboard() {
   const me = useQuery(api.admin.me);
+  const { workspaceId } = useWorkspace();
   const providers = useQuery(api.credentials.listConfiguredProviders) as Cred[] | undefined;
   const setCredential = useAction(api.credentials.setCredential);
   const deleteCredential = useMutation(api.credentials.deleteCredential);
@@ -131,7 +135,10 @@ function Dashboard() {
     { id: "memory", label: "Memory" },
     { id: "members", label: "Members" },
     { id: "mcp", label: "MCP" },
+    { id: "mcp-servers", label: "MCP Servers" },
     { id: "api", label: "API" },
+    { id: "combos", label: "Combos" },
+    { id: "channels", label: "Channels" },
     ...(me?.isSuperAdmin ? [{ id: "admin", label: "Admin" }] : []),
   ];
 
@@ -180,13 +187,19 @@ function Dashboard() {
 
         {section === "settings" && <TokenSaverCard />}
 
-        {section === "memory" && <MemoryPanel />}
+        {section === "memory" && <MemoryPanel workspaceId={workspaceId ?? undefined} />}
 
         {section === "members" && <MembersCard />}
 
         {section === "mcp" && <McpCard />}
 
         {section === "api" && <ApiKeysCard />}
+
+        {section === "combos" && <ComboBuilderCard />}
+
+        {section === "mcp-servers" && <McpServersCard />}
+
+        {section === "channels" && <ChannelsCard />}
 
         {section === "admin" && me?.isSuperAdmin && <AdminCard />}
       </div>

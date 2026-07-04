@@ -1,0 +1,21 @@
+{
+  "$schema": "https://resource.rahmanef.com/slice-schema.json",
+  "slug": "channels",
+  "version": "0.1.0",
+  "category": "feature",
+  "kind": "feature",
+  "title": "Inbound channels (Telegram)",
+  "description": "Inbound messaging surface: paste a bot token, DM the bot, the bound agent replies using workspace creds — always back to the same surface. Webhook auth is the per-channel platform secret; every reply lands in callForUser. Wave 1 ships Telegram; the ChannelAdapter shape generalizes to Slack/WhatsApp/Discord.",
+  "namespace": "@/features/channels",
+  "convex": {
+    "tablesExport": "channels",
+    "schemaPath": "convex/schema.ts",
+    "rootPaths": ["convex/channelsCore.ts", "convex/channelsIngest.ts", "convex/channelTelegram.ts", "convex/features/channels"]
+  },
+  "frontend": { "slicePath": "frontend/slices/channels", "configExport": "channelsConfig" },
+  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth"] },
+  "registers": ["registry"],
+  "license": "MIT",
+  "tags": ["ai", "channels", "telegram", "webhook", "messaging", "convex"],
+  "providers": []
+}

@@ -156,6 +156,7 @@ export const sendMessage = action({
       throw new ConvexError((data && typeof data === "object" ? data : String(data ?? (e instanceof Error ? e.message : String(e))).slice(0, 400)) as any);
     }
     await ctx.runMutation(internal.threads._append, { userId, threadId: a.threadId, role: "assistant", content: text });
+    await ctx.scheduler.runAfter(0, internal.memoryAutoSummary.maybeSummarize, { userId, threadId: a.threadId, workspaceId: a.workspaceId });
     return { text };
   },
 });
