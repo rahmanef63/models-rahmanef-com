@@ -27,7 +27,27 @@ async function call(req: Request, method: string, params: { path?: string[] }): 
   if (r.kind === "error") return errJson(r.status, r.code, r.message);
   if (r.kind === "models") return Response.json({ object: "list", data: r.data });
 
-  // chat completion
+  if (r.kind === "anthropic") {
+    const id = "msg_" + Math.random().toString(36).slice(2, 14);
+    const body = { id, type: "message", role: "assistant", model: r.model, content: [{ type: "text", text: r.text }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: r.promptTokens, output_tokens: r.completionTokens } };
+    if (!r.stream) return Response.json(body);
+    const enc = new TextEncoder();
+    const ev = (event: string, data: unknown) => enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    const stream = new ReadableStream({
+      start(c) {
+        c.enqueue(ev("message_start", { type: "message_start", message: { ...body, content: [], stop_reason: null, usage: { input_tokens: r.promptTokens, output_tokens: 0 } } }));
+        c.enqueue(ev("content_block_start", { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } }));
+        c.enqueue(ev("content_block_delta", { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: r.text } }));
+        c.enqueue(ev("content_block_stop", { type: "content_block_stop", index: 0 }));
+        c.enqueue(ev("message_delta", { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: r.completionTokens } }));
+        c.enqueue(ev("message_stop", { type: "message_stop" }));
+        c.close();
+      },
+    });
+    return new Response(stream, { headers: { "content-type": "text/event-stream", "cache-control": "no-store" } });
+  }
+
+  // chat completion (OpenAI)
   const id = "chatcmpl-" + Math.random().toString(36).slice(2, 14);
   const created = Math.floor(Date.now() / 1000);
   if (r.stream) {

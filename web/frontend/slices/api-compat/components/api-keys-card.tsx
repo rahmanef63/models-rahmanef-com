@@ -54,7 +54,7 @@ export function ApiKeysCard() {
 OPENAI_BASE_URL=${base}/v1
 OPENAI_API_KEY=sk-rr-…
 
-# Anthropic-compatible (Claude Code) — /v1/messages is Phase 2.7:
+# Anthropic-compatible (Claude Code):
 ANTHROPIC_BASE_URL=${base}
 ANTHROPIC_AUTH_TOKEN=sk-rr-…`}</pre>
       </details>

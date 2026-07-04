@@ -59,6 +59,33 @@ export const handle = action({
       }
     }
 
-    return err(404, "not_found", `No route for ${a.method} /${p}. Supported: POST /v1/chat/completions, GET /v1/models.`);
+    // Anthropic Messages API — so Claude Code (ANTHROPIC_BASE_URL=…, ANTHROPIC_AUTH_TOKEN=sk-rr-…) works.
+    if (a.method === "POST" && (p === "v1/messages" || p === "messages")) {
+      const body = a.body ?? {};
+      let model = String(body.model ?? "");
+      if (model && !model.includes("/")) model = "anthropic/" + model; // Claude Code sends bare "claude-…" names
+      const system = body.system ? (typeof body.system === "string" ? body.system : Array.isArray(body.system) ? body.system.map((b: any) => b?.text ?? "").join("\n") : undefined) : undefined;
+      const msgs = Array.isArray(body.messages)
+        ? body.messages.map((m: any) => ({ role: String(m.role), content: anthText(m.content) }))
+        : [];
+      if (!model || !msgs.length) return err(400, "invalid_request", "'model' and non-empty 'messages' are required.");
+      try {
+        const r = await callForUser(ctx, userId, workspaceId, model, msgs, system ? { system } : undefined);
+        return { kind: "anthropic", model: String(body.model ?? ""), text: r.text, promptTokens: r.promptTokens ?? 0, completionTokens: r.completionTokens ?? 0, stream: !!body.stream };
+      } catch (e: any) {
+        const d = e?.data && typeof e.data === "object" ? e.data : { code: "internal", detail: String(e?.message ?? e) };
+        const status = d.code === "invalid_api_key" || d.code === "not_connected" ? 401 : d.code === "rate_limited" ? 429 : d.code === "quota_exceeded" ? 402 : d.code === "not_found" ? 404 : 400;
+        return err(status, d.code ?? "error", d.detail ?? "provider error");
+      }
+    }
+
+    return err(404, "not_found", `No route for ${a.method} /${p}. Supported: POST /v1/chat/completions, POST /v1/messages, GET /v1/models.`);
   },
 });
+
+// Anthropic message content is a string OR an array of blocks ({type:'text',text}) — flatten to text.
+function anthText(content: any): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) return content.map((b) => (b?.type === "text" ? b.text : typeof b === "string" ? b : "")).join("");
+  return "";
+}
