@@ -38,6 +38,7 @@ import type * as threads from "../threads.js";
 import type * as toolHandlers from "../toolHandlers.js";
 import type * as toolRegistry from "../toolRegistry.js";
 import type * as usage from "../usage.js";
+import type * as workspaceInvites from "../workspaceInvites.js";
 import type * as workspaces from "../workspaces.js";
 
 import type {
@@ -77,6 +78,7 @@ declare const fullApi: ApiFromModules<{
   toolHandlers: typeof toolHandlers;
   toolRegistry: typeof toolRegistry;
   usage: typeof usage;
+  workspaceInvites: typeof workspaceInvites;
   workspaces: typeof workspaces;
 }>;
 

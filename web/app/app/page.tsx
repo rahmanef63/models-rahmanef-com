@@ -14,7 +14,7 @@ import { AdminCard } from "./_components/admin";
 import { ConnectProviders, ConnectedCreds } from "@/features/byok";
 import { AgentsCard } from "./_components/agents-card";
 import { WorkbenchCard } from "./_components/workbench";
-import { WorkspaceProvider, WorkspaceSwitcher } from "@/features/workspaces";
+import { WorkspaceProvider, WorkspaceSwitcher, MembersCard } from "@/features/workspaces";
 
 export default function AppPage() {
   const { isLoading, isAuthenticated } = useConvexAuth();
@@ -126,6 +126,7 @@ function Dashboard() {
     { id: "providers", label: "Providers" },
     { id: "usage", label: "Usage" },
     { id: "settings", label: "Settings" },
+    { id: "members", label: "Members" },
     { id: "mcp", label: "MCP" },
     ...(me?.isSuperAdmin ? [{ id: "admin", label: "Admin" }] : []),
   ];
@@ -174,6 +175,8 @@ function Dashboard() {
         {section === "usage" && <UsageCard catalog={catalog} />}
 
         {section === "settings" && <TokenSaverCard />}
+
+        {section === "members" && <MembersCard />}
 
         {section === "mcp" && <McpCard />}
 
