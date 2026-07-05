@@ -6,7 +6,8 @@ components), so "apply" = *build the real feature here* in this app's design + B
 
 **Legend:** ✅ done & deployed · 🟡 partial · ⬜ not started · 🅿️ parked (needs decision)
 
-Last updated: 2026-07-04 (validated against code; cost estimate + per-run duration + `getRun` shipped this pass).
+Last updated: 2026-07-05 (5-agent per-phase audit vs code — see `docs/FEATURES-LOG.md` for the
+verified shipped scope + v0.2 backlog; spend-cap `runAgent` bypass fixed this pass).
 
 ## Summary
 

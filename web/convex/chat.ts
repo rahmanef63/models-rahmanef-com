@@ -63,6 +63,12 @@ export const runAgent = action({
     const userId = await requireUser(ctx);
     const workspaceId = await resolveWorkspaceAction(ctx, userId, a.workspaceId, "member");
 
+    // spend-caps: runAgent runs generateText directly (it needs the trace), so it BYPASSES the
+    // checkSpendCap guard callForUser enforces for every other entrypoint. Re-assert it here or a
+    // capped workspace's agent runs escape the budget. Personal ws (no cap) ⇒ over:false.
+    const cap = await ctx.runQuery(internal.spendCaps.checkSpendCap, { workspaceId });
+    if (cap.over) throw new ConvexError({ code: "quota_exceeded", detail: `Workspace monthly budget reached ($${cap.spentUsd.toFixed(2)} / $${cap.capUsd})` } satisfies ChatErrorInfo);
+
     let modelRef: string, instructions: string | undefined, toolIds: string[] | undefined, maxSteps: number, temperature: number | undefined, agentName: string | undefined;
     if (a.agentId) {
       const def = await ctx.runQuery(internal.agentDefs.getOwned, { userId, id: a.agentId });
