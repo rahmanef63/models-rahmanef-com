@@ -22,6 +22,8 @@ export function useGraphData(brand = "Memory") {
   const skills = useQuery(api.agentDefs.listSkillsRegistry);
   const tools = useQuery(api.agentDefs.listToolRegistry);
   const addMem = useMutation(api.memory.addMemory);
+  const removeMem = useMutation(api.memory.removeMemory);
+  const pinMem = useMutation(api.memory.pinMemory);
 
   const data: GraphData = useMemo(() => {
     const nodes: GraphNode[] = [
@@ -29,7 +31,7 @@ export function useGraphData(brand = "Memory") {
       ...CLUSTERS.map((c): GraphNode => ({ id: c.id, type: "cluster", title: c.label, icon: c.icon, parent: "core", group: c.id })),
     ];
     for (const m of memory?.items ?? [])
-      nodes.push({ id: `mem-${m.id}`, type: "memory", title: clip(m.text), body: m.text, parent: "memories", group: "memories", tags: [m.kind], existing: true, attachment: m.kind === "summary" });
+      nodes.push({ id: `mem-${m.id}`, type: "memory", title: clip(m.text), body: m.text, parent: "memories", group: "memories", tags: [m.kind], existing: true, pinned: m.pinned, attachment: m.kind === "summary" });
     for (const s of skills ?? [])
       nodes.push({ id: `skill-${s.id}`, type: "skill", title: s.label, body: s.description, parent: "skills", group: "skills", tags: ["skill"], existing: true });
     for (const t of tools ?? [])
@@ -48,6 +50,13 @@ export function useGraphData(brand = "Memory") {
 
   const onAddMemory = useMemo(() => (text: string) => { void addMem({ text }); }, [addMem]);
   const onImport = useMemo(() => async (items: string[]) => { for (const text of items) await addMem({ text }); }, [addMem]);
+  // only real, persisted memory nodes are editable — agents/skills/tools are read-only mirrors.
+  const onDeleteNode = useMemo(() => (node: GraphNode) => {
+    if (node.id.startsWith("mem-")) void removeMem({ id: node.id.slice(4) as never });
+  }, [removeMem]);
+  const onPinNode = useMemo(() => (node: GraphNode, pinned: boolean) => {
+    if (node.id.startsWith("mem-")) void pinMem({ id: node.id.slice(4) as never, pinned });
+  }, [pinMem]);
 
-  return { data, onAddMemory, onImport };
+  return { data, onAddMemory, onImport, onDeleteNode, onPinNode };
 }

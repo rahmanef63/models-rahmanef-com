@@ -1,7 +1,7 @@
 {
   "$schema": "https://resource.rahmanef.com/slice-schema.json",
   "slug": "memory-graph",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "category": "feature",
   "kind": "feature",
   "title": "Memory graph",

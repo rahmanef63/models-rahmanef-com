@@ -13,7 +13,12 @@ export function parseImport(text: string): string[] {
       return Object.values(parsed as Record<string, unknown>).filter((v) => typeof v === "string") as string[];
     }
   } catch {
-    return text.split(/\r?\n/).map((s) => s.trim()).filter(Boolean);
+    // plain text / markdown: one memory per line, skip headings + blanks, strip list bullets
+    return text
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter((s) => s && !s.startsWith("#"))
+      .map((s) => s.replace(/^[-*+]\s+/, ""));
   }
   return [];
 }

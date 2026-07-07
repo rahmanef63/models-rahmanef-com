@@ -1,15 +1,20 @@
 import { type GraphNode, type GraphEdge } from "../types";
 import { WORLD } from "../config/defaults";
+import { resolveBodyLinks } from "./graph-links";
 
-// Edges = the parent tree (core→cluster→leaf) + explicit cross-links (agent→its skills/tools).
-// Used when GraphData.edges isn't supplied — the common case for this app's adapter.
+// Edges = the parent tree (core→cluster→leaf) + explicit cross-links (agent→its skills/tools) +
+// links parsed from `@[Title]` / `/[Title]` references inside any node's body. Used when
+// GraphData.edges isn't supplied — the common case for this app's adapter. Deduped, tree wins.
 export function deriveEdges(nodes: GraphNode[]): GraphEdge[] {
   const ids = new Set(nodes.map((n) => n.id));
+  const seen = new Set<string>();
   const edges: GraphEdge[] = [];
+  const add = (e: GraphEdge) => { const k = `${e.from}|${e.to}`; if (!seen.has(k)) { seen.add(k); edges.push(e); } };
   for (const n of nodes) {
-    if (n.parent && ids.has(n.parent)) edges.push({ from: n.parent, to: n.id, kind: "tree" });
-    for (const t of n.links ?? []) if (ids.has(t) && t !== n.id) edges.push({ from: n.id, to: t, kind: "link" });
+    if (n.parent && ids.has(n.parent)) add({ from: n.parent, to: n.id, kind: "tree" });
+    for (const t of n.links ?? []) if (ids.has(t) && t !== n.id) add({ from: n.id, to: t, kind: "link" });
   }
+  for (const e of resolveBodyLinks(nodes)) add(e);
   return edges;
 }
 

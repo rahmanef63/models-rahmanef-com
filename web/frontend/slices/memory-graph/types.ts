@@ -17,6 +17,7 @@ export type GraphNode = {
   attachment?: boolean;
   existing?: boolean;
   orphan?: boolean;
+  pinned?: boolean; // memory pin state (drives the inspector Pin/Unpin action)
   // runtime layout — mutated in place by the view/physics; optional in input (seeded on mount)
   x?: number;
   y?: number;
@@ -75,6 +76,14 @@ export type GraphLabels = {
   inspectFocus: string;
   inspectAddChild: string;
   inspectClose: string;
+  inspectPin: string;
+  inspectUnpin: string;
+  inspectDelete: string;
+  linksTitle: string;
+  mentionHint: string;
+  toastDeleted: string;
+  toastPinned: string;
+  toastUnpinned: string;
   filters: string;
   searchPlaceholder: string;
   tags: string;
@@ -103,6 +112,9 @@ export type GraphLabels = {
   addMemoryLabel: string;
 };
 
+// lightweight node reference for the composer's @// mention picker
+export type MentionItem = Pick<GraphNode, "id" | "title" | "type">;
+
 export type MemoryGraphProps = {
   data: GraphData;
   labels?: Partial<GraphLabels>;
@@ -110,5 +122,7 @@ export type MemoryGraphProps = {
   // handlers are optional so the renderer works read-only; the adapter wires them to Convex
   onAddMemory?: (text: string, parentId: string | null) => void | Promise<void>;
   onImport?: (items: string[]) => void | Promise<void>;
+  onDeleteNode?: (node: GraphNode) => void | Promise<void>;
+  onPinNode?: (node: GraphNode, pinned: boolean) => void | Promise<void>;
   onSelect?: (node: GraphNode | null) => void;
 };

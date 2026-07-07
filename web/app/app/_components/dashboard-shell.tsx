@@ -8,7 +8,7 @@ import { type Theme } from "./use-theme";
 // (icon rail) + SecondarySidebar (sub-sections of the active group) + MainRegion + optional docked
 // RightPanel (aiDock). `section` is the single source of truth; the active rail group is derived
 // from it, so rail clicks, sidebar clicks and in-content `go()` all route through the same setter.
-export function DashboardShell({ groups, section, go, isAdmin, account, theme, toggleTheme, workspaceSwitcher, aiDock, children }: {
+export function DashboardShell({ groups, section, go, isAdmin, account, theme, toggleTheme, workspaceSwitcher, aiDock, bleed, children }: {
   groups: NavGroup[];
   section: string;
   go: (s: string) => void;
@@ -18,6 +18,7 @@ export function DashboardShell({ groups, section, go, isAdmin, account, theme, t
   toggleTheme: () => void;
   workspaceSwitcher: ReactNode;
   aiDock?: ReactNode;
+  bleed?: boolean; // full-bleed, full-height content (no region padding) — e.g. the memory graph
   children: ReactNode;
 }) {
   const activeGroup = groupOfSection(section, isAdmin);
@@ -44,7 +45,7 @@ export function DashboardShell({ groups, section, go, isAdmin, account, theme, t
             ))}
           </div>
         </aside>
-        <main className="dash-region">{children}</main>
+        <main className={`dash-region ${bleed ? "bleed" : ""}`}>{children}</main>
         {aiDock}
       </div>
     </div>

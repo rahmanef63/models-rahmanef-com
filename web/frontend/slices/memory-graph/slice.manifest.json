@@ -1,7 +1,7 @@
 {
   "$schema": "../../../docs/slice.manifest.schema.json",
   "name": "memory-graph",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Obsidian-style force-directed knowledge graph over memories + agents + skills + tools, with agent to skill/tool cross-links. Portable renderer + wired adapter; ships its own scoped styles.",
   "category": "feature",
   "stability": "alpha",

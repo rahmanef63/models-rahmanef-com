@@ -110,6 +110,7 @@ function Dashboard() {
       toggleTheme={toggleTheme}
       workspaceSwitcher={<WorkspaceSwitcher />}
       aiDock={section === "overview" ? <AiDock modelCount={myModels.length} go={setSection} /> : undefined}
+      bleed={section === "graph"}
     >
       {banner && <div className="banner">{banner}</div>}
 

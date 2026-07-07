@@ -17,10 +17,10 @@ export const GraphEdges = forwardRef<SVGSVGElement, {
       {arrows && (
         <defs>
           <marker id="mg-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
-            <path d="M0,0 L8,4 L0,8 Z" fill="rgba(255,255,255,.18)" />
+            <path d="M0,0 L8,4 L0,8 Z" style={{ fill: "var(--mg-line-2)" }} />
           </marker>
           <marker id="mg-arrow-hot" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" markerUnits="strokeWidth">
-            <path d="M0,0 L8,4 L0,8 Z" fill="rgba(220,255,66,.42)" />
+            <path d="M0,0 L8,4 L0,8 Z" style={{ fill: "var(--mg-accent)" }} />
           </marker>
         </defs>
       )}
@@ -28,7 +28,7 @@ export const GraphEdges = forwardRef<SVGSVGElement, {
         const a = byId(e.from), b = byId(e.to);
         if (!a || !b) return null;
         const hot = !!selected && (e.from === selected || e.to === selected);
-        const cls = e.kind === "link" ? "link" : hot ? "hot" : "";
+        const cls = hot ? "hot" : e.kind === "link" ? "link" : "";
         return (
           <line
             key={`${e.from}|${e.to}`}

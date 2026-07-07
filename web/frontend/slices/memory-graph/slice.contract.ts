@@ -1,5 +1,5 @@
 /**
- * Slice contract for `memory-graph` — v0.1.0. Portable Obsidian-style force-directed graph over
+ * Slice contract for `memory-graph` — v0.2.0. Portable Obsidian-style force-directed graph over
  * memories + agents + skills + tools. Frontend-only: the wired adapter reuses existing memory +
  * agentDefs queries, so there are no new Convex functions/tables. defineSliceContract inlined
  * until the rr CLI is vendored.
@@ -18,7 +18,7 @@ const defineSliceContract = <T extends SliceContract>(c: T): T => c;
 
 export const contract = defineSliceContract({
   id: "memory-graph",
-  version: "0.1.0",
+  version: "0.2.0",
   requires: { deps: ["@convex-dev/auth"] },
   provides: {
     components: ["MemoryGraph", "MemoryGraphPanel"],

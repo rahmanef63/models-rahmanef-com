@@ -76,10 +76,23 @@ export function useGraphState(data: GraphData, onAddMemory?: (text: string, pare
     return node;
   }, [selected, contextParent, settings.linkDistance, bump, onAddMemory]);
 
+  const removeNode = useCallback((id: string) => {
+    nodesRef.current = nodesRef.current.filter((n) => n.id !== id);
+    edgesRef.current = edgesRef.current.filter((e) => e.from !== id && e.to !== id);
+    setSelected((s) => (s === id ? null : s));
+    bump();
+  }, [bump]);
+
+  const setPinned = useCallback((id: string, pinned: boolean) => {
+    const n = nodesRef.current.find((x) => x.id === id);
+    if (n) n.pinned = pinned;
+    bump();
+  }, [bump]);
+
   return {
     nodesRef, edgesRef, structural, dataKey, byId,
     filters, settings, selected, hoverParent, contextParent,
     select, patchFilters, toggleGroup, patchSettings, reset,
-    setHoverParent, setContextParent, addMemory,
+    setHoverParent, setContextParent, addMemory, removeNode, setPinned,
   };
 }
