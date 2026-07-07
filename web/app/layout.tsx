@@ -29,6 +29,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning className={`${display.variable} ${body.variable} ${mono.variable}`}>
       <body>
+        {/* Apply the saved dashboard theme before first paint so a light-preference user doesn't
+            flash the default-dark palette on reload. Keep the key in sync with use-theme.ts. */}
+        <script dangerouslySetInnerHTML={{ __html: `try{document.documentElement.setAttribute('data-theme',localStorage.getItem('models-theme')==='light'?'light':'dark')}catch(e){}` }} />
         <ConvexAuthNextjsServerProvider>
           <ConvexClientProvider>{children}</ConvexClientProvider>
         </ConvexAuthNextjsServerProvider>

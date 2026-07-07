@@ -39,12 +39,33 @@
   --accent: #c9f24a;
   --accent-dim: #98b93a;
   --accent-ink: #0c0d05;
+  --accent-hi: #d9ff5e;
   --ok: #86d99a;
   --danger: #ff7a68;
   --font-display: Georgia, serif;
   --font-body: system-ui, sans-serif;
   --font-mono: ui-monospace, monospace;
 }
+
+/* Light theme — opt-in via the rail toggle (useTheme sets data-theme on <html>). Warm "paper"
+   grayscale adapted from the wireframe's palette; the lime accent drops to a deeper olive-green so
+   it stays readable as text/borders on a light surface, while accent fills invert their ink. */
+:root[data-theme="light"] {
+  --bg: #efede7;
+  --bg-2: #fbfaf7;
+  --bg-3: #e7e4dc;
+  --line: #d9d5cb;
+  --line-2: #c7c3b9;
+  --fg: #24241f;
+  --muted: #6e6b62;
+  --accent: #4f6b12;
+  --accent-dim: #5f7a1a;
+  --accent-ink: #f6f8ee;
+  --accent-hi: #5f800f;
+  --ok: #3f7d4e;
+  --danger: #c0392b;
+}
+:root[data-theme="light"] body::before { opacity: 0.5; }
 * { box-sizing: border-box; }
 html { scroll-behavior: smooth; }
 body {
@@ -96,7 +117,7 @@ a { color: inherit; text-decoration: none; }
 }
 .btn:hover { border-color: var(--accent); color: var(--accent); }
 .btn.accent { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
-.btn.accent:hover { background: #d9ff5e; color: var(--accent-ink); }
+.btn.accent:hover { background: var(--accent-hi); color: var(--accent-ink); }
 .btn:disabled { opacity: 0.45; cursor: default; }
 
 /* ---------- hero ---------- */
@@ -160,15 +181,80 @@ footer { border-top: 1px solid var(--line); padding: 2.5rem 0; margin-top: 3rem;
 /* ========== dashboard (/app) ========== */
 .app-main { max-width: 1520px; margin: 0 auto; padding: 1.5rem clamp(1.25rem, 4vw, 3.5rem) 5rem; }
 .app-top { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0 1.5rem; border-bottom: 1px solid var(--line); margin-bottom: 1.75rem; }
-/* shell: left nav + content panel */
-.app-body { display: grid; grid-template-columns: 208px 1fr; gap: 2.25rem; align-items: start; }
-.side { display: flex; flex-direction: column; gap: 0.12rem; position: sticky; top: 1.5rem; }
-.side-link { text-align: left; background: none; border: none; border-left: 2px solid transparent; color: var(--muted); font-family: var(--font-mono); font-size: 0.9rem; padding: 0.5rem 0.75rem; border-radius: 0 4px 4px 0; cursor: pointer; transition: 0.15s; }
-.side-link:hover { color: var(--fg); }
-.side-link.on { color: var(--fg); background: var(--bg-2); border-left-color: var(--accent); }
-.app-content { min-width: 0; }
-.app-content > .card:first-child, .app-content > .overview:first-child { margin-top: 0; }
-@media (max-width: 640px) { .app-body { grid-template-columns: 1fr; gap: 1rem; } .side { flex-direction: row; flex-wrap: wrap; position: static; } .side-link { border-left: none; border-bottom: 2px solid transparent; border-radius: 4px 4px 0 0; } .side-link.on { border-left: none; border-bottom-color: var(--accent); } }
+/* ========== dashboard app-shell (ported from Design-Platform wireframe) ==========
+   AppShell = NavigationRail (icon rail) + SecondarySidebar + MainRegion + optional docked AiDock.
+   Full-bleed workspace (h-dvh), each region scrolls independently. Single outer chrome. */
+.dash-shell { display: flex; height: 100dvh; }
+
+/* ---- NavigationRail (left icon rail) ---- */
+.nav-rail { flex: none; width: 72px; display: flex; flex-direction: column; align-items: center; gap: 0.35rem; padding: 0.85rem 0.45rem; border-right: 1px solid var(--line); background: var(--bg-2); }
+.rail-brand { font-family: var(--font-mono); font-weight: 700; font-size: 1.15rem; color: var(--fg); background: none; border: none; cursor: pointer; padding: 0.2rem; margin-bottom: 0.1rem; }
+.rail-brand b { color: var(--accent); }
+.rail-create { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; background: var(--accent); color: var(--accent-ink); border: none; cursor: pointer; margin-bottom: 0.35rem; transition: 0.16s; }
+.rail-create:hover { background: var(--accent-hi); }
+.rail-items { display: flex; flex-direction: column; align-items: center; gap: 0.25rem; flex: 1; width: 100%; overflow-y: auto; overflow-x: hidden; }
+.rail-item { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; width: 100%; padding: 0.5rem 0.15rem; border: none; background: none; color: var(--muted); border-radius: 10px; cursor: pointer; transition: 0.14s; }
+.rail-item:hover { color: var(--fg); background: var(--bg-3); }
+.rail-item.on { color: var(--accent); background: var(--bg-3); }
+.rail-ico { width: 22px; height: 22px; }
+.rail-lbl { font-family: var(--font-mono); font-size: 0.56rem; letter-spacing: 0.02em; }
+.rail-dock { display: flex; flex-direction: column; align-items: center; gap: 0.35rem; width: 100%; padding-top: 0.45rem; border-top: 1px solid var(--line); }
+.rail-avatar { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-family: var(--font-mono); font-weight: 700; font-size: 0.85rem; background: var(--bg-3); color: var(--fg); border: 1px solid var(--line-2); cursor: pointer; transition: 0.14s; }
+.rail-avatar:hover, .rail-avatar.on { border-color: var(--accent); color: var(--accent); }
+.rail-backdrop { position: fixed; inset: 0; z-index: 30; }
+.rail-pop { position: fixed; left: 80px; bottom: 16px; z-index: 31; width: 244px; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 10px; padding: 0.6rem; box-shadow: 0 14px 36px -14px rgba(0, 0, 0, 0.7); display: flex; flex-direction: column; gap: 0.12rem; animation: fadeUp 0.16s both; }
+.rail-pop.at-create { top: 116px; bottom: auto; } /* create popover anchors near the + button, not the dock */
+.rail-pop-h { font-family: var(--font-mono); font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); padding: 0.15rem 0.5rem 0.35rem; }
+.rail-pop-email { font-size: 0.72rem; color: var(--muted); padding: 0 0.5rem 0.3rem; word-break: break-all; margin: 0; }
+.rail-pop .badge { align-self: flex-start; margin: 0 0.5rem 0.35rem; }
+.rail-pop-item { text-align: left; background: none; border: none; color: var(--fg); font-family: var(--font-body); font-size: 0.85rem; padding: 0.5rem 0.55rem; border-radius: 7px; cursor: pointer; }
+.rail-pop-item:hover { background: var(--bg-3); color: var(--accent); }
+.rail-pop-item.danger { color: var(--danger); }
+.rail-pop-item.danger:hover { background: var(--bg-3); color: var(--danger); }
+
+/* ---- SecondarySidebar (sub-sections of the active rail group) ---- */
+.dash-body { flex: 1; display: flex; min-width: 0; }
+.sec-sidebar { flex: none; width: 210px; display: flex; flex-direction: column; gap: 0.2rem; padding: 1.1rem 0.9rem; border-right: 1px solid var(--line); overflow-y: auto; }
+.sec-head { margin-bottom: 0.6rem; }
+.sec-group-label { font-family: var(--font-mono); font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.14em; color: var(--muted); padding: 0.2rem 0.4rem 0.5rem; }
+.sec-items { display: flex; flex-direction: column; gap: 0.1rem; }
+.sec-item { text-align: left; background: none; border: none; border-left: 2px solid transparent; color: var(--muted); font-family: var(--font-mono); font-size: 0.88rem; padding: 0.5rem 0.7rem; border-radius: 0 6px 6px 0; cursor: pointer; transition: 0.14s; }
+.sec-item:hover { color: var(--fg); }
+.sec-item.on { color: var(--fg); background: var(--bg-2); border-left-color: var(--accent); }
+
+/* ---- MainRegion ---- */
+.dash-region { flex: 1; min-width: 0; overflow-y: auto; padding: 1.6rem clamp(1rem, 3vw, 2.4rem) 4rem; }
+.dash-region > .card:first-child, .dash-region > .overview:first-child { margin-top: 0; }
+
+/* ---- Docked AiDock (Home only, hidden <900px) ---- */
+.ai-dock { flex: none; width: 320px; display: flex; flex-direction: column; gap: 0.85rem; padding: 1.4rem 1.2rem; border-left: 1px solid var(--line); background: var(--bg-2); overflow-y: auto; }
+.ai-dock-head { display: flex; align-items: center; justify-content: space-between; }
+.ai-dock-pitch { color: var(--muted); font-size: 0.9rem; line-height: 1.5; margin: 0; }
+.ai-dock-prompt { display: flex; align-items: center; gap: 0.55rem; text-align: left; width: 100%; padding: 0.8rem 0.9rem; border: 1px solid var(--line-2); border-radius: 10px; background: var(--bg); color: var(--muted); font-family: var(--font-mono); font-size: 0.82rem; cursor: pointer; transition: 0.16s; }
+.ai-dock-prompt:hover { border-color: var(--accent); color: var(--fg); }
+.ai-dock-cta { justify-content: center; }
+.ai-dock-disc { font-size: 0.68rem; color: var(--muted); margin: 0; }
+
+/* ---- responsive: hide dock <900, rail→bottom bar + sidebar→strip <640 ---- */
+@media (max-width: 900px) { .ai-dock { display: none; } }
+@media (max-width: 640px) {
+  .dash-shell { flex-direction: column; height: auto; min-height: 100dvh; }
+  .nav-rail { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; flex-direction: row; width: 100%; height: auto; border-right: none; border-top: 1px solid var(--line); padding: 0.4rem 0.6rem; gap: 0.2rem; overflow-x: auto; }
+  .nav-rail .rail-brand { display: none; }
+  .rail-create { margin-bottom: 0; }
+  .rail-items { flex-direction: row; flex: 1; overflow-x: auto; overflow-y: hidden; }
+  .rail-item { flex: none; width: auto; min-width: 54px; }
+  .rail-dock { flex-direction: row; width: auto; border-top: none; border-left: 1px solid var(--line); padding-top: 0; padding-left: 0.4rem; }
+  .rail-pop { left: 8px; right: 8px; width: auto; top: auto !important; bottom: 84px !important; }
+  .dash-body { flex-direction: column; }
+  .sec-sidebar { width: 100%; flex-direction: row; align-items: center; gap: 0.4rem; overflow-x: auto; overflow-y: hidden; border-right: none; border-bottom: 1px solid var(--line); padding: 0.7rem 0.9rem; }
+  .sec-head { margin-bottom: 0; flex: none; }
+  .sec-group-label { display: none; }
+  .sec-items { flex-direction: row; flex: none; }
+  .sec-item { border-left: none; border-bottom: 2px solid transparent; border-radius: 6px 6px 0 0; white-space: nowrap; flex: none; }
+  .sec-item.on { border-left: none; border-bottom-color: var(--accent); }
+  .dash-region { padding: 1.1rem 1rem 6rem; }
+}
 .app-top .brand { font-size: 1.15rem; }
 .app-top .account { display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap; justify-content: flex-end; }
 .card { background: var(--bg-2); border: 1px solid var(--line); border-radius: 4px; padding: 1.5rem; margin: 1.1rem 0; }
@@ -306,7 +392,7 @@ textarea { resize: vertical; margin: 0.6rem 0; }
 .model-row:last-child { border-bottom: none; }
 .model-row:hover { background: var(--bg-3); color: var(--accent); }
 /* keyboard focus ring — inset for the two overflow-clipped scroll containers so edge rows still show it */
-.btn:focus-visible, .side-link:focus-visible, .prov-chip:focus-visible, .link:focus-visible, .thread-btn:focus-visible, .model-row:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:focus-visible, .rail-item:focus-visible, .rail-create:focus-visible, .rail-avatar:focus-visible, .rail-pop-item:focus-visible, .sec-item:focus-visible, .prov-chip:focus-visible, .link:focus-visible, .thread-btn:focus-visible, .model-row:focus-visible, .ai-dock-prompt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .model-row:focus-visible, .thread-btn:focus-visible { outline-offset: -2px; }
 .wb-msgs { display: flex; flex-direction: column; gap: 0.95rem; max-height: 480px; overflow-y: auto; padding: 0.3rem 0.2rem; }
 .msg { display: grid; grid-template-columns: 74px 1fr; gap: 0.7rem; align-items: start; }

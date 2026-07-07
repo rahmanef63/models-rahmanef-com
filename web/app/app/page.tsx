@@ -24,68 +24,37 @@ import { SchedulesCard } from "@/features/scheduled-agents";
 import { WorkspaceUsageCard } from "@/features/usage-rollups";
 import { AuditLogCard } from "@/features/audit-log";
 import { SpendCapCard } from "@/features/spend-caps";
+import { SignIn } from "./_components/sign-in";
+import { DashboardShell } from "./_components/dashboard-shell";
+import { AiDock } from "./_components/ai-dock";
+import { groupsFor } from "./_components/nav-config";
+import { useTheme } from "./_components/use-theme";
 
 export default function AppPage() {
   const { isLoading, isAuthenticated } = useConvexAuth();
+  if (isLoading) return <main className="app-main"><p className="muted mono">loading…</p></main>;
+  if (!isAuthenticated)
+    return (
+      <main className="app-main">
+        <div className="app-top">
+          <Link href="/" className="brand">models<b>.</b></Link>
+          <span className="mono muted" style={{ fontSize: "0.8rem" }}>bring your own key</span>
+        </div>
+        <SignIn />
+      </main>
+    );
   return (
-    <main className="app-main">
-      <div className="app-top">
-        <Link href="/" className="brand">models<b>.</b></Link>
-        <TopRight authed={isAuthenticated} />
-      </div>
-      {isLoading ? <p className="muted mono">loading…</p> : isAuthenticated ? <WorkspaceProvider><Dashboard /></WorkspaceProvider> : <SignIn />}
-    </main>
-  );
-}
-
-function TopRight({ authed }: { authed: boolean }) {
-  const { signOut } = useAuthActions();
-  const me = useQuery(api.admin.me);
-  if (!authed) return <span className="mono muted" style={{ fontSize: "0.8rem" }}>bring your own key</span>;
-  return (
-    <span className="account">
-      {me?.email && <span className="mono muted" style={{ fontSize: "0.8rem" }}>{me.email}</span>}
-      {me?.isSuperAdmin && <span className="badge oauth">SUPER</span>}
-      <button className="link" onClick={() => void signOut()}>sign out</button>
-    </span>
-  );
-}
-
-function SignIn() {
-  const { signIn } = useAuthActions();
-  const [flow, setFlow] = useState<"signIn" | "signUp">("signIn");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [err, setErr] = useState("");
-  const [busy, setBusy] = useState(false);
-  return (
-    <form
-      className="card narrow"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        setErr("");
-        setBusy(true);
-        try { await signIn("password", { email, password, flow }); }
-        catch { setErr(flow === "signUp" ? "sign-up failed — weak password or email taken" : "sign-in failed"); }
-        finally { setBusy(false); }
-      }}
-    >
-      <h2>{flow === "signIn" ? "Sign in" : "Create account"}</h2>
-      <p className="sub">Your credentials are scoped to you alone.</p>
-      <input type="email" placeholder="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-      <input type="password" placeholder="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-      <button className="btn accent" type="submit" disabled={busy}>{busy ? "…" : flow === "signIn" ? "Sign in" : "Sign up"}</button>
-      <button type="button" className="link" onClick={() => setFlow(flow === "signIn" ? "signUp" : "signIn")}>
-        {flow === "signIn" ? "Need an account? Sign up" : "Have an account? Sign in"}
-      </button>
-      {err && <p className="err">{err}</p>}
-    </form>
+    <WorkspaceProvider>
+      <Dashboard />
+    </WorkspaceProvider>
   );
 }
 
 function Dashboard() {
   const me = useQuery(api.admin.me);
+  const { signOut } = useAuthActions();
   const { workspaceId } = useWorkspace();
+  const [theme, toggleTheme] = useTheme();
   const providers = useQuery(api.credentials.listConfiguredProviders) as Cred[] | undefined;
   const setCredential = useAction(api.credentials.setCredential);
   const deleteCredential = useMutation(api.credentials.deleteCredential);
@@ -129,96 +98,58 @@ function Dashboard() {
     return out.sort();
   }, [catalog, providers, codexModels, claudeModels]);
 
-  const nav = [
-    { id: "overview", label: "Overview" },
-    { id: "chat", label: "Chat" },
-    { id: "agents", label: "Agents" },
-    { id: "providers", label: "Providers" },
-    { id: "usage", label: "Usage" },
-    { id: "settings", label: "Settings" },
-    { id: "memory", label: "Memory" },
-    { id: "members", label: "Members" },
-    { id: "mcp", label: "MCP" },
-    { id: "mcp-servers", label: "MCP Servers" },
-    { id: "api", label: "API" },
-    { id: "combos", label: "Combos" },
-    { id: "channels", label: "Channels" },
-    { id: "schedules", label: "Schedules" },
-    { id: "workspace-usage", label: "Billing" },
-    { id: "budget", label: "Budget" },
-    { id: "audit", label: "Audit" },
-    ...(me?.isSuperAdmin ? [{ id: "admin", label: "Admin" }] : []),
-  ];
-
   return (
-    <div className="app-body">
-      <nav className="side">
-        <WorkspaceSwitcher />
-        {nav.map((s) => (
-          <button key={s.id} className={`side-link ${section === s.id ? "on" : ""}`} onClick={() => setSection(s.id)}>{s.label}</button>
-        ))}
-      </nav>
+    <DashboardShell
+      groups={groupsFor(isAdmin)}
+      section={section}
+      go={setSection}
+      isAdmin={isAdmin}
+      account={{ email: me?.email ?? undefined, isSuperAdmin: me?.isSuperAdmin, onSignOut: () => void signOut() }}
+      theme={theme}
+      toggleTheme={toggleTheme}
+      workspaceSwitcher={<WorkspaceSwitcher />}
+      aiDock={section === "overview" ? <AiDock modelCount={myModels.length} go={setSection} /> : undefined}
+    >
+      {banner && <div className="banner">{banner}</div>}
 
-      <div className="app-content">
-        {banner && <div className="banner">{banner}</div>}
-
-        {section === "overview" && (
-          <>
-            <Overview providers={providers} models={myModels} go={setSection} />
-            <UsageCard catalog={catalog} />
-          </>
-        )}
-
-        {section === "chat" && <WorkbenchCard models={myModels} providers={providers} catalog={catalog} isAdmin={isAdmin} />}
-
-        {section === "agents" && <AgentsCard models={myModels} isAdmin={isAdmin} />}
-
-        {section === "providers" && (
-          <>
-            <ConnectProviders catalog={catalog} isAdmin={isAdmin} setCredential={setCredential} testCredential={testCredential} onBanner={setBanner} />
-
-            <section className="card">
-              <h2>Connected</h2>
-              <p className="sub">Health is checked once when you connect a key — hit <b>test</b> anytime to re-verify (e.g. after rotating a key).</p>
-              {providers === undefined ? (
-                <p className="muted mono">…</p>
-              ) : providers.length === 0 ? (
-                <p className="muted">Nothing yet — connect a provider or add a key above.</p>
-              ) : (
-                <ConnectedCreds providers={providers} catalog={catalog} isAdmin={isAdmin} deleteCredential={deleteCredential} testCredential={testCredential} />
-              )}
-            </section>
-          </>
-        )}
-
-        {section === "usage" && <UsageCard catalog={catalog} />}
-
-        {section === "settings" && <TokenSaverCard />}
-
-        {section === "memory" && <MemoryPanel workspaceId={workspaceId ?? undefined} />}
-
-        {section === "members" && <MembersCard />}
-
-        {section === "mcp" && <McpCard />}
-
-        {section === "api" && <ApiKeysCard />}
-
-        {section === "combos" && <ComboBuilderCard />}
-
-        {section === "mcp-servers" && <McpServersCard />}
-
-        {section === "channels" && <ChannelsCard />}
-
-        {section === "schedules" && <SchedulesCard />}
-
-        {section === "workspace-usage" && <WorkspaceUsageCard />}
-
-        {section === "budget" && <SpendCapCard />}
-
-        {section === "audit" && <AuditLogCard />}
-
-        {section === "admin" && me?.isSuperAdmin && <AdminCard />}
-      </div>
-    </div>
+      {section === "overview" && (
+        <>
+          <Overview providers={providers} models={myModels} go={setSection} />
+          <UsageCard catalog={catalog} />
+        </>
+      )}
+      {section === "chat" && <WorkbenchCard models={myModels} providers={providers} catalog={catalog} isAdmin={isAdmin} />}
+      {section === "agents" && <AgentsCard models={myModels} isAdmin={isAdmin} />}
+      {section === "providers" && (
+        <>
+          <ConnectProviders catalog={catalog} isAdmin={isAdmin} setCredential={setCredential} testCredential={testCredential} onBanner={setBanner} />
+          <section className="card">
+            <h2>Connected</h2>
+            <p className="sub">Health is checked once when you connect a key — hit <b>test</b> anytime to re-verify (e.g. after rotating a key).</p>
+            {providers === undefined ? (
+              <p className="muted mono">…</p>
+            ) : providers.length === 0 ? (
+              <p className="muted">Nothing yet — connect a provider or add a key above.</p>
+            ) : (
+              <ConnectedCreds providers={providers} catalog={catalog} isAdmin={isAdmin} deleteCredential={deleteCredential} testCredential={testCredential} />
+            )}
+          </section>
+        </>
+      )}
+      {section === "usage" && <UsageCard catalog={catalog} />}
+      {section === "settings" && <TokenSaverCard />}
+      {section === "memory" && <MemoryPanel workspaceId={workspaceId ?? undefined} />}
+      {section === "members" && <MembersCard />}
+      {section === "mcp" && <McpCard />}
+      {section === "api" && <ApiKeysCard />}
+      {section === "combos" && <ComboBuilderCard />}
+      {section === "mcp-servers" && <McpServersCard />}
+      {section === "channels" && <ChannelsCard />}
+      {section === "schedules" && <SchedulesCard />}
+      {section === "workspace-usage" && <WorkspaceUsageCard />}
+      {section === "budget" && <SpendCapCard />}
+      {section === "audit" && <AuditLogCard />}
+      {section === "admin" && me?.isSuperAdmin && <AdminCard />}
+    </DashboardShell>
   );
 }
