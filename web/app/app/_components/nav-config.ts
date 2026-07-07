@@ -58,6 +58,7 @@ const GROUPS: NavGroup[] = [
     label: "Workspace",
     icon: ICONS.workspace,
     sections: [
+      { id: "graph", label: "Memory Graph" },
       { id: "members", label: "Members" },
       { id: "memory", label: "Memory" },
       { id: "settings", label: "Settings" },

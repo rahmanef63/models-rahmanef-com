@@ -1,0 +1,15 @@
+{
+  "$schema": "../../../docs/slice.manifest.schema.json",
+  "name": "memory-graph",
+  "version": "0.1.0",
+  "description": "Obsidian-style force-directed knowledge graph over memories + agents + skills + tools, with agent to skill/tool cross-links. Portable renderer + wired adapter; ships its own scoped styles.",
+  "category": "feature",
+  "stability": "alpha",
+  "deps": { "shared": [], "slices": ["memory"], "convexFeatures": [], "npm": {}, "env": [] },
+  "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
+  "permissions": ["workspace-viewer"],
+  "schemaTables": [],
+  "compatibility": { "next": ">=16 <17", "react": "^19", "convex": "^1.16", "tailwind": "any", "auth": "@convex-dev/auth" },
+  "tags": ["ai", "memory", "graph", "visualization", "agents", "skills", "tools", "obsidian"],
+  "notes": "Frontend-only slice — NO new table, NO new Convex function. The wired adapter (hooks/use-graph-data) reads existing queries memory.listMemories + agentDefs.list + agentDefs.listSkillsRegistry + agentDefs.listToolRegistry and persists via memory.addMemory; it depends on the `memory` slice's backend. The pure <MemoryGraph> renderer is Convex-free (feed it any GraphData), manages its own force sim + pan/zoom/drag imperatively, and injects its own scoped <style>, so it drops into any project. Consumer wiring = import { MemoryGraphPanel } and add a nav entry. DEVIATION(rr): this slice ships its own CSS as a scoped <style> string instead of reusing globals.css classes — deliberate, because the graph is ~350 lines of bespoke canvas styling and self-containment is the point of a portable slice. Node types: core, cluster, memory, agent, skill, tool."
+}

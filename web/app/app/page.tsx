@@ -24,6 +24,7 @@ import { SchedulesCard } from "@/features/scheduled-agents";
 import { WorkspaceUsageCard } from "@/features/usage-rollups";
 import { AuditLogCard } from "@/features/audit-log";
 import { SpendCapCard } from "@/features/spend-caps";
+import { MemoryGraphPanel } from "@/features/memory-graph";
 import { SignIn } from "./_components/sign-in";
 import { DashboardShell } from "./_components/dashboard-shell";
 import { AiDock } from "./_components/ai-dock";
@@ -138,6 +139,7 @@ function Dashboard() {
       )}
       {section === "usage" && <UsageCard catalog={catalog} />}
       {section === "settings" && <TokenSaverCard />}
+      {section === "graph" && <MemoryGraphPanel />}
       {section === "memory" && <MemoryPanel workspaceId={workspaceId ?? undefined} />}
       {section === "members" && <MembersCard />}
       {section === "mcp" && <McpCard />}

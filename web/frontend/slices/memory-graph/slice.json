@@ -1,0 +1,17 @@
+{
+  "$schema": "https://resource.rahmanef.com/slice-schema.json",
+  "slug": "memory-graph",
+  "version": "0.1.0",
+  "category": "feature",
+  "kind": "feature",
+  "title": "Memory graph",
+  "description": "Obsidian-style interactive force-directed graph over the app's knowledge: memories + agents + built-in skills + tools, with agent to skill/tool cross-links. Pan/zoom/drag, force simulation, filters/display/forces controls, node inspector, and an add-memory dock. Portable <MemoryGraph> renderer (feed any GraphData) + a wired <MemoryGraphPanel> adapter over the existing memory/agentDefs queries. Ships its own scoped styles as a <style> string — no new table, no new Convex function.",
+  "namespace": "@/features/memory-graph",
+  "convex": { "tablesExport": null, "schemaPath": "convex/schema.ts", "rootPaths": [] },
+  "frontend": { "slicePath": "frontend/slices/memory-graph", "configExport": null },
+  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth"] },
+  "registers": [],
+  "license": "MIT",
+  "tags": ["ai", "memory", "graph", "visualization", "agents", "skills", "tools", "obsidian", "convex"],
+  "providers": []
+}
