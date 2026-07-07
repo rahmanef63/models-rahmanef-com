@@ -71,9 +71,10 @@ export const removeCombo = mutation({
 });
 
 // ── resolution (internal; callForUser resolveModelRef calls this before the provider split) ──
-// Returns a concrete "provider/model", or null when the name is unknown.
+// Returns { ref: "provider/model", comboId, strategy }, or null when the name is unknown.
 //   fallback    → refs[0] (error-fallback across the rest is provider-pool 2.3, not yet wired).
-//   round_robin → refs[rotationIndex % refs.length]. Advance via internal.combos.bumpRotation.
+//   round_robin → refs[rotationIndex % refs.length]; callForUser calls bumpRotation after the pick
+//                 so the cursor actually advances (per-call rotation; stickyLimit reserved for later).
 export const resolveCombo = internalQuery({
   args: { userId: v.id("users"), workspaceId: v.optional(v.id("workspaces")), name: v.string() },
   handler: async (ctx, a) => {
@@ -81,14 +82,16 @@ export const resolveCombo = internalQuery({
       ? await ctx.db.query("combos").withIndex("by_ws_name", (q) => q.eq("workspaceId", a.workspaceId).eq("name", a.name)).unique()
       : (await ctx.db.query("combos").withIndex("by_user", (q) => q.eq("userId", a.userId)).take(100)).find((c) => c.name === a.name) ?? null;
     if (!combo || !combo.refs.length) return null;
-    if (combo.strategy === "round_robin") return combo.refs[(combo.rotationIndex ?? 0) % combo.refs.length];
-    return combo.refs[0]; // fallback
+    const ref = combo.strategy === "round_robin"
+      ? combo.refs[(combo.rotationIndex ?? 0) % combo.refs.length]
+      : combo.refs[0]; // fallback
+    return { ref, comboId: combo._id, strategy: combo.strategy };
   },
 });
 
 // Advance a round_robin combo's cursor by one (mod refs.length). Separate from resolveCombo because
-// an internalQuery can't write; a caller wires this after a successful round_robin pick when the
-// stickyLimit window elapses. No-op for fallback combos. OCC-safe (single-row patch).
+// an internalQuery can't write; callForUser wires this after EACH round_robin pick (per-call
+// rotation; stickyLimit is stored but reserved). No-op for fallback combos. OCC-safe (single-row patch).
 export const bumpRotation = internalMutation({
   args: { comboId: v.id("combos") },
   handler: async (ctx, a) => {

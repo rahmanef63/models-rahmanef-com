@@ -145,6 +145,28 @@ export const leaveWorkspace = mutation({
     if (ws?.personal) throw bad("cannot leave your personal workspace");
     if (role === "owner") throw bad("transfer ownership before leaving");
     const m = await ctx.db.query("memberships").withIndex("by_ws_user", (q) => q.eq("workspaceId", a.workspaceId).eq("userId", userId)).unique();
-    if (m) await ctx.db.delete(m._id);
+    if (m) {
+      await ctx.db.delete(m._id);
+      await ctx.db.insert("auditEvents", { workspaceId: a.workspaceId, actorUserId: userId, action: "member.left", target: userId, meta: { role }, at: Date.now() });
+    }
+  },
+});
+
+// owner-only: hand the workspace to another member. Promotes the target to owner, demotes the caller
+// to admin, and repoints ownerId — the missing half that updateRole/leaveWorkspace point owners to.
+export const transferOwnership = mutation({
+  args: { workspaceId: v.id("workspaces"), userId: v.id("users") },
+  handler: async (ctx, a) => {
+    const me = await requireWorkspaceRole(ctx, a.workspaceId, "owner");
+    if (a.userId === me.userId) throw bad("you already own this workspace");
+    const ws = await ctx.db.get(a.workspaceId);
+    if (ws?.personal) throw bad("cannot transfer a personal workspace");
+    const target = await ctx.db.query("memberships").withIndex("by_ws_user", (q) => q.eq("workspaceId", a.workspaceId).eq("userId", a.userId)).unique();
+    if (!target) throw bad("that user is not a member of this workspace");
+    const mine = await ctx.db.query("memberships").withIndex("by_ws_user", (q) => q.eq("workspaceId", a.workspaceId).eq("userId", me.userId)).unique();
+    await ctx.db.patch(target._id, { role: "owner" });
+    if (mine) await ctx.db.patch(mine._id, { role: "admin" });
+    await ctx.db.patch(a.workspaceId, { ownerId: a.userId });
+    await ctx.db.insert("auditEvents", { workspaceId: a.workspaceId, actorUserId: me.userId, action: "workspace.ownership_transferred", target: a.userId, meta: { from: me.userId }, at: Date.now() });
   },
 });

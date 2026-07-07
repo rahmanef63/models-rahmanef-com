@@ -35,7 +35,11 @@ export async function callForUser(
     if (modelRef.startsWith("combo/")) {
       const resolved = await ctx.runQuery(internal.combos.resolveCombo, { userId, workspaceId, name: modelRef.slice(6) });
       if (!resolved) throw new ConvexError({ code: "invalid_request", detail: `Unknown combo "${modelRef.slice(6)}"` } satisfies ChatErrorInfo);
-      modelRef = resolved;
+      modelRef = resolved.ref;
+      // round_robin actually rotates: advance the cursor after each pick so the next call hits the next ref.
+      // ponytail: resolve + bump are two txns, so two concurrent calls can pick the same ref once —
+      // fine for round-robin (best-effort spread, not exactly-once). Fold into one mutation if it matters.
+      if (resolved.strategy === "round_robin") await ctx.runMutation(internal.combos.bumpRotation, { comboId: resolved.comboId });
     } else if (modelRef.startsWith("agent/")) {
       const agent = await ctx.runQuery(internal.agentDefs.getOwned, { userId, id: modelRef.slice(6) as any });
       if (!agent) throw new ConvexError({ code: "invalid_request", detail: `Unknown agent "${modelRef.slice(6)}"` } satisfies ChatErrorInfo);

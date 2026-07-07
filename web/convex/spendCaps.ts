@@ -16,13 +16,19 @@ async function computeSpend(ctx: QueryCtx | MutationCtx, workspaceId: Id<"worksp
   const ws = await ctx.db.get(workspaceId);
   const capUsd = ws?.capUsdPerMonth ?? null;
   const since = monthStart();
+  const LIMIT = 4000;
   const rows = await ctx.db
     .query("workspaceUsageDaily")
     .withIndex("by_ws_day", (q) => q.eq("workspaceId", workspaceId).gte("day", since))
-    .take(4000);
+    .take(LIMIT);
   let spentUsd = 0;
   for (const r of rows) spentUsd += r.estCostUsd;
-  return { over: capUsd != null && spentUsd >= capUsd, spentUsd, capUsd };
+  // ponytail: monthly rollup rows sit far under LIMIT in practice (~1 per ws/day/provider/model).
+  // But this GATES spend — if the bound is ever hit we'd undercount and under-enforce, so fail CLOSED
+  // (treat as over-cap) rather than silently letting spend through. `truncated` is returned so a
+  // caller can surface WHY it's over (the block itself already shows via `over`).
+  const truncated = rows.length === LIMIT;
+  return { over: capUsd != null && (truncated || spentUsd >= capUsd), spentUsd, capUsd, truncated };
 }
 
 // Internal gate for the model hot path — no auth (callers already authorized). No cap ⇒ over:false.

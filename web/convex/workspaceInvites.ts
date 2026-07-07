@@ -70,7 +70,10 @@ export const acceptInvite = mutation({
     const inv = await ctx.db.query("invites").withIndex("by_tokenHash", (q) => q.eq("tokenHash", hash)).unique();
     if (!inv || inv.revoked || inv.acceptedBy || inv.expiresAt < Date.now()) throw bad("This invite is invalid, expired, or already used.");
     const existing = await ctx.db.query("memberships").withIndex("by_ws_user", (q) => q.eq("workspaceId", inv.workspaceId).eq("userId", userId)).unique();
-    if (!existing) await ctx.db.insert("memberships", { workspaceId: inv.workspaceId, userId, role: inv.role, invitedBy: inv.invitedBy, createdAt: Date.now() });
+    if (!existing) {
+      await ctx.db.insert("memberships", { workspaceId: inv.workspaceId, userId, role: inv.role, invitedBy: inv.invitedBy, createdAt: Date.now() });
+      await ctx.db.insert("auditEvents", { workspaceId: inv.workspaceId, actorUserId: userId, action: "invite.accepted", target: userId, meta: { role: inv.role }, at: Date.now() });
+    }
     await ctx.db.patch(inv._id, { acceptedBy: userId });
     return inv.workspaceId;
   },

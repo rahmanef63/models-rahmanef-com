@@ -14,8 +14,16 @@ export function MembersCard() {
   const revokeInvite = useMutation(api.workspaceInvites.revokeInvite);
   const updateRole = useMutation(api.workspaces.updateRole);
   const removeMember = useMutation(api.workspaces.removeMember);
+  const transferOwnership = useMutation(api.workspaces.transferOwnership);
   const [link, setLink] = useState<string | null>(null);
   const isAdmin = role === "admin" || role === "owner";
+  const isOwner = role === "owner";
+
+  async function makeOwner(userId: string, label: string) {
+    if (!window.confirm(`Make ${label} the owner? You'll become an admin and can't undo this yourself.`)) return;
+    try { await transferOwnership({ workspaceId: workspaceId as never, userId: userId as never }); }
+    catch (e) { window.alert((e as { data?: { detail?: string } })?.data?.detail ?? "Failed to transfer ownership"); }
+  }
 
   if (personal) return <section className="card"><h2>Members</h2><p className="sub">Your personal workspace is just you. Create a team workspace (switcher, top-left) to invite people and share provider keys.</p></section>;
 
@@ -49,6 +57,7 @@ export function MembersCard() {
                   <select value={m.role} onChange={(e) => void updateRole({ workspaceId: workspaceId as never, userId: m.userId as never, role: e.target.value })}>
                     <option value="admin">admin</option><option value="member">member</option><option value="viewer">viewer</option>
                   </select>
+                  {isOwner && <button className="link" onClick={() => void makeOwner(String(m.userId), m.name ?? m.email ?? "this member")}>make owner</button>}
                   <button className="link danger" onClick={() => void removeMember({ workspaceId: workspaceId as never, userId: m.userId as never })}>remove</button>
                 </>
               ) : <span className="badge">{m.role}</span>}

@@ -102,7 +102,12 @@ export const deleteCredential = mutation({
       .query("modelCreds")
       .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", a.provider))
       .unique();
-    if (row) await ctx.db.delete(row._id);
+    if (row) {
+      await ctx.db.delete(row._id);
+      // audit only SHARED-credential deletes (workspaceId set) — the auditEvents trail is per-workspace,
+      // and a personal key deletion is not a team-visible action. Matches the slice's advertised scope.
+      if (row.workspaceId) await ctx.db.insert("auditEvents", { workspaceId: row.workspaceId, actorUserId: userId, action: "cred.deleted", target: row.provider, meta: { kind: row.kind }, at: Date.now() });
+    }
   },
 });
 

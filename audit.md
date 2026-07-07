@@ -1,28 +1,28 @@
 # Feature Audit — models.rahmanef.com
 
-> Best-practice + CRUD compliance scorecard for **every feature**. Produced by a 20-auditor + 1-critic pass (2026-07-07). Each auditor read the feature's source and cited `file:line` evidence; a skeptical critic then re-checked the scores for inflation.
+> Best-practice + CRUD compliance scorecard for **every feature**. Produced by a 20-auditor + 1-critic pass, then a **fix pass** that shipped + adversarially re-verified 5 features (2026-07-07). Each auditor read the feature's source and cited `file:line` evidence.
 >
-> **Scope:** this file scores *quality & rule-compliance* (CRUD completeness, Convex rules, rr conventions, UI rules, security). It complements — does not replace — `docs/FEATURES-LOG.md` (verified shipped scope) and `docs/AI-SLICES-PROGRESS.md` (rr-parity coverage %).
+> **Scope:** scores *quality & rule-compliance* (CRUD completeness, Convex rules, rr conventions, UI rules, security). Complements `docs/FEATURES-LOG.md` (shipped scope) and `docs/AI-SLICES-PROGRESS.md` (rr-parity %).
 >
-> **Rubric:** CRUD completeness · rr conventions (trio/version, barrel-only imports, ≤200-line files, SRP) · Convex rules (args validators, no bare `.collect()`, in-handler authz, `.withIndex`) · UI rules (shadcn, theme tokens, responsive) · security & portability. Grades: A ≥90 · B 80–89 · C 70–79 · D 60–69 · F &lt;60.
+> **Rubric:** CRUD completeness · rr conventions (trio/version, barrel-only imports, ≤200-line files, SRP) · Convex rules (args validators, no bare `.collect()`, in-handler authz, `.withIndex`) · UI rules · security & portability. Grades: A ≥90 · B 80–89 · C 70–79 · D 60–69 · F &lt;60.
 
 ## Progress
 
-**All 20/20 features audited ✅** · avg **85.5/100** · as-audited 1×A 19×B (critic revises api-compat A→B, audit-log B→C ⇒ effective **19×B 1×C**) · **1 HIGH + 31 MED** critiques open.
+**All 20/20 features audited ✅ · 5 fixed + re-verified ✅** · avg **86.5/100** · 2×A 18×B · **0 HIGH + 24 MED** critiques open.
 
-- [x] workspaces
+- [x] workspaces — 🔧 fixed
 - [x] byok
 - [x] api-compat
 - [x] memory
 - [x] memory-graph
-- [x] combos
+- [x] combos — 🔧 fixed
 - [x] mcp-client
-- [x] audit-log
+- [x] audit-log — 🔧 fixed
 - [x] channels
 - [x] scheduled-agents
 - [x] usage-rollups
-- [x] provider-pool
-- [x] spend-caps
+- [x] provider-pool — 🔧 fixed
+- [x] spend-caps — 🔧 fixed
 - [x] ai-chat
 - [x] ai-agents
 - [x] mcp-server-inbound
@@ -31,57 +31,80 @@
 - [x] auth-oauth
 - [x] dashboard-shell
 
+## 🔧 Fix pass (2026-07-07)
+
+Shipped from the top of the recommended fix order, each **adversarially re-verified** in code before re-scoring. Validation gate: `npm test` (4/4, incl. a new 402-failover guard) · `tsc --noEmit` clean · Convex codegen clean · ≤200-line cap held.
+
+| Feature | Score | Fix | What changed |
+|---|:---:|:---:|---|
+| spend-caps | **88 → 92** (A) | ✅ fix confirmed | Spend gate now **fails closed** on read truncation (was: silent undercount → under-enforced cap) + returns a `truncated` flag. |
+| workspaces | **87 → 90** (A) | ✅ fix confirmed | Added the `transferOwnership` mutation (owner-only, fully guarded) + an owner-only "make owner" UI + a `member.left` audit hook. The dead-end two error strings pointed owners to now exists. |
+| provider-pool | **83 → 87** (B) | ✅ fix confirmed | 402/quota now **fails over** to the next pooled cred (was: abort the whole request), while still cooling the exhausted cred 240s. Guarded by a new `fallbackRules.test.ts` wired into `npm test`. |
+| combos | **81 → 86** (B) | ✅ fix confirmed | `round_robin` now **actually rotates** — `resolveCombo` returns the comboId and `callForUser` calls `bumpRotation` after each pick. Was a silent no-op (behaved as fallback). |
+| audit-log | **80→76 → 85** (B) | ✅ fix confirmed | Wired the 3 missing audit hooks — `member.left`, `invite.accepted`, `cred.deleted` (shared-cred only). Advertised events now fire (2 → 4 reachable + 1 bonus `workspace.ownership_transferred`). |
+
+**Residual follow-ups surfaced by the verifiers** (none block the fix; each is a scoped next step):
+
+- **spend-caps** — (1) Comment at `spendCaps.ts:28` says `truncated` lets the UI flag it, but SpendCapCard never reads status.truncated — the UI-surfacing half is unimplemented. (2) Fail-closed can over-block a legit heavy workspace: LIMIT=4000 rows/month needs ~129 distinct provider×model pairs active every day; if hit, over=true blocks ALL calls even under budget, and because .take() keeps earliest index-order rows the card renders '~$X spent · $Y cap · OVER' with X&lt;Y and no explanation. (3) Still a soft guard — one in-flight call can cross the cap by its own cost (documented, by design).
+- **workspaces** — UI-side: transferOwnership call at `members-card.tsx:24` has no try/catch (unlike invite() L32-35), so a race where target leaves between render and click fails silently ('that user is not a member'). ws?.personal optional-chain (`workspaces.ts:163`) skips the personal guard if ws is null (unreachable in practice — membership already asserted). Slice version not bumped (still 0.1.0) and contract.provides.convex doesn't list the new mutation (consistent with pre-existing partial listing, not fix-introduced drift).
+- **provider-pool** — Failover REACHING the next candidate is proven by code inspection only — the test is a pure unit test of classifyProviderError; it does not exercise callForUser's loop (no Convex ctx / generateText integration test). Single-cred: candidates.length===1 → 402 no-throw, loop ends, `if(!done) throw lastErr` (`callForUser.ts:158`) surfaces the same 402 err the old path threw at :155, and markCredResult cooled it in both old & new — behavior effectively unchanged, but there is no test asserting the single-cred surface.
+- **combos** — (1) resolveCombo (internalQuery, can't write) and bumpRotation run as two separate transactions inside the node action, so two CONCURRENT calls on the same combo can both read rotationIndex=n and both pick refs[n] before either bumps — one increment is lost and the distribution skews under concurrency (cursor still advances, never stuck). (2) bumpRotation fires BEFORE the provider split/generateText (`callForUser.ts:40`), so a call that later errors still advanced the cursor; the stale comment at `combos.ts:93` ("after a successful round_robin pick when the stickyLimit window elapses") no longer matches. (3) stickyLimit is stored (default 1) but never consulted — rotation advances every call; correct only for the default, documented as reserved. None of these regress the original defect.
+- **audit-log** — cred.deleted is UNREACHABLE dead code today: the only modelCreds writer is store() (`credentials.ts:67-77`) whose args (:68) contain NO workspaceId and never set it — every modelCreds row has workspaceId=undefined, so if(row.workspaceId) at :109 is always false. Shared-cred READ infra exists (resolveCred by_ws_provider :141, `schema.ts:31` field) but no WRITE path does. So of the 5 manifest-advertised events, 4 genuinely fire; cred.deleted is correct-but-latent until a shared-cred write ships. The manifest note (`slice.manifest.json:14`) is honest about WHEN it fires but does NOT disclose that no shared cred can currently exist at all.
+
+> **Closed in a same-pass follow-up** (the verifiers ran before these landed): spend-caps comment no longer over-claims UI wiring; workspaces `makeOwner` got a try/catch (no more silent fail on transfer); combos `bumpRotation` comment de-staled to match per-call rotation; audit-log manifest now discloses `cred.deleted` is latent until a shared-cred write path ships. Remaining items above are genuine next steps.
+
 ## Scoreboard
 
-CRUD legend: ✓ full · ◐ partial · ✗ missing · – n/a.
+CRUD legend: ✓ full · ◐ partial · ✗ missing · – n/a. 🔧 = fixed this pass.
 
 | # | Feature | Score | Grade | C | R | U | D | Bottom line |
 |---|---|:---:|:---:|:-:|:-:|:-:|:-:|---|
-| 1 | [api-compat](#api-compat) | 90 → **88** | A → **B** | ✓ | ✓ | – | ✓ | Tight, security-first gateway slice: complete-for-shape CRUD, full Convex validator/authz/index compliance, strong key hygiene, and clean portability — only low |
-| 2 | [ai-chat](#ai-chat) | 89 | B | ✓ | ✓ | ◐ | ✓ | Exemplary Convex backend (validators, indexing, authz, spend-caps, modularity all clean); dinged only by a partial thread-Update, a dangling-user-message edge c |
-| 3 | [mcp-client](#mcp-client) | 88 | B | ✓ | ✓ | ◐ | ✓ | Clean, security-forward external-MCP slice — full trio, airtight Convex validation/authz/encryption and thoughtful SSRF+redaction+loop guards; held back from an |
-| 4 | [spend-caps](#spend-caps) | 88 | B | ✓ | ✓ | ✓ | ✓ | Tight, correctly-scoped enforcement slice — reuses an existing field, actually wires the cap into the model hot path, and passes every Convex rule; docked mainl |
-| 5 | [workspaces](#workspaces) | 87 | B | ✓ | ✓ | ✓ | ✓ | Excellent Convex/RBAC/invite core with full CRUD and zero validator/collect/authz violations; docked to a B by one real functional dead-end (no transferOwnershi |
+| 1 | [spend-caps](#spend-caps) 🔧 | 92 | A | ✓ | ✓ | ✓ | ✓ | Fix CONFIRMED and correct. computeSpend now fails closed on read truncation — the safe direction — closing the previously flagged silent under-enforcement (syst |
+| 2 | [workspaces](#workspaces) 🔧 | 90 | A | ✓ | ✓ | ✓ | ✓ | Fix CONFIRMED and well-executed. transferOwnership is correct, atomic, owner-only, fully guarded (self/personal/non-member), Convex-rule-clean, and makes both p |
+| 3 | [api-compat](#api-compat) | 90 → **88** | A → **B** | ✓ | ✓ | – | ✓ | Tight, security-first gateway slice: complete-for-shape CRUD, full Convex validator/authz/index compliance, strong key hygiene, and clean portability — only low |
+| 4 | [ai-chat](#ai-chat) | 89 | B | ✓ | ✓ | ◐ | ✓ | Exemplary Convex backend (validators, indexing, authz, spend-caps, modularity all clean); dinged only by a partial thread-Update, a dangling-user-message edge c |
+| 5 | [mcp-client](#mcp-client) | 88 | B | ✓ | ✓ | ◐ | ✓ | Clean, security-forward external-MCP slice — full trio, airtight Convex validation/authz/encryption and thoughtful SSRF+redaction+loop guards; held back from an |
 | 6 | [byok](#byok) | 87 | B | ✓ | ✓ | ◐ | ✓ | Clean, security-minded BYOK slice: encryption + tenant derivation + validators + trio are textbook; deductions are a latent .unique()/.first() inconsistency, an |
 | 7 | [memory](#memory) | 87 | B | ✓ | ✓ | ✓ | ✓ | Strong, well-wired slice: complete CRUD (archive-only by design), textbook Convex hygiene, and injection-hardened — docked mainly for a stale barrel version, de |
 | 8 | [scheduled-agents](#scheduled-agents) | 87 | B | ✓ | ✓ | ◐ | ✓ | Tight, secure, well-documented cron slice — Convex rules fully honored and files tiny; held to B by toggle-only Update (no cadence edit), raw-HTML UI (project b |
-| 9 | [memory-graph](#memory-graph) | 86 | B | ✓ | ✓ | ◐ | ✓ | Strong, highly-modular, genuinely portable frontend slice — trio + version + barrel + file-cap all green; main real gap is that the 'add child' UI promises a me |
-| 10 | [channels](#channels) | 86 | B | ✓ | ✓ | ◐ | ✓ | Backend is A-grade (flawless Convex compliance + strong crypto/abuse defense); dinged to a solid B by a missing cascade-delete, a setModel path that's implement |
-| 11 | [mcp-server-inbound](#mcp-server-inbound) | 85 | B | ✓ | ✓ | ◐ | ◐ | Security-first, tightly-scoped MCP inbound layer that nails the hard parts (hashed secrets, PKCE, correct IP trust, per-call workspace re-check) — dinged only b |
-| 12 | [skills-tools-registry](#skills-tools-registry) | 85 | B | – | ✓ | – | – | Clean, well-factored cross-cutting registry — single source of truth for both tool surfaces, tiny files, upstream authz correct; main ding is that the declared  |
-| 13 | [auth-oauth](#auth-oauth) | 85 | B | ✓ | ✓ | ✓ | ◐ | Clean, secure, convention-abiding OAuth/BYOK-connect layer — validators, per-action requireUser, encrypted-at-rest tokens, all indexed, no bare collects; docked |
-| 14 | [dashboard-shell](#dashboard-shell) | 85 | B | – | – | – | – | A clean, well-decomposed, token-themed app shell that honors the file-size cap and barrel-import rules and has strong a11y; held back from an A by client-only n |
-| 15 | [usage-rollups](#usage-rollups) | 84 | B | ✓ | ✓ | ✓ | ✗ | Clean, well-bounded ponytail-style slice — Convex rules fully honored (validators, no bare collect, indexed, correct authz layering) and trio complete; docked m |
-| 16 | [ai-agents](#ai-agents) | 84 | B | ✓ | ✓ | ◐ | ◐ | Careful, ownership-tight backend with full CRUD on agent configs; B-grade dinged by two unbounded .collect()s, no delete/retention for run history, and a worksp |
-| 17 | [provider-pool](#provider-pool) | 83 | B | – | ✓ | ◐ | – | Clean, small, well-tested failover ENGINE (429/5xx/dead all fail over correctly); dinged for a 402/quota case that aborts instead of failing over — the core mul |
-| 18 | [ai-admin](#ai-admin) | 83 | B | – | ✓ | – | – | Clean, simple, correctly-gated read-only operator console that nails Convex authz + validators + no-bare-collect; the one real flaw is aggregate totals silently |
-| 19 | [combos](#combos) | 81 | B | ✓ | ✓ | ◐ | ✓ | Clean, rr-compliant, well-scoped slice with textbook Convex authz/validation — but round_robin is a silent no-op (bumpRotation never called) and update is thin  |
-| 20 | [audit-log](#audit-log) | 80 → **76** | B → **C** | ✓ | ✓ | – | ◐ | Well-engineered append-only slice (clean Convex, matched trio, transaction-local writes) that under-delivers on its own advertised scope — only 2 of ~5 claimed  |
+| 9 | [provider-pool](#provider-pool) 🔧 | 87 | B | – | ✓ | ◐ | – | Fix CONFIRMED and correct. The retryable:false→true flip for 402/quota_exceeded is present (fallbackRules.ts:56-58) and correctly consumed by callForUser.ts:155 |
+| 10 | [memory-graph](#memory-graph) | 86 | B | ✓ | ✓ | ◐ | ✓ | Strong, highly-modular, genuinely portable frontend slice — trio + version + barrel + file-cap all green; main real gap is that the 'add child' UI promises a me |
+| 11 | [combos](#combos) 🔧 | 86 | B | ✓ | ✓ | ◐ | ✓ | Fix CONFIRMED and genuine — round_robin now rotates across refs and wraps (combos.ts:88 return-shape + callForUser.ts:40 bumpRotation wiring), fallback is prova |
+| 12 | [channels](#channels) | 86 | B | ✓ | ✓ | ◐ | ✓ | Backend is A-grade (flawless Convex compliance + strong crypto/abuse defense); dinged to a solid B by a missing cascade-delete, a setModel path that's implement |
+| 13 | [audit-log](#audit-log) 🔧 | 85 | B | ✓ | ✓ | – | ◐ | Fix confirmed and real. The three added hooks (member.left, invite.accepted, cred.deleted) are present, atomic within the acting mutation's transaction, schema- |
+| 14 | [mcp-server-inbound](#mcp-server-inbound) | 85 | B | ✓ | ✓ | ◐ | ◐ | Security-first, tightly-scoped MCP inbound layer that nails the hard parts (hashed secrets, PKCE, correct IP trust, per-call workspace re-check) — dinged only b |
+| 15 | [skills-tools-registry](#skills-tools-registry) | 85 | B | – | ✓ | – | – | Clean, well-factored cross-cutting registry — single source of truth for both tool surfaces, tiny files, upstream authz correct; main ding is that the declared  |
+| 16 | [auth-oauth](#auth-oauth) | 85 | B | ✓ | ✓ | ✓ | ◐ | Clean, secure, convention-abiding OAuth/BYOK-connect layer — validators, per-action requireUser, encrypted-at-rest tokens, all indexed, no bare collects; docked |
+| 17 | [dashboard-shell](#dashboard-shell) | 85 | B | – | – | – | – | A clean, well-decomposed, token-themed app shell that honors the file-size cap and barrel-import rules and has strong a11y; held back from an A by client-only n |
+| 18 | [usage-rollups](#usage-rollups) | 84 | B | ✓ | ✓ | ✓ | ✗ | Clean, well-bounded ponytail-style slice — Convex rules fully honored (validators, no bare collect, indexed, correct authz layering) and trio complete; docked m |
+| 19 | [ai-agents](#ai-agents) | 84 | B | ✓ | ✓ | ◐ | ◐ | Careful, ownership-tight backend with full CRUD on agent configs; B-grade dinged by two unbounded .collect()s, no delete/retention for run history, and a worksp |
+| 20 | [ai-admin](#ai-admin) | 83 | B | – | ✓ | – | – | Clean, simple, correctly-gated read-only operator console that nails Convex authz + validators + no-bare-collect; the one real flaw is aggregate totals silently |
 
-_Scores with → were revised down by the critic (see below)._
+_Scores with → were revised down by the critic. 🔧 = re-scored after a verified fix this pass._
 
 ## Portfolio review (skeptical critic)
 
+> _From the initial pass — the systemic gaps below drove the fix order; items marked ✅ were addressed this pass._
+
 Backend Convex hygiene is the portfolio's real strength and is scored honestly: args-validators, in-handler requireUser/requireWorkspaceRole/requireAdmin, and .withIndex usage are uniformly high and well-evidenced with line numbers across ~all slices. Strongest: ai-chat (89) plus the Convex/RBAC cores (workspaces, byok, channels, spend-caps). Weakest: audit-log — a security/compliance feature that misrepresents its own coverage (only 2 of ~5 claimed events actually insert rows, verified) — and the recurring 'advertised-but-unwired' cluster. Systemic pattern: uniform backend compliance masks a repeated gap between what a slice ADVERTISES (schema fields, error strings, manifest notes, UI copy) and what it IMPLEMENTS. Scoring is internally consistent on the Convex/rr axes but slightly lenient on functional dead-ends: they are repeatedly logged as 'med' even when they defeat the feature's core value prop (combos round_robin no-op, provider-pool 402 not failing over, channels setModel never wired). Grade spread is compressed — 19 of 20 land 80-90 (all B) with a single A (api-compat, 90) that is not clearly the best in class; recommend nudging api-compat into the B band and dropping audit-log below the pack so the numeric spread reflects real risk. No strong deflation cases found; combos (81) reads slightly harsh but its manifest openly advertises a strategy that is a verified no-op, so the dock is defensible.
 
-### Score adjustments
+### Score adjustments (still standing)
 
 | Feature | From | To | Why |
 |---|:-:|:-:|---|
 | api-compat | 90 | 88 | Sole A in the set but carries an authz-generosity gap (any member mints a durable workspace-spend credential; arguably admin-only) plus a verified take(50)-then-filter that silently hides active keys past 50, and a root-file structural deviation from the vertical-slice rule. Not clearly above the 'exemplary' ai-chat (89); belongs at the top of the B band, not alone in A. |
-| audit-log | 80 | 76 | Verified HIGH: a security/compliance feature whose UI copy and manifest claim cred.deleted / invite.accepted / member.left are audited, but only member.role_changed and member.removed insert rows (auditEvents written at just workspaces.ts:123,136). Misrepresenting security coverage is a trust hazard that should sit clearly below the B pack, not one point under a clean slice like combos. |
 
 ### Cross-cutting gaps (no single feature owns these)
 
 - No shared table-retention/GC convention: crons prune only rateLimits, memory, channelEvents, and audit — but workspaceUsageDaily, the raw usage log, agentRuns, mcpAuthCodes, mcpClients, oauthFlows, and orphaned channelIdentities/threads/messages (channels has no cascade delete) all grow unbounded. No feature owns lifecycle policy; each slice re-decides ad hoc.
-- Ad-hoc silent read truncation with no overflow signal: take(50)/(500)/(2000)/(4000)/(10000) are chosen per-feature and the ones that truncate silently are the billing/spend/security surfaces — api-compat hides active keys, spend-caps under-enforces the cap, ai-admin freezes totals. No shared paginate/aggregate helper and no 'capped' flag convention.
-- 'Advertised != implemented' is systemic: schema fields, error strings, manifest notes, and UI copy promise capabilities no code ships — transferOwnership (workspaces), round_robin/bumpRotation (combos), channelsCore.setModel wiring (channels), 3 of 5 audit hooks (audit-log), pool priority/label (provider-pool), memory 'agent' scope + recall columns, agentDefs workspace visibility, CredStatusBadge dead UI (provider-pool). No owner keeps the advertised surface equal to the shipped surface.
+- 🟡 _(partially addressed this pass)_ Ad-hoc silent read truncation with no overflow signal: take(50)/(500)/(2000)/(4000)/(10000) are chosen per-feature and the ones that truncate silently are the billing/spend/security surfaces — api-compat hides active keys, spend-caps under-enforces the cap, ai-admin freezes totals. No shared paginate/aggregate helper and no 'capped' flag convention.
+- 🟡 _(partially addressed this pass)_ 'Advertised != implemented' is systemic: schema fields, error strings, manifest notes, and UI copy promise capabilities no code ships — transferOwnership (workspaces), round_robin/bumpRotation (combos), channelsCore.setModel wiring (channels), 3 of 5 audit hooks (audit-log), pool priority/label (provider-pool), memory 'agent' scope + recall columns, agentDefs workspace visibility, CredStatusBadge dead UI (provider-pool). No owner keeps the advertised surface equal to the shipped surface.
 - The 'no bare .collect()' rr rule is quietly violated in byok (credentials.ts:26,36), ai-agents (agentDefs.ts:63,149), and mcp-server-inbound (mcp.ts:32,53) — 6 verified sites, all per-user-scoped so 'bounded in practice' but unbounded by rule. There is no lint/audit gate enforcing it, so the drift spreads.
-- Spend-control safety falls between features with no end-to-end owner: provider-pool's 402/quota aborts instead of failing over, spend-caps' take(4000) undercounts and under-enforces, and api-compat lets members mint unbounded-lifetime spend keys. Each is 'low/med' locally but together they leave real holes at the seams of the platform's core value prop.
+- 🟡 _(partially addressed this pass)_ Spend-control safety falls between features with no end-to-end owner: provider-pool's 402/quota aborts instead of failing over, spend-caps' take(4000) undercounts and under-enforces, and api-compat lets members mint unbounded-lifetime spend keys. Each is 'low/med' locally but together they leave real holes at the seams of the platform's core value prop.
 - Type-safety escape hatches at the Convex Id client boundary ('as never' / 'as any') recur across ~8 slices (workspaces, byok, api-compat, memory-graph, audit-log, mcp-client, usage-rollups, mcp-server-inbound). No shared typed-Id helper for the query/mutation call boundary, so strict TS is defeated exactly where crafted-client input arrives.
 - App-wide UI baseline (no shadcn primitives, raw button/input/select, native confirm/prompt/alert, desktop-first CSS inverted from the mobile-first rule) is documented/tracked but is a genuine portability/lift blocker spanning every slice and owned by no single feature.
 
-### Per-feature flags
+### Per-feature flags (initial pass)
 
 - **api-compat** — Authz too generous: issueApiKey gates on 'member' (verified apiKeys.ts:17), so any member mints a durable sk-rr key that spends workspace provider creds indefinitely — a lasting spend credential should require admin. Also listApiKeys take(50)-then-filter-revoked hides active keys once &gt;50 keys accumulate. These undercut the sole A grade.
 - **audit-log** — CRUD 'create: yes' overstates reality: auditEvents is inserted at only 2 sites (workspaces.ts:123,136 — member.role_changed/removed). cred.deleted, invite.accepted, member.left insert nothing (verified), yet UI copy + manifest claim they are audited. audit.record internalMutation has zero callers (dead). HIGH is real for a security feature.
@@ -101,6 +124,73 @@ Backend Convex hygiene is the portfolio's real strength and is scored honestly: 
 - **ai-chat** — sendMessage persists the user turn before the model call, so a failed call leaves a dangling user-only message that is re-forwarded and can produce two consecutive user-role turns (some providers reject). Thread update is rebind-only (no rename).
 
 ## Per-feature detail
+
+### spend-caps
+
+**Score 92 · Grade A** — Fix CONFIRMED and correct. computeSpend now fails closed on read truncation — the safe direction — closing the previously flagged silent under-enforcement (systemic gap #2/#5) without breaking any checkSpendCap/getSpendStatus consumer or introducing a NaN/regression. The gate is replicated at all direct-generateText entrypoints. Two minor residuals keep it out of the mid-90s: the advertised `truncated`-in-UI wiring is unimplemented, and fail-closed can over-block an ultra-heavy under-budget workspace with a self-contradictory, unexplained 'OVER'. Both are low-severity and easily patched. Score raised 88→92 (A): reward earned for a real, minimal, safe fix; not inflated because the UI half of the stated scope and a remote false-positive remain.  
+**🔧 Fixed this pass** (✅ fix confirmed, 88→92): Fix present in working tree (uncommitted `M `convex/spendCaps.ts``; HEAD 6c620fe still pre-fix). `spendCaps.ts:19` names LIMIT=4000, :29 `const truncated = rows.length === LIMIT`, :30 `over: capUsd != null && (truncated || spentUsd &gt;= capUsd)` — fails CLOSED (over=true) on truncation when a cap is set, replacing the old `over: capUsd != null && spentUsd &gt;= capUsd` that under-counted a truncated read and fell below cap = fail-OPEN. Direction is the safe one: blocks, not admits. Consumers unbroken — `callForUser.ts:57-58`, `chat.ts:69-70` read only .over/.spentUsd/.capUsd; SpendCapCard Status type (`spend-cap-card.tsx:10`) is a structural subset so the extra field is ignored. estCostUsd is v.number() (`usageRollups/tables.ts:16`) so the sum can't NaN.
+
+**CRUD:** C ✓ · R ✓ · U ✓ · D ✓
+<br/>Entity is a single scalar config: workspaces.capUsdPerMonth (no owned table — reuses an existing field, by design). CREATE/UPDATE: setSpendCap (mutation, upsert-on-field) `spendCaps.ts:35`. DELETE = clear: setSpendCap with monthlyCapUsd omitted → ctx.db.patch drops the field; 'Clear' button `spend-cap-card.tsx:66` / `spendCaps.ts:41`. READ: getSpendStatus (viewer query) `spendCaps.ts:47` + checkSpendCap (internalQuery enforcement) `spendCaps.ts:29`. CRUD is complete and correctly scoped for a single-field config — no over-building, no missing operation.
+
+- **rr conventions:** Trio present and version-consistent: `slice.json` 0.1.0, `slice.contract.ts` id/version 0.1.0, `slice.manifest.json` — all agree. Barrel discipline OK: `index.ts` re-exports SpendCapCard; the card imports @/features/workspaces (barrel) and @/convex/_generated/api, no deep cross-slice reach. File sizes all under the 200-line cap (`spendCaps.ts` 59, `spend-cap-card.tsx` 76, `callForUser.ts` 171). SRP good — computeSpend is a single shared helper feeding both the gate and the UI read. contract forbiddenTerms includes 'rahmanef' (consumer-locked, acceptable per slice level).
+- **Convex rules:** All rules honored. Args validators on all three public/internal fns (checkSpendCap :35, setSpendCap :41, getSpendStatus :53). No bare .collect() — computeSpend uses .withIndex('by_ws_day', eq+gte).take(LIMIT) (:20-23), index defined in `usageRollups/tables.ts:20`. In-handler authz: setSpendCap requireWorkspaceRole(admin) :43, getSpendStatus requireWorkspaceRole(viewer) :55; checkSpendCap is internalQuery with a documented no-auth contract (callers pre-authorized) and both callsites gate it. Bounded read + fail-closed on the bound is now correct per the 'no bare collect / degrade as table grows' intent.
+- **UI rules:** Backend-only fix; UI untouched and still off-spec for two rr UI rules — SpendCapCard uses raw &lt;button&gt;/&lt;input type=number&gt;/&lt;section&gt; instead of shadcn primitives (`spend-cap-card.tsx:64-66`) and inline hex colors #c55/#d90/#6a9/#2222 via CSS-var fallbacks (:41,:58) instead of theme tokens. These are the documented project-wide plain-CSS/no-shadcn gap (CLAUDE.md compliance snapshot), not regressions from this fix. Separately, the fix's own stated UI goal is unmet: the new `truncated` flag is returned by getSpendStatus but SpendCapCard neither types nor renders it, so a truncation-blocked workspace shows a confusing 'OVER' with spent&lt;cap and no reason.
+
+**Strengths**
+
+- Fail-closed gate direction is correct and minimal: truncation on a spend guard now blocks rather than silently admits, closing the flagged systemic under-enforcement (`spendCaps.ts:29-30`).
+- Zero consumer breakage — additive return field; all three callers read only pre-existing properties and the frontend Status type is a structural subset.
+- Enforcement is replicated at every direct-generateText entrypoint (callForUser + chat.runAgent), so the runAgent trace path can't escape the cap.
+- Convex data-access is clean: indexed bounded read, args validators, in-handler role checks; estCostUsd non-optional so the sum can't NaN.
+
+**Critiques**
+
+- 🟡 LOW — The `truncated` field is plumbed into the return 'for the UI' but the UI never consumes it — SpendCapCard's Status type omits it and nothing renders it. <br/>↳ `spendCaps.ts:28` comment vs `spend-cap-card.tsx:10` (type Status lacks truncated) and :43-73 (no truncated usage).
+- 🟡 LOW — Fail-closed can over-block a legit heavy workspace under budget with no diagnosable signal: &gt;4000 monthly rows forces over=true, and take() keeps earliest index-order rows so the card shows spent&lt;cap yet 'OVER'. <br/>↳ `spendCaps.ts:19-30` (LIMIT=4000, take keeps first-by-[workspaceId,day]); `usageRollups/tables.ts:2-3` (one row per ws/day/provider/model).
+- 🟡 LOW — Remains a soft guard — a single in-flight call can still cross the cap by its own cost; the check is pre-call only, no reservation/debit. <br/>↳ `callForUser.ts:54-59` (comment acknowledges 'a single in-flight call can cross the cap').
+
+**Suggestions**
+
+- `S` Surface truncation in SpendCapCard: add `truncated` to the Status type and render an explicit 'usage rows truncated — spend estimate incomplete, blocking as a precaution' note so an over-blocked heavy workspace is diagnosable instead of showing spent&lt;cap + OVER.
+- `S` Add a distinct return signal (e.g. reason:'truncated'|'over') so callForUser/chat/runAgent can throw a clearer message than 'budget reached ($X / $Y)' when X&lt;Y, since that string is self-contradictory in the truncation branch.
+- `M` If very-heavy workspaces are plausible, raise the ceiling by pre-aggregating monthly totals (a workspaceUsageMonthly rollup keyed by ws+YYYY-MM) so computeSpend reads O(1) rows and truncation becomes structurally impossible, removing the false-positive block entirely.
+
+---
+
+### workspaces
+
+**Score 90 · Grade A** — Fix CONFIRMED and well-executed. transferOwnership is correct, atomic, owner-only, fully guarded (self/personal/non-member), Convex-rule-clean, and makes both prior error strings actionable — the MED owner-stuck critique is genuinely resolved, plus a bonus member.left audit hook. Remaining deductions are minor and mostly pre-existing UI-rule debt (raw button + window.confirm, no error toast). Score rises 87 → 90 (A).  
+**🔧 Fixed this pass** (✅ fix confirmed, 87→90): transferOwnership mutation exists and is correct/safe/authz-sound at `web/convex/workspaces.ts:157-172`. Owner-only via requireWorkspaceRole(ctx,workspaceId,'owner') in-handler (L160). Guards: self-transfer L161 ('you already own this workspace'), personal-ws L163, non-member target L165. Transfer body is atomic (single Convex mutation txn): promotes target to owner (L167), demotes caller to admin (L168), repoints workspaces.ownerId (L169), writes workspace.ownership_transferred audit (L170) with fields matching auditEvents schema (`web/convex/features/auditLog/tables.ts:9-18`). No transient dual-owner. Both dangling error strings are now actionable: updateRole L120 'the owner role is fixed (transfer ownership instead)' and leaveWorkspace L146 'transfer ownership before leaving' both point to a mutation that now exists. member.left audit hook added at L150. UI wired owner-only 'make owner' button (`members-card.tsx:17,22-25,59`). tsc --noEmit exit 0 for `workspaces.ts/members-card.tsx/_shared/auth.ts`.
+
+**CRUD:** C ✓ · R ✓ · U ✓ · D ✓
+<br/>3 entities, all well-covered. workspaces: C=create/ensurePersonal(`workspaces.ts:33,61`), R=myWorkspaces(:45), U=rename(:73), D=remove(:85, owner-only, blocks personal). memberships: C=via create/ensurePersonal/acceptInvite(`workspaceInvites.ts:73`), R=listMembers(:98), U=updateRole(:113), D=removeMember(:127)+leaveWorkspace(:140). invites: C=createInvite(:18), R=listInvites(:32)+inviteInfo(:54), U/soft-D=revokeInvite(:43, patch revoked)+acceptInvite(:65); invites hard-deleted on workspace remove(:93). Invites are append-only/soft-delete by design (documented). GAP: no transferOwnership fn despite two error messages telling owners to 'transfer ownership' (`workspaces.ts:120,146`) — grep confirms it does not exist, so a team owner is stuck (cannot leave/demote-self; can only delete the whole workspace).
+
+- **rr conventions:** Trio present (`slice.json` / `slice.contract.ts` / `slice.manifest.json`) + barrel `index.ts` (`frontend/slices/workspaces/index.ts`) — consumers import only @/features/workspaces. Files under cap: `workspaces.ts` 172, `members-card.tsx` 79, `auth.ts` 75. SRP holds. Minor: contract version stayed 0.1.0 despite a new public mutation and provides.convex omits transferOwnership (but it already omits updateRole/removeMember/leaveWorkspace, so consistent, not a regression). forbiddenTerms guard intact. No deep cross-slice imports.
+- **Convex rules:** Strong. args validators on every public fn incl. transferOwnership (v.id('workspaces')/v.id('users'), L158). No bare .collect() — uses .withIndex('by_ws_user').unique() (L164,166) and .take(N) elsewhere. In-handler authz via requireWorkspaceRole owner (L160) — not route-gated. All queries indexed (by_ws_user/by_ws/by_owner/by_user). Audit insert fields (workspaceId, actorUserId, action, target, meta, at) match auditEvents schema and are inside the acting txn (append-only). Id === Id comparison for self-guard is runtime-string-safe. No rule violations found in the fix.
+- **UI rules:** Weakest axis. The new 'make owner' control (`members-card.tsx:59`) is a raw &lt;button&gt; gated by window.confirm (L22-24) — violates rr 'shadcn primitives only' + 'never use raw &lt;button&gt;' + wrap dialogs. This is slice-wide pre-existing (select/window.prompt/window.alert throughout, plain-CSS app per compliance snapshot), so consistent with convention rather than a fix regression, but still counts. Button correctly owner-only (isOwner) and only rendered on non-owner rows (m.role !== 'owner'). No loading/disabled state and no error toast on the transfer call.
+
+**Strengths**
+
+- transferOwnership is atomic, correctly single-owner-invariant, and owner-only authz'd in-handler (`workspaces.ts:160-170`)
+- All three abuse vectors guarded: self-transfer, personal workspace, non-member target (L161/163/165)
+- Both previously-dangling error strings (updateRole L120, leaveWorkspace L146) now point to a real, reachable mutation — owner is no longer stuck
+- Audit coverage improved: ownership_transferred (L170) + newly-added member.left (L150), fields conform to append-only auditEvents schema
+- Fully Convex-compliant: validators, withIndex/.unique, no bare collect; tsc clean
+
+**Critiques**
+
+- 🟡 LOW — transferOwnership UI call has no error handling — a ConvexError (e.g. target left the workspace between render and click) surfaces as an unhandled promise rejection with no user feedback <br/>↳ `members-card.tsx:24` `void transferOwnership({...})` vs invite() try/catch+window.alert at L32-35
+- 🟡 LOW — raw &lt;button&gt;+window.confirm for a destructive, self-locking action violates rr UI rules (shadcn primitives / wrap dialogs) <br/>↳ `members-card.tsx:22-24,59` — pre-existing slice-wide pattern, not fix-introduced
+- 🟡 LOW — personal-ws guard uses optional chaining so a null ws would skip it and allow the transfer body to run <br/>↳ `workspaces.ts:163` `if (ws?.personal)` — unreachable in practice since requireWorkspaceRole already proved a membership row exists
+
+**Suggestions**
+
+- `S` Wrap transferOwnership call in try/catch with a window.alert (mirror invite() at `members-card.tsx:32-35`) so a lost race gives feedback instead of a silent rejection
+- `S` Bump slice version to 0.1.1 and add workspaces.transferOwnership to contract.provides.convex for trio accuracy
+- `S` Optional: assert `if (!ws) throw bad('workspace not found')` before the personal check to make the null branch explicit rather than silently skipping the guard
+
+---
 
 ### api-compat
 
@@ -204,78 +294,6 @@ Backend Convex hygiene is the portfolio's real strength and is scored honestly: 
 - `M` Add an updateServer action (edit url/name/transport + re-encrypt headers, re-run assertSafeUrl) so config/credential changes don't need delete+recreate; wire an inline edit affordance in McpServersCard.
 - `S` Declare the workspaces frontend dependency in `slice.manifest.json` deps.slices so the CLptr audit and lift flow see the peer.
 - `S` If &gt;100 servers per user is plausible, paginate listServers/_enabledServers or query the by_ws index directly for workspace-scoped reads instead of the take(100)+in-memory filter.
-
----
-
-### spend-caps
-
-**Score 88 · Grade B** — Tight, correctly-scoped enforcement slice — reuses an existing field, actually wires the cap into the model hot path, and passes every Convex rule; docked mainly for a silent .take(4000) undercount edge and raw (non-shadcn) UI primitives.
-
-**CRUD:** C ✓ · R ✓ · U ✓ · D ✓
-<br/>Entity is a single scalar config: workspaces.capUsdPerMonth (no owned table — reuses an existing field, by design). CREATE/UPDATE: setSpendCap (mutation, upsert-on-field) `spendCaps.ts:35`. DELETE = clear: setSpendCap with monthlyCapUsd omitted → ctx.db.patch drops the field; 'Clear' button `spend-cap-card.tsx:66` / `spendCaps.ts:41`. READ: getSpendStatus (viewer query) `spendCaps.ts:47` + checkSpendCap (internalQuery enforcement) `spendCaps.ts:29`. CRUD is complete and correctly scoped for a single-field config — no over-building, no missing operation.
-
-- **rr conventions:** PASS. Trio present + versions matched at 0.1.0: `slice.json:4`, `slice.manifest.json:4`, `slice.contract.ts:19`; barrel comment carries version `index.ts:1`. Barrel-only cross-slice imports — `spend-cap-card.tsx:8` imports useWorkspace from @/features/workspaces (no deep @/features/x/lib/...). File-size cap OK: `spendCaps.ts` 53 lines, `spend-cap-card.tsx` 76 lines (both well under 200). SRP intact (one component; convex file is 3 cohesive fns + 1 helper). Minor: contract.requires.deps lists only @convex-dev/auth (`slice.contract.ts:21`) while manifest deps.slices lists workspaces + usage-rollups (`slice.manifest.json:8`) — contract understates real deps.
-- **Convex rules:** PASS. Args validators on all 3 public/internal fns: checkSpendCap {workspaceId:v.id} :30, setSpendCap {workspaceId, monthlyCapUsd:v.optional(v.number())} :36, getSpendStatus {workspaceId} :48. NO bare .collect() — computeSpend uses .withIndex('by_ws_day').take(4000) `spendCaps.ts:21-22` (index defined `usageRollups/tables.ts:20`). Server-side authz inside handlers: requireWorkspaceRole(...,'admin') in setSpendCap :38, requireWorkspaceRole(...,'viewer') in getSpendStatus :50 (helper `_shared/auth.ts:51`); checkSpendCap is internalQuery, not client-reachable, callers pre-authorized — correct. One caveat: .take(4000) can silently truncate (undercount) on very high provider/model cardinality — see critiques.
-- **UI rules:** PARTIAL. Theme-token-driven with hex fallbacks — var(--danger,#c55)/var(--warn,#d90)/var(--accent,#6a9)/var(--border,#2222) `spend-cap-card.tsx:41,58` (acceptable given project uses plain CSS tokens, not Tailwind/shadcn — a documented app-wide gap). Violates rr 'shadcn primitives only': raw &lt;input type=number&gt; :64 and raw &lt;button className=link&gt; :65-66. Responsive-lite (flexWrap:wrap :63); card, no full-height concern. A11y gap: input is placeholder-only, no &lt;label&gt;/aria-label :64.
-
-**Strengths**
-
-- Reuses existing workspaces.capUsdPerMonth field — adds NO new table/column (YAGNI; `tables.ts:14`)
-- Enforcement actually wired, not just declared: checkSpendCap gates the model hot path at `callForUser.ts:55` and `chat.ts:69`
-- Full Convex compliance: args validators on all fns, .withIndex+bounded .take (no bare collect), requireWorkspaceRole authz inside setSpendCap/getSpendStatus, internalQuery for the unauth gate
-- Trust-boundary validation server-side (finite && &gt;=0) `spendCaps.ts:39`, mirrored client-side `spend-cap-card.tsx:31` — defense in depth
-- Tight, single-purpose files (53/76 lines) with excellent header comments documenting the soft-guardrail + estimate-not-a-bill semantics
-
-**Critiques**
-
-- 🟠 MED — .take(4000) monthly scan silently truncates — a workspace logging &gt;~129 distinct provider/model rows/day for the month exceeds 4000 rows, undercounting spentUsd and under-enforcing the cap with no detection. For a billing guardrail, silent truncation is the wrong failure mode. <br/>↳ `web/convex/spendCaps.ts:22`
-- 🟠 MED — Raw &lt;input&gt;/&lt;button&gt; instead of shadcn primitives (rr UI rule 'shadcn primitives only'). Consistent with the project's documented no-shadcn reality, but still a rule miss for a portable slice. <br/>↳ `web/frontend/slices/spend-caps/components/spend-cap-card.tsx:64`
-- 🟡 LOW — Cap input is placeholder-only with no &lt;label&gt;/aria-label — screen-reader users have no accessible name for the field. <br/>↳ `web/frontend/slices/spend-caps/components/spend-cap-card.tsx:64`
-- 🟡 LOW — contract.requires.deps lists only @convex-dev/auth but the slice reads workspaceUsageDaily (usage-rollups) and useWorkspace (workspaces); manifest.deps.slices lists both — the contract understates real dependencies, so a dep-peer audit could pass falsely. <br/>↳ `web/frontend/slices/spend-caps/slice.contract.ts:21`
-- 🟡 LOW — A cap of exactly 0 evaluates spentUsd&gt;=0 → always over (blocks all calls), yet the bar renders empty at 0% — ambiguous vs 'no cap' which is expressed by Clear. Minor UX/edge overlap. <br/>↳ `web/convex/spendCaps.ts:25`
-
-**Suggestions**
-
-- `M` Replace the .take(4000) monthly scan with a pre-aggregated monthly rollup row (or reduce via pagination) so the cap can never be under-enforced on high-cardinality workspaces.
-- `S` Add an aria-label/&lt;label&gt; to the cap &lt;input&gt; for accessibility.
-- `S` Align contract.requires.deps with the manifest — add workspaces + usage-rollups slice deps so audits see the true dependency graph.
-- `S` When the app adopts shadcn, wrap the raw button/input (Input + Button) — matches the app-wide migration plan.
-
----
-
-### workspaces
-
-**Score 87 · Grade B** — Excellent Convex/RBAC/invite core with full CRUD and zero validator/collect/authz violations; docked to a B by one real functional dead-end (no transferOwnership despite the UI telling owners to use it), a couple of take-limit edge cases, and the acknowledged non-shadcn UI.
-
-**CRUD:** C ✓ · R ✓ · U ✓ · D ✓
-<br/>3 entities, all well-covered. workspaces: C=create/ensurePersonal(`workspaces.ts:33,61`), R=myWorkspaces(:45), U=rename(:73), D=remove(:85, owner-only, blocks personal). memberships: C=via create/ensurePersonal/acceptInvite(`workspaceInvites.ts:73`), R=listMembers(:98), U=updateRole(:113), D=removeMember(:127)+leaveWorkspace(:140). invites: C=createInvite(:18), R=listInvites(:32)+inviteInfo(:54), U/soft-D=revokeInvite(:43, patch revoked)+acceptInvite(:65); invites hard-deleted on workspace remove(:93). Invites are append-only/soft-delete by design (documented). GAP: no transferOwnership fn despite two error messages telling owners to 'transfer ownership' (`workspaces.ts:120,146`) — grep confirms it does not exist, so a team owner is stuck (cannot leave/demote-self; can only delete the whole workspace).
-
-- **rr conventions:** PASS. Metadata trio present + version-matched at 0.1.0 across `slice.json:4`, `slice.manifest.json:3`, `slice.contract.ts:20`; barrel comment says 'workspaces v0.1.0' (`index.ts:1`). Barrel-only imports: components import intra-slice '../context' (fine); no deep @/features/x/lib/... imports; `context.tsx` consumes api.settings.* via _generated api not a deep slice reach (`context.tsx:21-23`). SRP clean — one concern per file. File-size cap respected: largest is `convex/workspaces.ts` at 150 lines; all others &lt;100. Contract correctly self-declares consumer-locked with forbiddenTerms ['models-rahmanef','rahmanef'] (`slice.contract.ts:34`).
-- **Convex rules:** STRONG PASS. args validators: 18/18 public+internal fns declare args with v.* (`workspaces.ts`, `workspaceInvites.ts`, `auth.ts` helpers). No bare .collect() anywhere — every scan is .withIndex(...).take(N) (`workspaces.ts:16,23,50,92,93,102,118`; `workspaceInvites.ts:36,58,70,72`). Server-side authz INSIDE every mutation: requireUser/requireWorkspaceRole(min role) on create(requireUser:64), rename(admin:76), remove(owner:88), updateRole(admin:116), removeMember(admin:130), leaveWorkspace(viewer:143), createInvite(admin:21), revokeInvite(get-then-admin:47-48), acceptInvite(requireUser+token:68); inviteInfo intentionally unauthed preview (token is the secret). RBAC ranking centralized in `_shared/auth.ts` (ROLE_RANK:47, requireWorkspaceRole:51). Minor edge cases (not P0): ensurePersonalWs uses by_owner .take(50)+.find(personal) — a user owning &gt;50 workspaces could miss the existing personal and create a duplicate; deterministic by_slug 'personal-{userId}' lookup would be safer (`workspaces.ts:23-25`). remove cleans up memberships/invites via .take(500) — &gt;500 rows would be orphaned (`workspaces.ts:92-93`). ensurePersonalWs typed (ctx:any,userId:any) in a strict-TS repo (`workspaces.ts:22`).
-- **UI rules:** PARTIAL (acknowledged app-wide gap). Uses raw &lt;button&gt;/&lt;select&gt;/&lt;option&gt; plus window.prompt/window.alert instead of shadcn primitives (`members-card.tsx:35,49,52,64`; `workspace-switcher.tsx:23-27`; invite via prompt). This is the documented plain-CSS baseline (no Tailwind/shadcn yet) and the contract flags it consumer-locked + 'generalize to shadcn before UP push'. Positives: theme tokens not hex (CSS classes .card/.btn/.sub/.badge, var(--danger) at invite page:48); next/link used (invite page:38,56); portable URL via window.location.origin not hardcoded (`members-card.tsx:27`); WorkspaceProvider gates on ready to avoid flicker (`context.tsx:47`). Responsiveness is class-driven with width:100% inline — adequate for this small surface, no explicit md:/lg: breakpoints.
-
-**Strengths**
-
-- Invite security done right: only sha256(token) stored, raw link returned ONCE, 7-day TTL, revocable, accept re-checks revoked/accepted/expired (`workspaceInvites.ts:24-28,71`) — bearer-link model matched to no-email-verification reality
-- Complete CRUD across all 3 owned entities plus a clean owner&gt;admin&gt;member&gt;viewer RBAC with owner-role immutability and admin-grant-requires-owner guards (`workspaces.ts:120-121,133-134`)
-- Every mutation enforces authz in-handler via one shared helper (requireWorkspaceRole) — no reliance on route gates; audit events written on role change/member removal (`workspaces.ts:123,136`)
-- Zero Convex rule violations on validators/collect/index — 18/18 args validators, all .withIndex().take(N)
-- Idempotent OCC-safe personal-workspace bootstrap with an action-safe internal twin for actions that lack ctx.db (`workspaces.ts:22-43`)
-
-**Critiques**
-
-- 🟠 MED — transferOwnership referenced in two error messages but the mutation does not exist — a team-workspace owner cannot hand off and leave; leaveWorkspace and updateRole both dead-end them, and remove (delete everything) is the only escape. <br/>↳ `web/convex/workspaces.ts:120,146` (grep for transferOwnership returns only these two strings)
-- 🟡 LOW — ensurePersonalWs scans by_owner with .take(50) then .find(personal); a user owning &gt;50 workspaces could fail to see their existing personal and insert a duplicate. Deterministic slug lookup via by_slug 'personal-{userId}' would be race-proof. <br/>↳ `web/convex/workspaces.ts:23-25`
-- 🟡 LOW — remove deletes memberships/invites with a hard .take(500) cap — a workspace exceeding 500 of either would leave orphaned membership/invite rows after the workspace doc is deleted. <br/>↳ `web/convex/workspaces.ts:92-93`
-- 🟡 LOW — Members UI and switcher use raw &lt;button&gt;/&lt;select&gt;/window.prompt/window.alert rather than shadcn primitives (ResponsiveDialog etc.). Acknowledged plain-CSS baseline + consumer-locked contract, but a real portability blocker for an UP push. <br/>↳ `web/frontend/slices/workspaces/components/members-card.tsx:22-28,49,52`
-- 🟡 LOW — ensurePersonalWs is typed (ctx: any, userId: any) in a strict-TypeScript project, defeating type-checking on the hottest bootstrap path. <br/>↳ `web/convex/workspaces.ts:22`
-
-**Suggestions**
-
-- `M` Add a transferOwnership(workspaceId, toUserId) mutation (owner-only): patch target membership to owner + demote caller to admin + write an audit event, so the two 'transfer ownership' error messages become actionable and owners aren't stuck.
-- `S` In ensurePersonalWs, look the personal workspace up directly by slug 'personal-{userId}' via the by_slug index instead of scanning by_owner .take(50).find(personal) — eliminates the duplicate-personal edge case.
-- `S` Type ensurePersonalWs as (ctx: MutationCtx, userId: Id&lt;'users'&gt;) to restore strict-mode coverage.
-- `S` For remove, either paginate the membership/invite cleanup or document the 500-row assumption explicitly; realistically fine, but a loop-until-empty avoids silent orphans.
 
 ---
 
@@ -389,6 +407,39 @@ Backend Convex hygiene is the portfolio's real strength and is scored honestly: 
 
 ---
 
+### provider-pool
+
+**Score 87 · Grade B** — Fix CONFIRMED and correct. The retryable:false→true flip for 402/quota_exceeded is present (fallbackRules.ts:56-58) and correctly consumed by callForUser.ts:155, so a multi-cred pool now fails over to the next credential instead of aborting; the cred is still cooled 240s with dead:false; 400/unknown still surface verbatim; and a runnable guard is wired into `npm test` (green, 4/4). Failover reaching the next candidate and unchanged single-cred behavior are verified by inspection (the test is unit-level on the pure fn, not the loop). Score raised 83→87 (B): the fix is real, tested, and regression-guarded; the only debits are the absence of a loop-level integration test and pre-existing SRP/size pressure in callForUser plus the documented convex-not-in-slice-dir monolith gap.  
+**🔧 Fixed this pass** (✅ fix confirmed, 83→87): `web/convex/fallbackRules.ts:56-58` — 402/quota_exceeded now returns {retryable:true, dead:false, cooldownMs:240000, nextBackoffLevel:backoffLevel} (git diff HEAD confirms the retryable:false→true flip + comment/_selfCheck update at :75). Failover path CONFIRMED by tracing `web/convex/callForUser.ts:151-158`: on 402 the catch runs classifyError→info.code='quota_exceeded' (`web/convex/chatErrors.ts:24`), markCredResult returns the verdict (`web/convex/providerPool.ts:51-58`), then :155 `if (!verdict.retryable && !verdict.dead) throw err` is FALSE (retryable=true) so it does NOT throw — the `for (const cred of candidates)` loop advances to the next cred and decrypts+calls it (:138-143). Cooldown still applied: `providerPool.ts:52-57` patches status='exhausted' (cooldownMs&gt;0, not 'dead') + cooldownUntil=now+240s. 400 regression guard CONFIRMED: classifyError(400)→'invalid_request'→classifyProviderError returns retryable:false,dead:false (:60) so :155 throws immediately, no failover, surfaced verbatim by outer catch :166. Runnable guard `fallbackRules.test.ts:11-17` asserts 402/quota retryable+cooldown & 400 no-failover; wired into root `npm test` (`package.json:17`). Ran `npm test` → all 4 suites pass, EXIT=0; ran the test file directly → pass.
+
+**CRUD:** C – · R ✓ · U ◐ · D –
+<br/>Feature owns only ADDITIVE pool state on byok's modelCreds. State CRUD (read+update) is complete and machine-managed by design. The config layer (label/priority) is the gap: schema defines it, pickCredentials sorts on it, but no setLabel/setPriority mutation exists → priority is always default 100 so the pool degrades to pure LRU. fns: pickCredentials, markCredResult, classifyProviderError.
+
+- **rr conventions:** Trio present + version-consistent: `slice.json` / `slice.contract.ts` / `slice.manifest.json` all 0.1.0. Barrel `index.ts` exports only CredStatusBadge (no deep imports). File sizes all under the 200 cap: `fallbackRules.ts` 79, `providerPool.ts` 61, `callForUser.ts` 172, `cred-status-badge.tsx` 36, test 20. SRP is clean: fallbackRules=pure verdict table, providerPool=selection+cooldown, badge=display. Known documented gap: Convex logic sits at convex/ root (`providerPool.ts` + `fallbackRules.ts`) not convex/features/provider-pool/ — `slice.json` rootPaths declare this; it matches the monolith-not-yet-migrated gap in CLAUDE.md, not a fix regression.
+- **Convex rules:** Args validators present on both public-surface internal fns: pickCredentials {userId, workspaceId?, provider} (`providerPool.ts:18`), markCredResult {credId, ok, code?} (:43). No bare .collect() — pickCredentials uses .withIndex(by_user_provider / by_ws_provider).take(10) (:21-31). Indexes used on every query. Authz: both are internalQuery/internalMutation (not client-reachable); the caller callForUser is invoked from already-authorized paths, so no in-handler requireUser is required (the rule targets public fns). classifyProviderError is a pure side-effect-free fn — correctly unit-testable and correctly re-run inside markCredResult off the row's persisted backoffLevel. No Convex rule broken by the fix.
+- **UI rules:** CredStatusBadge (`cred-status-badge.tsx`) is props-driven, "use client", no Convex coupling, no consumer-specific copy — className-only style hooks (pool-badge pool-&lt;status&gt;) so the consumer owns the look. Live cooldown countdown via setInterval cleaned up on unmount. Maps status→{ok/exhausted/dead} and prefers the live cooling state. Not touched by this fix and no raw interactive primitives here (it is a display span), so shadcn-primitive rules don't bite. Minor: 'exhausted'/'dead' string statuses are stringly-typed across the boundary but the badge narrows them safely.
+
+**Strengths**
+
+- 402/quota now genuinely fails over: retryable:true is correctly consumed by `callForUser.ts:155` so the loop advances to the next pooled cred instead of aborting — the exact original critique is closed
+- Cooldown semantics preserved: markCredResult still cools the exhausted cred 240s and keeps dead:false (status='exhausted'), so a recovered/other-key path is possible without disabling the key
+- 400/unknown still surface verbatim — classifyProviderError returns retryable:false,dead:false so callForUser aborts immediately, and the test explicitly guards this regression
+- Runnable guard wired into root `npm test` (not just a comment) — `npm test` green (4/4 suites), test lives at repo root out of both tsc scopes, run via --experimental-strip-types
+- Comment + _selfCheck updated in lockstep with the behavior change, so the documented rule table no longer lies
+
+**Critiques**
+
+- 🟡 LOW — The failover loop itself (`callForUser.ts:138-158`) has no integration test — only the pure verdict fn is tested. The 'reaches the next candidate' and 'single-cred surfaces the 402' claims rest on code inspection. <br/>↳ `fallbackRules.test.ts:11-17` asserts only classifyProviderError return values; nothing drives the for-loop with mocked ctx/generateText across 2+ creds.
+- 🟡 LOW — `callForUser.ts` at 172 lines carries a lot (combo/agent resolution, spend-cap gate, codex/claude OAuth refresh, and the pool failover loop) — SRP pressure near the 200 cap; the pool loop would be more testable if extracted. <br/>↳ `web/convex/callForUser.ts:24-171` — single function; the failover loop :138-158 is inline rather than a unit-testable helper.
+- 🟡 LOW — Repeated 402s never advance backoffLevel (nextBackoffLevel:backoffLevel), so an exhausted cred always cools a flat 240s. Intended for billing quota, but means no escalation if a key flaps 402/ok. <br/>↳ `web/convex/fallbackRules.ts:57` returns nextBackoffLevel:backoffLevel (unchanged), unlike 429/5xx which increment.
+
+**Suggestions**
+
+- `M` Add a small integration test that drives callForUser's failover loop with a fake ctx (stub pickCredentials to return 2 creds, generateText to throw a 402 then succeed) to lock the 'next candidate reached' + 'single-cred 402 surfaces' behavior that is currently inspection-only.
+- `S` Extract the ≤3-attempt failover loop (`callForUser.ts:135-158`) into a tiny helper (e.g. runPooledGenerate) so the SRP pressure on callForUser eases and the loop becomes unit-testable without the whole action.
+
+---
+
 ### memory-graph
 
 **Score 86 · Grade B** — Strong, highly-modular, genuinely portable frontend slice — trio + version + barrel + file-cap all green; main real gap is that the 'add child' UI promises a memory hierarchy the flat backend silently flattens, plus Update is pin-only.
@@ -422,6 +473,42 @@ Backend Convex hygiene is the portfolio's real strength and is scored honestly: 
 - `S` Add an onEditMemory handler + inline edit in the inspector to make Update complete (currently pin-only).
 - `S` Promote the three node-type accent hexes (#5aa9ff/#b48bff/#3fd6ad) to overridable --mg-agent/--mg-skill/--mg-tool defaults sourced from theme tokens where the host defines them.
 - `S` Replace `as never` with a typed helper (e.g. cast once to Id&lt;'memories'&gt;) so the id boundary stays type-checked.
+
+---
+
+### combos
+
+**Score 86 · Grade B** — Fix CONFIRMED and genuine — round_robin now rotates across refs and wraps (combos.ts:88 return-shape + callForUser.ts:40 bumpRotation wiring), fallback is provably untouched, the return-shape change breaks no caller (single caller, tsc exit 0). This remediates the exact prior defect (silent no-op behaving as fallback). Convex rules and rr conventions remain strong; remaining drags are the UI shadcn/theme gap (project-wide, unchanged), name-only update, and a low-severity query/mutation rotation race under concurrency. Score raised 81→86, B.  
+**🔧 Fixed this pass** (✅ fix confirmed, 81→86): resolveCombo now returns an object, not a bare string: `web/convex/combos.ts:85-88` picks refs[rotationIndex % len] for round_robin (L86) / refs[0] for fallback (L87) and returns {ref, comboId, strategy:combo.strategy} (L88). `callForUser.ts:36` gets `resolved`, null-checks it (L37, object truthy / null falsy — intact), sets modelRef=resolved.ref (L38), and calls internal.combos.bumpRotation only when resolved.strategy==="round_robin" (L40). bumpRotation (`combos.ts:95-101`) patches rotationIndex=((idx?0)+1)%refs.length (L100) and is double-guarded strategy!=="round_robin"→return (L99). Sequential trace refs=[A,B,C]: A(→1),B(→2),C(→0),A — advances+wraps. Fallback: `combos.ts:87` returns refs[0] and `callForUser.ts:40` skips bump → cursor frozen, behaviour unchanged. grep shows exactly ONE caller each for resolveCombo and bumpRotation (both callForUser); `npx tsc --noEmit` exits 0 with no combos/callForUser errors.
+
+**CRUD:** C ✓ · R ✓ · U ◐ · D ✓
+<br/>Config entity; create+list+delete solid but update is thin. Backend rename exists but is dead from the UI.
+
+- **rr conventions:** Trio present + version-consistent v0.1.0 across `slice.json` / `slice.contract.ts` / `slice.manifest.json`. Barrel discipline clean: `index.ts` re-exports ComboBuilderCard; component imports @/features/workspaces (barrel) + @/convex/_generated/api, no deep cross-slice reach. All files under the 200-line cap (`combos.ts` 103, `callForUser.ts` 171, `combo-builder-card.tsx` 85, `tables.ts` 23). SRP cohesive (`combos.ts` = one combos domain: CRUD + internal resolution). contract.provides.convex lists the 4 public CRUD fns and correctly omits the internal resolveCombo/bumpRotation.
+- **Convex rules:** Strong. Args validators on every public + internal fn (listCombos/createCombo/renameCombo/removeCombo/resolveCombo/bumpRotation). No bare .collect() — listCombos + resolveCombo(user path) use .withIndex(...).take(100), lookups use .withIndex(...).unique(). In-handler authz via requireWorkspaceRole on all 4 public fns (viewer to read, member to write); resolveCombo/bumpRotation are internalQuery/internalMutation reached only from callForUser after the caller already authorized the user — correct to skip re-auth. All queries index-backed (by_ws, by_ws_name, by_user). Minor: resolveCombo's personal (no-workspace) path scans by_user.take(100).find(name) in memory — no by_user_name composite index — but capped and index-seeded, not a bare collect.
+- **UI rules:** ComboBuilderCard uses raw &lt;input&gt;/&lt;select&gt;/&lt;button&gt;/&lt;option&gt; with plain-CSS classNames ('card','btn accent','link danger') and inline styles — violates the shadcn-primitives-only and theme-tokens rules. This is the documented project-wide gap (no Tailwind/shadcn in this app yet), consistent with the rest of the codebase, and untouched by this fix. No next/link or next/image needed (no links/images). Error surfacing (e.data.detail) and disabled-submit guard are handled. The UI does not expose rename or a round_robin indicator, so the rotation fix isn't user-visible here.
+
+**Strengths**
+
+- Fix is real and complete for its scope: return-shape change + bumpRotation wiring make round_robin actually rotate and wrap across refs, verified by sequential trace and tsc exit 0
+- Fallback path provably unaffected — double-guarded (`callForUser.ts:40` skips bump; bumpRotation `combos.ts:99` self-guards strategy)
+- Return-shape change is safe: exactly one caller (callForUser) for both resolveCombo and bumpRotation, null-check intact, no other consumer to break
+- Convex rules exemplary — 100% args validators, zero bare .collect(), all .withIndex, in-handler role authz on every public mutation/query
+- Rotation state on-row (rotationIndex) is the correct choice for stateless Convex vs 9router's in-memory cursor; bumpRotation is an OCC-safe single-row patch
+
+**Critiques**
+
+- 🟡 LOW — Read-then-write rotation race: resolveCombo (query) and bumpRotation (mutation) are separate transactions, so concurrent calls on one combo can read the same rotationIndex and lose an increment, skewing distribution under concurrency. <br/>↳ `web/convex/combos.ts:86` reads rotationIndex in an internalQuery; `web/convex/callForUser.ts:40` bumps in a later separate internalMutation — no atomic read-modify-write.
+- 🟡 LOW — bumpRotation fires before the model call, so a call that later errors still advances the cursor; the doc comment claiming it runs 'after a successful pick' is stale, and stickyLimit is stored but never consulted (advance-every-call). <br/>↳ `web/convex/callForUser.ts:40` (bump precedes provider split + generateText at L143); stale comment `web/convex/combos.ts:93`; stickyLimit stored at `combos.ts:45` / `tables.ts:16` but no read site.
+- 🟡 LOW — No full-entity update: refs, strategy, and stickyLimit are immutable after createCombo (only renameCombo exists), and rename isn't even wired into the UI. <br/>↳ `web/convex/combos.ts:49-61` only patches name; `combo-builder-card.tsx` offers create+delete only (no rename/edit control).
+- 🟡 LOW — UI uses raw HTML controls + plain CSS instead of shadcn primitives / theme tokens (project-wide known gap, untouched by fix). <br/>↳ `web/frontend/slices/combos/components/combo-builder-card.tsx:48-68` raw &lt;input&gt;/&lt;select&gt;/&lt;button&gt;.
+
+**Suggestions**
+
+- `M` Make rotation atomic: return the chosen ref FROM bumpRotation (an internalMutation reading + patching + returning refs[oldIndex] in one transaction) instead of pick-in-query + bump-in-mutation, eliminating the concurrent lost-increment race.
+- `S` Refresh the stale comment at `combos.ts:93` to match reality (bump runs per-pick before the call, stickyLimit not yet honored) so the doc doesn't over-promise 'after a successful pick'.
+- `M` Add an updateCombo mutation (member-gated) to edit refs/strategy/stickyLimit and wire rename+edit into ComboBuilderCard so the CRUD surface is fully reachable from the UI.
+- `S` Add a by_user_name composite index for resolveCombo's personal (no-workspace) path to replace the take(100).find(name) in-memory scan with a direct .unique() lookup.
 
 ---
 
@@ -459,6 +546,41 @@ Backend Convex hygiene is the portfolio's real strength and is scored honestly: 
 - `S` Add a 'remove sender' action (delete the channelIdentity) to channelsAccess + the ChannelAccess list, so owners can purge stale/abusive identities, not just deny them.
 - `S` Either use the `ip` param for a pre-verify internal.rateLimit.hit throttle in each adapter, or drop the dead param from the action args and the route.
 - `S` Reconcile metadata: add channelsCore.setModel to `slice.contract.ts` provides.convex and set `slice.json` deps.env to [MODELS_ENC_KEY] to match the manifest.
+
+---
+
+### audit-log
+
+**Score 85 · Grade B** — Fix confirmed and real. The three added hooks (member.left, invite.accepted, cred.deleted) are present, atomic within the acting mutation's transaction, schema-conforming, authz-gated, and leak no secrets — this genuinely resolves the original HIGH critique (audit events firing went from 2 to 4 reachable, plus a bonus ownership_transferred). The one honest caveat: cred.deleted is correctly implemented but unreachable today because no code path ever creates a workspace-shared credential (store() never sets workspaceId), so 'advertised==implemented' is ~4/5, not 5/5 — forward-correct but latent, and under-disclosed. Combined with pre-existing (unfixed, in-scope-file) UI-primitive and bare-.collect() deviations, this lands at 85 / B: a solid, well-executed fix with a documentation-honesty nub and known project-wide gaps still counting against it.  
+**🔧 Fixed this pass** (✅ fix confirmed, 80→76→85): All three claimed hooks are present, atomic, schema-conforming, and authz-gated. (1) member.left: `workspaces.ts:150` db.insert('auditEvents',{action:'member.left'}) sits inside leaveWorkspace's handler, in the same transaction as the membership delete at :149, guarded by if(m); authz via requireWorkspaceRole(...,'viewer') at :143. (2) invite.accepted: `workspaceInvites.ts:75` inside acceptInvite, inside the if(!existing) block (:73) so it fires ONLY on NEW membership, same transaction as the membership insert at :74; authz via requireUser at :68. (3) cred.deleted: `credentials.ts:109` inside deleteCredential, same transaction as the delete at :106, correctly guarded by if(row.workspaceId) so personal keys are skipped; authz via requireUser at :100. Each row matches the auditEvents schema (`features/auditLog/tables.ts:9-18`: workspaceId/actorUserId/action/target?/meta?/at) and all meta values are server-derived (role/kind), not client input, so boundMeta is unnecessary. This closes the original HIGH critique: audit inserts went from 2 (role_changed :123 + removed :136) to 5 firing across the codebase (grep confirms member.role_changed, member.removed, member.left, invite.accepted, workspace.ownership_transferred, cred.deleted).
+
+**CRUD:** C ✓ · R ✓ · U – · D ◐
+<br/>Entity = auditEvents (append-only). CREATE: yes — inline db.insert in the acting mutation for member.role_changed (`workspaces.ts:123`) and member.removed (`workspaces.ts:136`), plus audit.record internalMutation (`audit.ts:27`) for programmatic callers. READ: yes — audit.listAuditEvents admin-gated indexed query (`audit.ts:48`). UPDATE: n/a — append-only by design, rows are never patched (`tables.ts:2-4`). DELETE: automated-only — pruneAudit 90-day cron sweep (`audit.ts:76`, `crons.ts:11`); no manual delete, which is CORRECT for an audit trail. CRUD shape is right for append-only; the real gap is CREATE coverage, not the surface (see critiques).
+
+- **rr conventions:** "Trio present and version-consistent (`slice.json:4` / `slice.contract.ts:20` / `slice.manifest.json:4` all 0.1.0). Barrel imports clean (card imports @/features/workspaces and @/convex/_generated/api only; no deep cross-slice reach). All files well under 200 lines (`audit.ts` 88, card 79, `tables.ts` 19). SRP respected. Minor doc drift: `slice.json:8` and the card copy (`audit-log-card.tsx:54`) omit 'leave' (fold into 'removals'), while the manifest:5 lists it; and workspace.ownership_transferred (`workspaces.ts:170`) fires but is advertised nowhere in the trio — the trio slightly UNDER-sells actual coverage now, the opposite of the original over-claim."
+- **Convex rules:** "Within the audit-log slice: clean. args validators on record/listAuditEvents/pruneAudit and on all three acting mutations (leaveWorkspace :141, acceptInvite :66, deleteCredential :98). In-handler authz on every path (requireWorkspaceRole/requireUser called before the insert). All queries .withIndex (by_ws_at, by_at, by_ws_user, by_tokenHash); no bare .collect() in `audit.ts`. Out-of-slice/pre-existing: `credentials.ts:26` and :36 use .withIndex('by_user').collect() (uncapped) — not part of this fix, per-user bounded, but technically the 'no bare .collect()' rule; flagged, not attributed to this fix."
+- **UI rules:** "AuditLogCard self-gates to admin+/non-personal (`audit-log-card.tsx:21-25,36-49`) as defense-in-depth over the server gate, and derives filter pills dynamically from event action-prefixes (:29-33) — no hardcoded event list. However it uses raw &lt;button&gt; (:57), &lt;section&gt;/&lt;h2&gt;/&lt;ul&gt;/&lt;li&gt; with plain CSS classes ('card','btn','sub'), violating the shadcn-primitives-only and theme-tokens rules. This is a project-wide, documented, tracked deviation (CLAUDE.md compliance snapshot: Tailwind/shadcn absent = plain CSS), NOT introduced by this fix — low severity in context."
+
+**Strengths**
+
+- All three new hooks are plain ctx.db.insert INSIDE the acting mutation — same transaction, no action hop, no partial-write window (`audit.ts:2-4` design honored exactly)
+- invite.accepted correctly fires ONLY on new membership (guarded by if(!existing), `workspaceInvites.ts:73-75`) — no duplicate rows on re-accept
+- cred.deleted correctly logs provider+kind but NEVER ciphertext (`credentials.ts:109`) — no secret material leaks into the immutable trail
+- Every insert schema-conforms and every meta value is server-derived, not client-controlled — no unbounded/crafted payload risk
+- Original HIGH critique materially resolved: firing events went 2→4 reachable (+1 bonus ownership_transferred), advertised-vs-implemented now largely aligned
+
+**Critiques**
+
+- 🟠 MED — cred.deleted is currently unreachable dead code — no write path ever sets modelCreds.workspaceId, so if(row.workspaceId) at `credentials.ts:109` is always false. Advertising 'shared-credential delete' as an implemented event is aspirational; the guard is disclosed but the 'no shared cred can exist yet' fact is not. <br/>↳ `credentials.ts:109` guard vs. store() the sole writer (`credentials.ts:67-77`) whose args (:68) omit workspaceId; grep found no insert('modelCreds',...) that sets it. Manifest note `slice.manifest.json:14` explains the guard but not the unreachability.
+- 🟡 LOW — Trio doc drift: manifest:5 lists 'leave' but `slice.json:8` and card copy (:54) omit it; workspace.ownership_transferred fires (`workspaces.ts:170`) but appears in no trio file. Advertised event set is now slightly inconsistent across the three metadata files. <br/>↳ `slice.manifest.json:5` vs `slice.json:8` vs `audit-log-card.tsx:54`; `workspaces.ts:170` unadvertised.
+- 🟡 LOW — Pre-existing (out-of-slice) bare .collect() in the credentials slice — not touched by this fix but sits in a file the fix edits. <br/>↳ `credentials.ts:26` and :36 use .withIndex('by_user').collect() with no .take cap.
+- 🟡 LOW — UI rule deviation (raw button / plain CSS, no shadcn or theme tokens) in AuditLogCard — project-wide accepted gap, not introduced here. <br/>↳ `audit-log-card.tsx:57` raw &lt;button&gt;, className 'btn'/'card'/'sub' plain CSS.
+
+**Suggestions**
+
+- `S` Add a one-line disclosure to `slice.manifest.json` notes that cred.deleted is wired but latent until a shared-credential WRITE path (store() accepting workspaceId) ships — turns a silent gap into an honest 'planned' event and pre-empts 'why doesn't cred.deleted fire' reports.
+- `S` Reconcile the advertised event list across the trio: either add 'leave' + 'workspace.ownership_transferred' to `slice.json`/card copy, or derive one canonical event-name list and reference it, so all three metadata files agree with what actually fires.
+- `M` When the shared-credential feature lands, add store()-with-workspaceId (or a setSharedCredential mutation) so cred.deleted becomes reachable; add a test asserting a shared-cred delete writes exactly one auditEvents row and a personal-cred delete writes none.
 
 ---
 
@@ -676,42 +798,6 @@ Backend Convex hygiene is the portfolio's real strength and is scored honestly: 
 
 ---
 
-### provider-pool
-
-**Score 83 · Grade B** — Clean, small, well-tested failover ENGINE (429/5xx/dead all fail over correctly); dinged for a 402/quota case that aborts instead of failing over — the core multi-key use case — plus a config layer (label/priority + badge) that is defined and read but never written or wired. Solid B: correct and portable, but under-built at the edges.
-
-**CRUD:** C – · R ✓ · U ◐ · D –
-<br/>Feature owns only ADDITIVE pool state on byok's modelCreds. State CRUD (read+update) is complete and machine-managed by design. The config layer (label/priority) is the gap: schema defines it, pickCredentials sorts on it, but no setLabel/setPriority mutation exists → priority is always default 100 so the pool degrades to pure LRU. fns: pickCredentials, markCredResult, classifyProviderError.
-
-- **rr conventions:** PASS. Trio complete + version-consistent at 0.1.0: `slice.json:4`, `slice.manifest.json:4`, `slice.contract.ts:22`, barrel `index.ts:1` all read 0.1.0. Barrel-only imports (`index.ts` exports only CredStatusBadge; `providerPool.ts` imports sibling ./fallbackRules; callForUser reaches it via internal.providerPool generated api — no deep @/features/x/lib). SRP clean: fallbackRules=pure classify, providerPool=select+record, badge=UI chip. File-size cap easily met: `providerPool.ts` 61, `fallbackRules.ts` 77, `cred-status-badge.tsx` 36. Low nit: file headers say "provider-pool (2.3)" (`providerPool.ts:1`, `fallbackRules.ts:1`, `schema.ts:38`) — a milestone tag that reads like a version, diverging from the 0.1.0 semver.
-- **Convex rules:** PASS. Both public-surface fns are internalQuery/internalMutation with full args validators: pickCredentials args userId/workspaceId?/provider (`providerPool.ts:18`), markCredResult args credId/ok/code? (`providerPool.ts:43`). No bare .collect() — both queries indexed + bounded: by_user_provider.take(10) + by_ws_provider.take(10) (`providerPool.ts:21-31`). Authz: these are INTERNAL fns correctly trusting their sole caller; the public boundary (chat action) enforces requireUser (`chat.ts:29`) + resolveWorkspaceAction member-role (`chat.ts:31`) and passes explicit userId, and pickCredentials scopes every query by that userId/workspaceId — proper internal-fn pattern, not a route-gate bypass. markCredResult null-guards a deleted row (`providerPool.ts:46`). Low nit: markCredResult patches credId without an own-row assert — safe only because credIds come from userId-scoped pickCredentials.
-- **UI rules:** Portable-by-design chip. CredStatusBadge is a raw &lt;span&gt; (`cred-status-badge.tsx:32`) — acceptable, it's a non-interactive status badge, not a &lt;button&gt;/&lt;input&gt; the rr rule wraps; className-only ("pool-badge pool-&lt;status&gt;") with NO hex and NO shadcn dep is a deliberate portability choice (`manifest.json:14`, deps.shadcn []). Props-driven, no consumer copy, countdown interval cleaned up on unmount/!cooling (`cred-status-badge.tsx:22-26`). Gap: the badge is exported but consumed NOWHERE (grep found no importer) — dead UI until the multi-key/health screen it targets exists.
-
-**Strengths**
-
-- Pure, config-driven fallbackRules with a self-contained _selfCheck() asserting every rule (`fallbackRules.ts:64-77`) — testable in isolation, no ai/node import
-- Tiny single-purpose files, all far under the 200-line cap; clean SRP split (classify / select+record / UI)
-- No bare .collect() — both credential queries are .withIndex(...).take(10) bounded (`providerPool.ts:21-31`)
-- Ciphertext (AES-256-GCM) flows pickCredentials→callForUser and is decrypted only server-side in a use-node action; badge gets status only, no secrets leave the server
-- Honest, complete metadata: version-consistent trio + manifest documenting the callForUser hand-integration as the known lift blocker (`manifest.json:14`)
-
-**Critiques**
-
-- 🟠 MED — quota_exceeded (402) does NOT fail over to the next live credential — it aborts the request. In the loop, verdict.retryable=false && dead=false triggers `throw err` immediately (`callForUser.ts:153`), yet a 402 verdict is exactly that (`fallbackRules.ts:55-57`). A key running out of quota is the #1 reason to hold a second key, but the pool cools key1 and throws instead of trying key2. Note dead/401 DOES fail over (dead=true skips the throw) — so the design fails over on auth-death but not on quota, which is backwards for the core value prop. <br/>↳ `web/convex/callForUser.ts:153` + `web/convex/fallbackRules.ts:55-57`
-- 🟠 MED — Pool CONFIG is read-but-never-written. priority + label are in the modelCreds schema and pickCredentials sorts candidates by priority (`providerPool.ts:33`), but no mutation anywhere sets them (grep of `credentials.ts/chat.ts`/all convex: zero patches of priority/label). So priority is always the default 100 and the pool is effectively pure LRU; the 'multi-key UI' the schema comment references (`schema.ts:40`) does not exist. CRUD-incomplete on the config entity. <br/>↳ `web/convex/schema.ts:40-41` (declared) vs `providerPool.ts:33` (read) — no writer mutation
-- 🟡 LOW — CredStatusBadge is exported from the barrel but imported by nothing — the Providers/health screen it is meant to drive has not been built, so it ships as dead UI ahead of its consumer. <br/>↳ `web/frontend/slices/provider-pool/index.ts:5` (export) — grep for CredStatusBadge outside the slice returns no consumers
-- 🟡 LOW — Nomenclature drift: source headers/comments tag this '(2.3)' (a build-milestone number) while the slice semver is 0.1.0 — reads like a conflicting version. <br/>↳ `web/convex/providerPool.ts:1`, `web/convex/fallbackRules.ts:1`, `web/convex/schema.ts:38`
-
-**Suggestions**
-
-- `S` Make a quota-exhausted key fail over: in the callForUser loop treat cooldownMs&gt;0 as 'try next candidate' even when retryable=false (or set 402→retryable=true in fallbackRules while keeping the 240s cooldown). One-line change at `callForUser.ts:153`.
-- `M` Add a byok-side setPoolConfig mutation (requireUser + own-row assert) that patches label/priority on a modelCreds row, so pool ordering is actually controllable and the badge/multi-key UI has something to drive.
-- `S` Either wire CredStatusBadge into the Providers list now (feed it status/cooldownUntil/lastErrorCode) or drop it from the barrel until the screen exists — don't ship it as dead exported UI.
-- `S` Retag the '(2.3)' milestone markers in the file headers to the slice semver (or a clearly non-version label) to remove the version ambiguity.
-- `S` Harden markCredResult with a cheap own-row/userId assertion for defense-in-depth if it's ever reused outside the current single caller.
-
----
-
 ### ai-admin
 
 **Score 83 · Grade B** — Clean, simple, correctly-gated read-only operator console that nails Convex authz + validators + no-bare-collect; the one real flaw is aggregate totals silently freezing at the 10k scan cap when a usageRollups table already exists to give exact numbers.
@@ -745,77 +831,4 @@ Backend Convex hygiene is the portfolio's real strength and is scored honestly: 
 
 ---
 
-### combos
-
-**Score 81 · Grade B** — Clean, rr-compliant, well-scoped slice with textbook Convex authz/validation — but round_robin is a silent no-op (bumpRotation never called) and update is thin (rename-only, unwired), so the strategy layer under-delivers what it advertises. Solid B.
-
-**CRUD:** C ✓ · R ✓ · U ◐ · D ✓
-<br/>Config entity; create+list+delete solid but update is thin. Backend rename exists but is dead from the UI.
-
-- **rr conventions:** Trio complete + versions all matched at 0.1.0: `slice.json`, `slice.manifest.json`, `slice.contract.ts`, plus barrel comment 'combos v0.1.0' (`index.ts:1`). Contract's convex[] correctly lists all 4 public fns incl renameCombo (no drift). Barrel-only cross-slice imports — card imports @/features/workspaces (barrel) + @/convex/_generated/api only; no deep @/features/x/lib reaches. File-size cap respected: `combos.ts` 99, `tables.ts` 23, `combo-builder-card.tsx` 85 — all well under 200. SRP OK: `combos.ts` is one cohesive cluster (all combo CRUD + resolution). tablesExport pattern followed, schema spread confirmed at `schema.ts:22`.
-- **Convex rules:** STRONG. All 4 public fns (listCombos/createCombo/renameCombo/removeCombo) + 2 internal (resolveCombo/bumpRotation) declare full args:{} v.* validators (`combos.ts:29,38,50,64,78,93`). No bare .collect() anywhere — listCombos uses .withIndex('by_ws').take(100) (:32), resolveCombo uses .withIndex('by_ws_name').unique() / by_user.take(100) (:81-82), others .unique(). Server-side authz INSIDE every mutation via requireWorkspaceRole (member to write, viewer to read) from `_shared/auth.ts:51` — real membership check, not a route gate. Every filtered/ordered query hits an index (by_user/by_ws/by_ws_name at `tables.ts:20-22`); listCombos sorts in-memory only after the capped take(100). Idempotent delete (:68), conflict detection on create/rename via by_ws_name.unique(). Internal resolveCombo trusts caller (callForUser) — acceptable for internalQuery.
-- **UI rules:** FUNCTIONAL but non-shadcn. Uses raw &lt;input&gt;/&lt;select&gt;/&lt;button&gt;/&lt;section&gt; (`combo-builder-card.tsx:48-68`) instead of shadcn primitives — violates 'shadcn primitives only', though consistent with the project-wide plain-CSS-token gap noted in CLAUDE.md. No hex colors — styling via theme CSS classes (card/btn accent/sub danger/muted mono); inline styles are layout-only (gap/margin). Loading + empty + populated states all handled (:82). Delete fires on a single click with no confirm dialog (:78). Card takes no props — labels/placeholders hardcoded (not props-driven), acceptable at the contract's 'consumer-locked' level.
-
-**Strengths**
-
-- Textbook Convex data-access: 6/6 fns validated, 0 bare collects, capped takes, indexed lookups, and real requireWorkspaceRole authz inside every handler
-- Complete rr trio with matched 0.1.0 versions + barrel comment; contract convex[] matches actual exports (no drift)
-- Tight, cohesive files far under the 200-line cap (99/23/85); clean barrel-only imports
-- Solid create-path validation: slug normalization, 1-5 ref cap, provider/model format check, strategy enum, name-conflict detection, idempotent delete
-- Rotation state correctly modeled on-row (OCC-safe) rather than in-memory, with honest manifest notes about what's not yet wired
-
-**Critiques**
-
-- 🟠 MED — round_robin strategy is non-functional: bumpRotation (the ONLY writer of rotationIndex) has zero callers anywhere in the repo, so the cursor never advances and round_robin permanently resolves to refs[0] — behaviorally identical to fallback. The manifest overclaims ('round_robin ... advanced by internal.combos.bumpRotation') since nothing calls it. <br/>↳ `convex/combos.ts:84` reads rotationIndex; :92 bumpRotation defined but grep shows no caller in convex/frontend/app
-- 🟠 MED — Update is CRUD-incomplete: only name is mutable (renameCombo); refs/strategy/stickyLimit have no update path, so editing a combo's models requires delete+recreate. renameCombo is also never surfaced in the UI, so from the client there is no update at all. <br/>↳ `convex/combos.ts:49` (rename only); `combo-builder-card.tsx` has no edit control
-- 🟡 LOW — UI uses raw &lt;input&gt;/&lt;select&gt;/&lt;button&gt; rather than shadcn primitives, violating the UI rule (mitigated: matches project-wide plain-CSS gap). <br/>↳ `web/frontend/slices/combos/components/combo-builder-card.tsx:48-68`
-- 🟡 LOW — Delete has no confirmation — one click permanently removes the combo; minor silent-data-loss risk. <br/>↳ `web/frontend/slices/combos/components/combo-builder-card.tsx:78`
-- 🟡 LOW — stickyLimit is stored + validated (Math.max(1,...)) but entirely unused — bumpRotation ignores it despite the doc comment implying a hold window; reserved dead config. <br/>↳ `convex/combos.ts:45,97` + `tables.ts:16`
-
-**Suggestions**
-
-- `S` Wire bumpRotation into callForUser's round_robin path (or remove round_robin from the UI select + manifest until it works) so the advertised strategy isn't a silent no-op
-- `S` Add an updateCombo mutation (refs + strategy) reusing the existing validate() helper, so combos can be edited without delete+recreate
-- `S` Wire renameCombo into the card (inline edit) or drop it from the contract's convex[] to avoid a dead exported fn
-- `S` Add a confirm step before delete to prevent accidental one-click loss
-- `S` Either implement the stickyLimit window in bumpRotation or drop the field until 2.3 to shrink reserved-but-unused surface
-
----
-
-### audit-log
-
-**Score 80 → 76 (critic) · Grade B → C** — Well-engineered append-only slice (clean Convex, matched trio, transaction-local writes) that under-delivers on its own advertised scope — only 2 of ~5 claimed audit events are recorded, and the missing ones include security-sensitive credential deletion. Solid B; wiring the 3 missing hooks (or fixing the copy) lifts it to A.
-
-**CRUD:** C ✓ · R ✓ · U – · D ◐
-<br/>Entity = auditEvents (append-only). CREATE: yes — inline db.insert in the acting mutation for member.role_changed (`workspaces.ts:123`) and member.removed (`workspaces.ts:136`), plus audit.record internalMutation (`audit.ts:27`) for programmatic callers. READ: yes — audit.listAuditEvents admin-gated indexed query (`audit.ts:48`). UPDATE: n/a — append-only by design, rows are never patched (`tables.ts:2-4`). DELETE: automated-only — pruneAudit 90-day cron sweep (`audit.ts:76`, `crons.ts:11`); no manual delete, which is CORRECT for an audit trail. CRUD shape is right for append-only; the real gap is CREATE coverage, not the surface (see critiques).
-
-- **rr conventions:** PASS. Full metadata trio present, versions all matched at 0.1.0: `slice.json:4`, `slice.manifest.json:4`, `slice.contract.ts:21`, barrel comment `index.ts:1` ('audit-log v0.1.0'). Barrel-only cross-slice import — card pulls useWorkspace from @/features/workspaces (`audit-log-card.tsx:8`), no deep @/features/x/lib reach-in. SRP clean (card/query/table/prune isolated). File-size cap fine — largest source `audit.ts` (87) and card (79), both under 200. contract.provides.convex + tables all resolve to real exports.
-- **Convex rules:** PASS. Args validators 3/3: record (`audit.ts:28-34`), listAuditEvents (`audit.ts:49`), pruneAudit (`audit.ts:77` empty args). NO bare .collect() — listAuditEvents uses .withIndex('by_ws_at').order('desc').take(clamped) (`audit.ts:53-57`); pruneAudit uses .withIndex('by_at', lt cutoff).take(500) (`audit.ts:80-83`). Authz: only client-reachable fn (listAuditEvents) calls requireWorkspaceRole(ctx, ws, 'admin') (`audit.ts:51`); record + pruneAudit are internalMutation (not client-reachable); inline insert sites sit inside admin-gated mutations (`workspaces.ts:117,131`). Indexes declared in schema spread (`tables.ts:17-18`, `schema.ts:12`/27). Minor: boundMeta 1000-char guard (`audit.ts:15`) protects record() only; inline hooks bypass it (server-controlled small metas, low risk).
-- **UI rules:** Conforms to the project's plain-CSS-token convention (app has no shadcn/Tailwind yet — documented baseline gap). No hex — theme classes (card/sub/muted/mono/accent) with inline styles only for spacing/font-size (`audit-log-card.tsx:55-72`). Filter pills flex-wrap for mobile (line 55). Correct empty/loading/personal/non-admin gating (lines 36-49,60-63). Rule miss (codebase-wide): raw &lt;button&gt; for filter pills at line 57 instead of a shadcn primitive. Filter groups derived from data, not hardcoded (lines 29-33).
-
-**Strengths**
-
-- Clean Convex hygiene: validators on all 3 fns, both reads use .withIndex+.take (no collect), admin authz via requireWorkspaceRole, bounded self-rescheduling prune
-- Full metadata trio present with versions matched at 0.1.0 across `slice.json`/manifest/contract/barrel
-- Correct append-only semantics — audit rows written in the SAME transaction as the state change (inline db.insert, no action hop / partial-write window)
-- Small single-responsibility files, barrel-only cross-slice import, dynamic filter pills derived from data not hardcoded
-- Good security discipline: meta bounded to 1000 chars, action/target sliced, 'never secret material' contract on meta
-
-**Critiques**
-
-- 🔴 HIGH — Advertised audit coverage is not implemented: `slice.json` description, manifest notes, and the card's own UI copy (`audit-log-card.tsx:54`) all claim invite-acceptance, member-leave, and shared-credential-delete are audited — but NONE write a row. acceptInvite inserts a membership with no audit, leaveWorkspace deletes membership with no audit, deleteCredential deletes with no audit. Only member.role_changed and member.removed are wired. For a compliance feature, unrecorded credential deletion + invite acceptance is a false-assurance security gap. <br/>↳ `web/convex/workspaceInvites.ts:73`; `web/convex/workspaces.ts:148`; `web/convex/credentials.ts:106`
-- 🟠 MED — Metadata over-promises reality: manifest.notes describes the cred-delete hook in detail ('fires ONLY for workspace-shared creds…') as if it exists, and `tables.ts:12` lists 'cred.deleted' as an example action — yet no such hook exists anywhere. A consumer adopting this slice would trust an audit trail that silently omits the most sensitive action it claims to cover. <br/>↳ `web/frontend/slices/audit-log/slice.manifest.json:14`; `web/convex/features/auditLog/tables.ts:12`
-- 🟡 LOW — audit.record internalMutation has zero callers — dead/speculative code. Either wire the missing hooks through it or delete it (it exists 'for callers not inside the acting mutation' but there are none). <br/>↳ `web/convex/audit.ts:27`
-- 🟡 LOW — Type escapes: workspaceId cast 'as never' (card:25) and actor cast 'as any' twice (`audit.ts:67`) defeat strict typing at trust boundaries. Avoidable. <br/>↳ `web/frontend/slices/audit-log/components/audit-log-card.tsx:25`
-- 🟡 LOW — Retention '90 days' hardcoded in three places (RETAIN_MS `audit.ts:11` plus UI copy `audit-log-card.tsx:54` and `slice.json:8`). Changing RETAIN_MS silently desyncs the card's promise to the user. <br/>↳ `web/convex/audit.ts:11`
-
-**Suggestions**
-
-- `S` Add the three missing inline db.insert('auditEvents', …) hooks: cred.deleted in deleteCredential (`credentials.ts:106`), member.left in leaveWorkspace (`workspaces.ts:148`), invite.accepted in acceptInvite (`workspaceInvites.ts:73`) — matching the pattern already at `workspaces.ts:123`/136.
-- `S` OR, if those hooks are intentionally deferred, downgrade the `slice.json`/manifest/card copy to list only member.role_changed + member.removed so metadata stops over-claiming.
-- `S` Delete audit.record (`audit.ts:27`) if inline-hooks are the chosen convention, or route the new hooks through it to centralize boundMeta and give the dead code a purpose.
-- `S` Drop the 'as never'/'as any' casts — type workspaceId from useWorkspace() and give listAuditEvents a typed actor shape so the card's Evt type is enforced end-to-end.
-
----
-
-_Generated 2026-07-07 · workflow `feature-audit` (20 auditors + 1 critic) · re-run to refresh._
+_Generated 2026-07-07 · workflows `feature-audit` (20 auditors + 1 critic) + `fix-reaudit` (5 adversarial verifiers) · re-run to refresh._

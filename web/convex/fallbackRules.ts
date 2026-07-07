@@ -7,7 +7,7 @@
 //   terminal auth (401/403, invalid_api_key/invalid_grant/token_revoked/invalid_token) → dead
 //   429 / rate_limited        → retryable, exponential cooldown 1s·2^n cap 240s
 //   5xx / provider_error      → retryable, short 5s cooldown
-//   402 / quota_exceeded      → NOT retryable this request, long 240s cooldown (exhausted, not dead)
+//   402 / quota_exceeded      → retryable (fail over to the NEXT cred), long 240s cooldown (exhausted, not dead)
 //   anything else (400/404…)  → NOT fallback-worthy, no cooldown (caller should surface it)
 
 export type FallbackVerdict = {
@@ -51,9 +51,10 @@ export function classifyProviderError(input: unknown, backoffLevel = 0): Fallbac
   if ((status != null && status >= 500 && status < 600) || c === "provider_error") {
     return { retryable: true, dead: false, cooldownMs: 5_000, nextBackoffLevel: backoffLevel + 1 };
   }
-  // quota/billing exhausted → not retryable now, long cooldown, but recoverable (not dead)
+  // quota/billing exhausted → fail over to the NEXT cred, cool THIS one 240s, but recoverable (not dead).
+  // retryable:true so a multi-cred pool tries the next key instead of aborting the whole request.
   if (status === 402 || c === "quota_exceeded") {
-    return { retryable: false, dead: false, cooldownMs: RATE_CAP_MS, nextBackoffLevel: backoffLevel };
+    return { retryable: true, dead: false, cooldownMs: RATE_CAP_MS, nextBackoffLevel: backoffLevel };
   }
   // 400/404/unknown → not fallback-worthy; caller surfaces the error verbatim
   return { retryable: false, dead: false, cooldownMs: 0, nextBackoffLevel: backoffLevel };
@@ -71,7 +72,7 @@ export function _selfCheck(): true {
   eq(classifyProviderError(429, 20).cooldownMs, RATE_CAP_MS, "429 backoff caps at 240s");
   eq(classifyProviderError(503).retryable, true, "5xx retryable");
   eq(classifyProviderError(503).cooldownMs, 5000, "5xx short cooldown");
-  eq(classifyProviderError("quota_exceeded"), { retryable: false, dead: false, cooldownMs: RATE_CAP_MS, nextBackoffLevel: 0 }, "quota exhausted not dead");
+  eq(classifyProviderError("quota_exceeded"), { retryable: true, dead: false, cooldownMs: RATE_CAP_MS, nextBackoffLevel: 0 }, "quota exhausted fails over, not dead");
   eq(classifyProviderError("invalid_request"), { retryable: false, dead: false, cooldownMs: 0, nextBackoffLevel: 0 }, "400 not fallback-worthy");
   return true;
 }
