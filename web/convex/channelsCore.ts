@@ -42,6 +42,7 @@ export const listChannels = query({
     const rows = await ctx.db.query("channels").withIndex("by_ws", (q) => q.eq("workspaceId", a.workspaceId)).take(50);
     return rows.map((r) => ({
       id: r._id, kind: r.kind, name: r.name, slug: r.slug, agentId: r.agentId ?? null,
+      model: (r.config as { model?: string } | undefined)?.model ?? null,
       enabled: r.enabled !== false, lastInboundAt: r.lastInboundAt ?? null, lastError: r.lastError ?? null, createdAt: r.createdAt,
     }));
   },

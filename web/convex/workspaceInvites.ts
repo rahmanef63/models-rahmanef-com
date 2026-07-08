@@ -18,8 +18,11 @@ const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replac
 export const createInvite = mutation({
   args: { workspaceId: v.id("workspaces"), email: v.string(), role: v.string() },
   handler: async (ctx, a) => {
-    const { userId } = await requireWorkspaceRole(ctx, a.workspaceId, "admin");
+    const { userId, role } = await requireWorkspaceRole(ctx, a.workspaceId, "admin");
     if (!ROLES.includes(a.role)) throw bad("role must be admin | member | viewer");
+    // only the owner may mint an admin invite — mirrors updateRole's owner-only admin-grant rule
+    // (workspaces.ts:121), else an admin could escalate a new user to admin via the invite path.
+    if (a.role === "admin" && role !== "owner") throw new ConvexError({ code: "forbidden", detail: "Only the owner can invite an admin." });
     const raw = "inv_" + b64url(crypto.getRandomValues(new Uint8Array(32)));
     await ctx.db.insert("invites", {
       workspaceId: a.workspaceId, email: a.email.trim().toLowerCase().slice(0, 120), role: a.role,

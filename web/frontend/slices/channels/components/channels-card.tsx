@@ -11,7 +11,7 @@ import { useWorkspace } from "@/features/workspaces";
 import { CHANNEL_KINDS } from "./channel-kinds";
 import { ChannelAccess } from "./channel-access";
 
-type Channel = { id: string; kind: string; name: string; slug: string; agentId: string | null; enabled: boolean; lastInboundAt: number | null; lastError: string | null; createdAt: number };
+type Channel = { id: string; kind: string; name: string; slug: string; agentId: string | null; model: string | null; enabled: boolean; lastInboundAt: number | null; lastError: string | null; createdAt: number };
 type Agent = { _id: string; name: string; model: string };
 type Fresh = { id: string; slug: string; kind: string; secretToken?: string };
 
@@ -22,6 +22,7 @@ export function ChannelsCard() {
   const create = useMutation(api.channelsCore.createChannel);
   const setEnabled = useMutation(api.channelsCore.setEnabled);
   const bindAgent = useMutation(api.channelsCore.bindAgent);
+  const setModel = useMutation(api.channelsCore.setModel);
   const del = useMutation(api.channelsCore.deleteChannel);
   const setWebhook = useAction(api.channelTelegram.setWebhook);
 
@@ -98,6 +99,11 @@ export function ChannelsCard() {
                   <option value="">no agent (fallback model)</option>
                   {(agents ?? []).map((ag) => <option key={ag._id} value={ag._id}>{ag.name}</option>)}
                 </select>
+                {!c.agentId && (
+                  <input className="mono" style={{ flex: "1 1 9rem", fontSize: ".78rem" }} defaultValue={c.model ?? ""} placeholder="fallback model (e.g. openai/gpt-4o-mini)"
+                    title="With no agent bound, replies use this model. Blur to save."
+                    onBlur={(e) => { const m = e.target.value.trim(); if (m !== (c.model ?? "")) void setModel({ id: c.id as never, model: m }); }} />
+                )}
                 <button className="link" onClick={() => void setEnabled({ id: c.id as never, enabled: !c.enabled })}>{c.enabled ? "disable" : "enable"}</button>
                 <button className="link danger" onClick={() => { if (confirm(`Delete channel "${c.name}"?`)) void del({ id: c.id as never }); }}>delete</button>
               </span>

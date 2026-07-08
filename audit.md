@@ -8,7 +8,7 @@
 
 ## Progress
 
-**All 20/20 features audited ✅ · 9 fixed + re-verified ✅ · re-verified live 2026-07-08 ✅** · avg **87.0/100** · 4×A 16×B · **0 HIGH + ~20 MED** critiques open.
+**All 20/20 features audited ✅ · 11 fixed + re-verified ✅ · live ledger 2026-07-08 ✅** · avg **87.1/100** · 5×A 15×B · backlog: **0 HIGH · 14 MED · 51 LOW fixable · 46 deliberate/baseline**.
 
 > **Re-verification 2026-07-08** — a fresh 20-auditor pass was run; it replayed the pre-fix cache, so its scores reproduce the *initial* audit, not this file. Re-checked the 5 fix-pass changes against **current code** and all are live: `transferOwnership` (`workspaces.ts:157`) + `makeOwner` UI (`members-card.tsx:24`); `bumpRotation` call (`callForUser.ts:42`); spend-cap `truncated` fail-closed (`spendCaps.ts:30-31`); 402/quota → failover (`fallbackRules.ts:56`); audit hooks `member.left`/`invite.accepted`/`cred.deleted`/`workspace.ownership_transferred` (`workspaces.ts:150,170`, `workspaceInvites.ts:75`, `credentials.ts:109`). No convex regressions since the fix pass (`git log` last backend touch = `76ab742`). **Scores stand; this file is authoritative.**
 
@@ -74,6 +74,30 @@ User-requested batch: close the "Update"/"Delete" CRUD gaps flagged MED, keeping
 - **scheduled-agents** — claim-before-run can pair a fresh `lastRunAt` with a stale `ok` status if the node action crashes before `_markRun` (low).
 - **The CLAUDE.md deliberate gaps** — 6 bare `.collect()`, byok `.unique()`/`.first()`, `as never` at the Id boundary, shadcn absent, shared-cred WRITE — untouched by design (not fixed unprompted).
 
+## 🔧 Fix pass 3 — security + live remediation ledger (2026-07-08)
+
+Ran a **cache-busted 20-agent verification** (each verifier read LIVE code + its audit.md section) to get an honest remediation picture — the earlier re-audit had replayed stale pre-fix cache. Shipped two fixes off the top of it, then re-verified (`tsc` clean · `npm test` 4/4).
+
+| Feature | Fix | What changed |
+|---|:---:|---|
+| workspaces | 🔒 ✅ | **Privilege-escalation closed** — `createInvite` now requires **owner** to mint an `admin`-role invite (mirrors the owner-only admin-grant rule at `workspaces.ts:121`). Before: any admin could escalate a new user to admin via the invite path, bypassing `updateRole`. |
+| channels | ✅ 88 → **90 (A)** | Wired `setModel` — a fallback-model input appears on channels with no agent bound, calling `api.channelsCore.setModel`; `listChannels` now returns `config.model`. The implemented-but-unwired dead path (last B-cap) is closed. |
+
+### Remediation ledger (live, verified)
+
+The naive "closed ÷ all-fixable" reads **16%**, but that denominator is misleading: a fresh deep re-read surfaces far more **low-severity** nits than the original audit tracked. Severity-weighted reality:
+
+| Bucket | Count | Status |
+|---|:---:|---|
+| **HIGH fixable** | **0** | ✅ 100% clear — no critical debt anywhere |
+| **MED fixable** | **14** | functional dead-ends the audit named are closed; these 14 are non-critical (retention crons, admin count accuracy, memory recall columns, per-feature Update polish) |
+| **LOW fixable** | **51** | polish — type-nits (`as never`), missing delete-confirms, reserved-but-unused fields, doc drift |
+| **Deliberate / baseline** | **46** | out of scope by design — shadcn absent, Convex Cloud, 6 per-user `.collect()`, shared-cred WRITE unbuilt, `as never` at the Id boundary |
+
+**Remediation of actionable (HIGH+MED, excl. low-polish & deliberate): ~15 closed / ~29 ≈ 52%, with 0 HIGH open.** The rest is polish + intentional gaps.
+
+**Top remaining MED (next `lanjut audit` candidates, all S/M):** retention crons for `workspaceUsageDaily` / `oauthFlows` / `mcpAuthCodes` / `agentRuns` (the "no GC convention" cross-cutting gap); `ai-admin` totals from `usageRollups` instead of a 10k-capped scan; `memory` recall columns (write or drop); `memory-graph` `updateMemory` (edit text) + persisted parent; `api-compat` issueApiKey → admin + `apiV1.handle` IP-trust.
+
 ## Scoreboard
 
 CRUD legend: ✓ full · ◐ partial · ✗ missing · – n/a. 🔧 = fixed this pass.
@@ -91,7 +115,7 @@ CRUD legend: ✓ full · ◐ partial · ✗ missing · – n/a. 🔧 = fixed thi
 | 9 | [provider-pool](#provider-pool) 🔧 | 87 | B | – | ✓ | ◐ | – | Fix CONFIRMED and correct. The retryable:false→true flip for 402/quota_exceeded is present (fallbackRules.ts:56-58) and correctly consumed by callForUser.ts:155 |
 | 10 | [memory-graph](#memory-graph) | 86 | B | ✓ | ✓ | ◐ | ✓ | Strong, highly-modular, genuinely portable frontend slice — trio + version + barrel + file-cap all green; main real gap is that the 'add child' UI promises a me |
 | 11 | [combos](#combos) 🔧² | 86 → **89** | B | ✓ | ✓ | ✓ | ✓ | `updateCombo` (refs+strategy+name, resets rotation) replaces the dead rename-only path + wired inline edit — Update now full. round_robin rotation (prior pass) still confirmed. |
-| 12 | [channels](#channels) 🔧² | 86 → **88** | B | ✓ | ✓ | ◐ | ✓ | `deleteChannel` now cascades `channelIdentities` + `channelEvents` (bounded loop; threads kept) — orphan-on-delete closed. Still B: `setModel` implemented-but-unwired remains. |
+| 12 | [channels](#channels) 🔧²³ | 86 → **90** | B → **A** | ✓ | ✓ | ✓ | ✓ | Cascade-delete (pass 2) + `setModel` now wired (pass 3) — both named caps closed. Flawless Convex + strong crypto/abuse defense. |
 | 13 | [audit-log](#audit-log) 🔧 | 85 | B | ✓ | ✓ | – | ◐ | Fix confirmed and real. The three added hooks (member.left, invite.accepted, cred.deleted) are present, atomic within the acting mutation's transaction, schema- |
 | 14 | [mcp-server-inbound](#mcp-server-inbound) | 85 | B | ✓ | ✓ | ◐ | ◐ | Security-first, tightly-scoped MCP inbound layer that nails the hard parts (hashed secrets, PKCE, correct IP trust, per-call workspace re-check) — dinged only b |
 | 15 | [skills-tools-registry](#skills-tools-registry) | 85 | B | – | ✓ | – | – | Clean, well-factored cross-cutting registry — single source of truth for both tool surfaces, tiny files, upstream authz correct; main ding is that the declared  |
