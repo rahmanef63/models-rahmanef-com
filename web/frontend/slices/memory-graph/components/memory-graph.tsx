@@ -112,7 +112,6 @@ export function MemoryGraph({ data, labels: over, className, onAddMemory, onImpo
       <section className="mg-stage" ref={stageRef} onPointerDown={onStageDown} aria-label={labels.heroTitle}>
         <div className="mg-world" ref={worldRef}>
           <GraphEdges ref={edgesSvgRef} edges={vEdges} byId={st.byId} selected={st.selected} arrows={st.settings.arrows} hover={hoverParentNode && hoverPos ? { ...hoverPos, parent: hoverParentNode } : null} />
-          <div className="mg-hero"><h1>{labels.heroTitle}</h1><p>{labels.heroSubtitle}</p></div>
           <GraphNodes ref={nodeLayerRef} nodes={vis} selected={st.selected} onNodePointerDown={grab} onSelect={select} onHover={hover} onHoverLeave={hoverLeave} />
           {hoverParentNode && hoverPos && (
             <button className="mg-hover-add visible" style={{ "--x": `${hoverPos.x}px`, "--y": `${hoverPos.y}px` } as CSSProperties}

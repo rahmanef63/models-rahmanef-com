@@ -49,10 +49,6 @@ export const GRAPH_CSS = `
 .mg-edges line.hot{stroke:var(--mg-accent-soft);stroke-width:calc(var(--mg-link-width) + .3);filter:drop-shadow(0 0 7px color-mix(in srgb, var(--mg-accent) 22%, transparent))}
 .mg-edges line.temp{stroke:var(--mg-accent-soft);stroke-width:calc(var(--mg-link-width) + .35);stroke-dasharray:4 5}
 
-.mg-hero{position:absolute;left:800px;top:250px;transform:translateX(-50%);width:340px;text-align:left;pointer-events:none;user-select:none;text-shadow:0 12px 42px color-mix(in srgb, var(--mg-bg) 55%, transparent)}
-.mg-hero h1{margin:0;font-size:20px;line-height:1.08;letter-spacing:-.055em;font-weight:850;color:var(--mg-text)}
-.mg-hero p{margin:3px 0 0;color:var(--mg-muted);font-size:18px;line-height:1.05;letter-spacing:-.05em;font-weight:700}
-
 .mg-node-layer{position:absolute;inset:0}
 .mg-node,.mg-hover-add{--x:0px;--y:0px;position:absolute;left:var(--x);top:var(--y);transform:translate(-50%,-50%);user-select:none;touch-action:none}
 .mg-core{width:calc(58px*var(--mg-node-scale));height:calc(58px*var(--mg-node-scale));border-radius:999px;background:radial-gradient(circle at 50% 50%, var(--mg-accent) 0 22%, color-mix(in srgb, var(--mg-accent) 60%, var(--mg-panel)) 34%, color-mix(in srgb, var(--mg-text) 82%, var(--mg-accent)) 52%, var(--mg-muted) 100%);box-shadow:0 0 0 1px var(--mg-line-2),0 0 26px color-mix(in srgb, var(--mg-accent) 30%, transparent),0 18px 55px rgba(0,0,0,.36);cursor:pointer;transition:box-shadow .2s ease,width .14s ease,height .14s ease}
@@ -173,7 +169,6 @@ export const GRAPH_CSS = `
 @media (max-width:960px){
   .mgraph{--mg-node-scale:.92}
   .mg-inspector{right:auto;left:14px;top:56px;width:min(300px,calc(100% - 28px))}
-  .mg-hero{top:200px;width:min(300px,60%)}.mg-hero h1{font-size:17px}
   .mg-hint{display:none}
 }
 @media (max-width:680px){
@@ -181,7 +176,9 @@ export const GRAPH_CSS = `
   .mg-inspector{left:8px;right:8px;top:auto;bottom:calc(52% + 16px);width:auto;max-height:34%}
   .mg-dock{bottom:12px;width:calc(100% - 24px)}.mg-dock.expanded{width:calc(100% - 24px);bottom:16px}
   .mg-legend{gap:4px 10px;padding:6px 9px}.mg-legend-item{font-size:10px}
-  .mg-hero{top:150px}
+  .mg-panel-icon-btn{width:34px;height:34px}.mg-clear{width:24px;height:24px}
+  .mg-icon-btn,.mg-import-btn,.mg-round-btn{height:38px}.mg-icon-btn,.mg-round-btn{width:38px}
+  .mg-switch{width:40px;height:24px}.mg-slider::before{width:20px;height:20px}.mg-switch input:checked + .mg-slider::before{transform:translateX(16px)}
 }
 @media (prefers-reduced-motion:reduce){.mgraph *{transition:none!important;animation:none!important}}
 `;
