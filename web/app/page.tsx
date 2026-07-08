@@ -13,12 +13,12 @@ const FEATURES = [
 ];
 
 const MODULES = [
-  { k: "chat / workbench", t: "Workbench", d: "Threaded, persisted conversations across any connected model. Agent mode and token savers apply." },
-  { k: "agents / runner", t: "Agents", d: "Give a model a task; watch a multi-step tool loop run with a full, expandable trace of every step." },
-  { k: "providers / byok", t: "Providers", d: "Connect over OAuth or paste a key. 22 providers, each connection scoped to you alone." },
-  { k: "usage / telemetry", t: "Usage", d: "Every call logged — requests, in/out tokens, top models, and a 14-day activity sparkline." },
-  { k: "mcp / server", t: "MCP server", d: "Mint tokens and expose chat + tools to Claude Code, Cursor or ChatGPT over OAuth 2.1." },
-  { k: "admin / console", t: "Admin", d: "Operator console — identities, connections and aggregate usage. Never a key or message content." },
+  { k: "studio / workbench", t: "Workbench", d: "Threaded, persisted chat across any connected model. Agent mode and Caveman / Ponytail token savers apply." },
+  { k: "studio / agents", t: "Agents & schedules", d: "Give a model a task and watch a multi-step tool loop run with a full, expandable trace. Save named agents and fire them on a recurring schedule." },
+  { k: "connect / providers", t: "Providers & combos", d: "22 providers over OAuth or a pasted key, each scoped to you. Alias several behind one combo name with fallback or round-robin routing." },
+  { k: "connect / serve", t: "Channels, gateway & MCP", d: "Wire Telegram, Slack, WhatsApp or Discord bots to an agent; point Claude Code or Cursor at your OpenAI/Anthropic-compatible /v1 endpoint; or expose it all as your own MCP server over OAuth 2.1." },
+  { k: "workspace / memory", t: "Memory & graph", d: "Give models durable, per-scope memory with off-turn auto-summaries — then explore it as an Obsidian-style interactive graph of memories, agents, skills and tools." },
+  { k: "workspace / teams", t: "Teams & ops", d: "Workspaces with role-based invites, per-workspace usage and billing, monthly spend caps, an append-only audit trail, and a super-admin console." },
 ];
 
 export default function Landing() {
@@ -34,14 +34,14 @@ export default function Landing() {
 
       <header className="hero">
         <div>
-          <div className="eyebrow reveal" style={{ ["--d" as string]: "0.05s" }}>byok · 22 providers · mcp</div>
+          <div className="eyebrow reveal" style={{ ["--d" as string]: "0.05s" }}>byok · 22 providers · agents · memory · mcp</div>
           <h1 className="reveal" style={{ ["--d" as string]: "0.12s" }}>
             Every model.<br />Your keys.<br /><em>One dashboard.</em>
           </h1>
           <p className="lede reveal" style={{ ["--d" as string]: "0.22s" }}>
             A multi-tenant, bring-your-own-key AI gateway distilled from openclaw &amp; hermes. Sign in
-            with OpenAI, Claude or OpenRouter — or paste any key — then chat, run agents, and expose it
-            all as your own MCP server.
+            with OpenAI, Claude or OpenRouter — or paste any key — then chat, run agents, wire in chat
+            channels and team memory, and expose it all as your own MCP server.
           </p>
           <div className="cta-row reveal" style={{ ["--d" as string]: "0.3s" }}>
             <Link className="btn accent" href="/app">Open dashboard →</Link>
