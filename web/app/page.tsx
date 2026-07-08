@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { GraphDemo } from "./_components/graph-demo";
 import { Comparison } from "./_components/comparison";
+import { Roadmap } from "./_components/roadmap";
 
 const PROVIDERS = ["OpenAI", "Anthropic", "Google", "OpenRouter", "Groq", "xAI", "DeepSeek", "Mistral", "Moonshot", "Cohere", "Perplexity", "Together", "Fireworks", "Cerebras", "DeepInfra"];
 const GITHUB = "https://github.com/rahmanef63/models-rahmanef-com";
@@ -126,6 +127,8 @@ export default function Landing() {
 
       <Comparison />
 
+      <Roadmap />
+
       <section className="section">
         <div className="section-head">
           <span className="eyebrow">how it works</span>
@@ -163,7 +166,10 @@ export default function Landing() {
       <footer>
         <span>models — bring your own key</span>
         <span>distilled from openclaw &amp; hermes · built on convex + vercel</span>
-        <a href={GITHUB} target="_blank" rel="noreferrer">github ↗</a>
+        <span className="foot-links">
+          <a href={`${GITHUB}/blob/main/ROADMAP.md`} target="_blank" rel="noreferrer">roadmap ↗</a>
+          <a href={GITHUB} target="_blank" rel="noreferrer">github ↗</a>
+        </span>
       </footer>
     </div>
   );
