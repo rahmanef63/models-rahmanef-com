@@ -21,6 +21,18 @@ const MODULES = [
   { k: "workspace / teams", t: "Teams & ops", d: "Workspaces with role-based invites, per-workspace usage and billing, monthly spend caps, an append-only audit trail, and a super-admin console." },
 ];
 
+// static preview of the Obsidian-style memory graph — core → clusters → leaves, coloured by node type.
+const MG_NODES = [
+  { x: 220, y: 150, r: 15, c: "var(--accent)" }, { x: 120, y: 88, r: 9, c: "var(--accent)" },
+  { x: 330, y: 88, r: 9, c: "#5aa9ff" }, { x: 120, y: 214, r: 9, c: "#b48bff" }, { x: 330, y: 214, r: 9, c: "#3fd6ad" },
+  { x: 56, y: 58, r: 5, c: "var(--accent)" }, { x: 62, y: 122, r: 5, c: "var(--accent)" }, { x: 150, y: 38, r: 5, c: "var(--accent)" },
+  { x: 300, y: 40, r: 6, c: "#5aa9ff" }, { x: 392, y: 66, r: 5, c: "#5aa9ff" }, { x: 398, y: 128, r: 5, c: "#5aa9ff" },
+  { x: 52, y: 198, r: 5, c: "#b48bff" }, { x: 66, y: 258, r: 5, c: "#b48bff" }, { x: 158, y: 262, r: 5, c: "#b48bff" },
+  { x: 300, y: 262, r: 6, c: "#3fd6ad" }, { x: 392, y: 200, r: 5, c: "#3fd6ad" }, { x: 398, y: 256, r: 5, c: "#3fd6ad" },
+];
+const MG_EDGES = [[0,1],[0,2],[0,3],[0,4],[1,5],[1,6],[1,7],[2,8],[2,9],[2,10],[3,11],[3,12],[3,13],[4,14],[4,15],[4,16],[8,13],[8,14]];
+const MG_LEGEND = [["memories", "var(--accent)"], ["agents", "#5aa9ff"], ["skills", "#b48bff"], ["tools", "#3fd6ad"]];
+
 export default function Landing() {
   return (
     <div className="wrap">
@@ -97,6 +109,39 @@ export default function Landing() {
               <p>{m.d}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="section-head">
+          <span className="eyebrow">workspace / memory</span>
+          <h2>Your knowledge, as a graph.</h2>
+        </div>
+        <div className="mg-grid">
+          <div className="mg-copy">
+            <p>
+              An <b>Obsidian-style</b> canvas over everything the workspace knows — memories, agents,
+              skills and tools — wired into one live, force-directed graph. Pan, zoom and drag; link
+              notes with <span className="mono">@</span> or <span className="mono">/</span> mentions;
+              import Markdown or JSON. Light &amp; dark, fully responsive.
+            </p>
+            <div className="mg-legend" aria-hidden>
+              {MG_LEGEND.map(([label, color]) => (
+                <span key={label}><i style={{ background: color }} /> {label}</span>
+              ))}
+            </div>
+            <Link className="btn accent" href="/app">Open the graph →</Link>
+          </div>
+          <div className="mg-canvas">
+            <svg viewBox="0 0 440 300" className="mg-svg" role="img" aria-label="Preview of the interactive memory graph">
+              {MG_EDGES.map(([a, b], i) => (
+                <line key={i} x1={MG_NODES[a].x} y1={MG_NODES[a].y} x2={MG_NODES[b].x} y2={MG_NODES[b].y} className="mg-edge" />
+              ))}
+              {MG_NODES.map((n, i) => (
+                <circle key={i} cx={n.x} cy={n.y} r={n.r} style={{ fill: n.c }} className="mg-node" />
+              ))}
+            </svg>
+          </div>
         </div>
       </section>
 
