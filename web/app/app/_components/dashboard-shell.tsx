@@ -2,6 +2,7 @@
 import { type ReactNode } from "react";
 import { type NavGroup, groupOfSection } from "./nav-config";
 import { NavigationRail, type RailAccount } from "./navigation-rail";
+import { BottomDock } from "./bottom-dock";
 import { type Theme } from "./use-theme";
 
 // The single outer chrome (rr: exactly one shell). Ports the wireframe's AppShell — NavigationRail
@@ -48,6 +49,7 @@ export function DashboardShell({ groups, section, go, isAdmin, account, theme, t
         <main className={`dash-region ${bleed ? "bleed" : ""}`}>{children}</main>
         {aiDock}
       </div>
+      <BottomDock groups={groups} section={section} go={go} isAdmin={isAdmin} account={account} theme={theme} toggleTheme={toggleTheme} />
     </div>
   );
 }

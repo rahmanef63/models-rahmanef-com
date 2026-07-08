@@ -2,14 +2,7 @@
 import { useState } from "react";
 import { type NavGroup, ICONS } from "./nav-config";
 import { type Theme } from "./use-theme";
-
-function RailIcon({ d }: { d: string }) {
-  return (
-    <svg className="rail-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d={d} />
-    </svg>
-  );
-}
+import { RailIcon } from "./rail-icon";
 
 export type RailAccount = { email?: string; isSuperAdmin?: boolean; onSignOut: () => void };
 
