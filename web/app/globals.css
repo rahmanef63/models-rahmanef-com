@@ -183,6 +183,18 @@ a { color: inherit; text-decoration: none; }
 /* keep >= the graph's own min-height (520px) so the canvas is never clipped on phones */
 @media (max-width: 640px) { .mg-live { height: 520px; } }
 
+/* comparison table — scrolls inside its own container on mobile (no page overflow) */
+.cmp-lede { color: var(--muted); font-size: 0.95rem; line-height: 1.7; max-width: 68ch; margin: 0 0 1.4rem; }
+.cmp-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line); border-radius: 6px; }
+.cmp { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 0.86rem; }
+.cmp th, .cmp td { padding: 0.7rem 0.9rem; text-align: center; border-bottom: 1px solid var(--line); white-space: nowrap; }
+.cmp tbody tr:last-child td { border-bottom: none; }
+.cmp thead th { font-family: var(--font-mono); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 700; }
+.cmp .cmp-feat { text-align: left; color: var(--fg); white-space: normal; min-width: 190px; }
+.cmp .cmp-me { background: color-mix(in srgb, var(--accent) 9%, transparent); color: var(--accent); font-weight: 700; }
+.cmp-note { color: var(--muted); font-size: 0.9rem; line-height: 1.6; margin: 1.1rem 0 0; }
+.cmp-note a { color: var(--accent); white-space: nowrap; }
+
 footer { border-top: 1px solid var(--line); padding: 2.5rem 0; margin-top: 3rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
 
 /* ---------- reveal animation ---------- */
@@ -325,9 +337,9 @@ textarea { resize: vertical; margin: 0.6rem 0; }
 .ok-line { color: var(--accent-dim); font-size: 0.85rem; }
 
 .connect-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.8rem; }
-/* tablet band (521–768px): 2-col feature/step grids + single-col hero, before the phone rule wins */
-@media (max-width: 768px) { .features, .steps { grid-template-columns: repeat(2, 1fr); } .hero { grid-template-columns: 1fr; } }
-@media (max-width: 520px) { .connect-grid { grid-template-columns: 1fr; } .hero, .lib-grid { grid-template-columns: 1fr; } .features, .steps { grid-template-columns: 1fr; } }
+/* cards stay multi-column on mobile: 3-col desktop/tablet, 2-col on phones (never a lonely 1-col) */
+@media (max-width: 768px) { .hero { grid-template-columns: 1fr; } }
+@media (max-width: 520px) { .connect-grid { grid-template-columns: 1fr; } .hero, .lib-grid { grid-template-columns: 1fr; } .features, .steps { grid-template-columns: repeat(2, 1fr); } }
 .provider-btn {
   display: flex; flex-direction: column; gap: 0.2rem; align-items: flex-start; text-align: left;
   padding: 1rem 1.1rem; border: 1px solid var(--line-2); border-radius: 3px; background: var(--bg); color: var(--fg); cursor: pointer; transition: 0.18s;

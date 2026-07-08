@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { GraphDemo } from "./_components/graph-demo";
+import { Comparison } from "./_components/comparison";
 
 const PROVIDERS = ["OpenAI", "Anthropic", "Google", "OpenRouter", "Groq", "xAI", "DeepSeek", "Mistral", "Moonshot", "Cohere", "Perplexity", "Together", "Fireworks", "Cerebras", "DeepInfra"];
 const GITHUB = "https://github.com/rahmanef63/models-rahmanef-com";
@@ -122,6 +123,8 @@ export default function Landing() {
         <div className="mg-live"><GraphDemo /></div>
         <div className="mg-cta"><Link className="btn accent" href="/app">Open the graph →</Link></div>
       </section>
+
+      <Comparison />
 
       <section className="section">
         <div className="section-head">
