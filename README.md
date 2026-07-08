@@ -26,7 +26,7 @@
 
 ## Live dashboard ([models.rahmanef.com](https://models.rahmanef.com))
 
-The reference app is evolving into a self-hosted, BYOK alternative to hosted LLM routers — built on the library above, one left-nav shell over these sections:
+The reference app is evolving into a self-hosted, BYOK alternative to hosted LLM routers — built on the library above, wrapped in an app-shell (a 72px icon rail + a secondary sidebar for the active group's sub-sections + an optional docked AI panel + a light/dark theme toggle, and a mobile bottom-nav dock below `640px`: primary group tabs + a center AI FAB + a "More" overflow sheet) over these sections:
 
 - **Providers** — 22 providers: OAuth sign-in (OpenAI ChatGPT/Codex device-code, OpenRouter PKCE) or paste any key. Keys are AES-256-GCM encrypted per user in Convex; never shared, never sent to another provider's host.
 - **Chat workbench** — threaded, persisted conversations against any connected model.
@@ -34,6 +34,7 @@ The reference app is evolving into a self-hosted, BYOK alternative to hosted LLM
 - **Agent mode** — the chat/agents can call tools to inspect your own gateway (connected providers, usage).
 - **Token savers** — Caveman (terse) / Ponytail (lazy-YAGNI) system-prompt injection to cut output tokens.
 - **Usage** — per-user requests/tokens, per-model and per-day, live.
+- **Memory graph** — an Obsidian-style force-directed graph over your memories, agents, and the built-in skills + tools (with agent→skill/tool cross-links); pan/zoom/drag, filters, a node inspector, and `@/[Title]` node-linking via Markdown/JSON import.
 - **Admin** — operator console (identities + counts only, never a key), env-gated super-admin.
 
 > BYOK is the foundation and never optional — every call uses the signed-in user's own credential.

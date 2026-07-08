@@ -6,17 +6,18 @@ components), so "apply" = *build the real feature here* in this app's design + B
 
 **Legend:** ✅ done & deployed · 🟡 partial · ⬜ not started · 🅿️ parked (needs decision)
 
-Last updated: 2026-07-05 (5-agent per-phase audit vs code — see `docs/FEATURES-LOG.md` for the
-verified shipped scope + v0.2 backlog; spend-cap `runAgent` bypass fixed this pass).
+Last updated: 2026-07-08 (top-5 audit fixes re-verified + memory-graph slice + Design-Platform
+app-shell shipped — see `docs/FEATURES-LOG.md` for the verified shipped scope + v0.2 backlog, and
+root `audit.md` for the 20-feature best-practice + CRUD compliance scorecard).
 
 ## Summary
 
 | Slice | rr status | our status | rough coverage |
 |---|---|---|---|
-| **AI Router** — backend provider proxy | partial (OpenRouter tiers) | 🟡 **we exceed rr on BYOK** + est. cost now, lag on the public proxy | ~50% |
+| **AI Router** — backend provider proxy | partial (OpenRouter tiers) | 🟡 **we exceed rr on BYOK** + est. cost + combos fallback/round-robin + pool failover, lag on the public proxy | ~55% |
 | **AI Chat** — workbench / sidebar / search | partial (FAB only) | 🟡 workbench + persistence + 4-tool registry | ~44% |
-| **AI Agents** — autonomous workers | partial (in-memory) | 🟡 runner + traces + persistence + duration + getRun | ~40% |
-| **AI Admin** — console (8 tabs) | scaffold-only | 🟡 providers/models/audit + content totals | ~40% |
+| **AI Agents** — autonomous workers | partial (in-memory) | 🟡 runner + traces + persistence + duration + getRun + spend-cap gate | ~44% |
+| **AI Admin** — console (8 tabs) | scaffold-only | 🟡 providers/models/audit (table + hooks) + content totals + spend-caps enforced | ~45% |
 | **AI Studio** — generation canvas | scaffold-only | ⬜ not started | 0% |
 | **shared/agentic** — the tool kit | implemented (lib) | 🟡 AI-SDK tools + tool/skill registries | ~30% |
 | **Create Your MCP** — MCP server | partial (templates) | 🟡 **bearer + OAuth 2.1 + rate-limit + revoke-all live**; more tools next | ~78% |
@@ -65,8 +66,8 @@ to match the other nine (currently schema-inline).
 - ✅ User attribution
 - ✅ Cost (USD) — est. spend from models.dev $/M rates in the Usage card (per-model tokens × rate; OAuth/uncatalogued models skipped, marked an estimate)
 - ⬜ **Public `/v1` OpenAI-compatible endpoint** (point Claude Code / Codex / Cursor at us) — 🅿️ parked
-- ⬜ Combos: fallback / round-robin / fusion (panel + judge)
-- ⬜ Per-model cooldown + backoff + rate-limit guard
+- 🟡 Combos: fallback + round-robin **live** (`combos` slice — round-robin now actually rotates via `resolveCombo`/`bumpRotation`); fusion (panel + judge) pending
+- 🟡 Per-cred failover + cooldown **live** (`provider-pool` fails over on 402/quota_exceeded, cools the cred 240s); per-model backoff pending
 - ⬜ RTK tool-result compression
 - ⬜ Domain events (ai.invoked / ai.usage.logged)
 
@@ -106,7 +107,7 @@ to match the other nine (currently schema-inline).
 - ⬜ Cron / scheduled runs
 - ⬜ Retry policy + backoff
 - ⬜ Max concurrency cap
-- ⬜ Hard cost cap + kill switch
+- 🟡 Hard cost cap enforced in `runAgent` (`spend-caps` gate **fails closed** on read truncation); kill switch pending
 - ⬜ Shareable trace URL
 - ✅ New/edit agent wizards — `AgentForm` (name/model/instructions/tool-picker/maxSteps/temperature), used for both create + edit
 
@@ -118,12 +119,12 @@ to match the other nine (currently schema-inline).
 - ✅ **Providers** overview (system-wide, by slug — `adminOverview`)
 - ✅ **Models** overview (global top models)
 - ✅ Content totals (threads / messages / agent-runs / requests / tokens)
-- 🟡 **Audit** (usage log is proto-audit; no dedicated audit table yet)
+- 🟡 **Audit** — dedicated `auditEvents` table (append-only + 90-day prune) + hooks wired (member.left / invite.accepted / workspace.ownership_transferred); cred.deleted latent until a shared-cred write path ships; read-only admin tab UI pending
 - ⬜ **Instructions** tab (system-prompt registry)
 - ⬜ **Skills** tab
 - ⬜ **Tools** tab (tool registry / SSOT)
 - ⬜ **Agents** tab (agent definitions)
-- ⬜ **Budgets** tab (cost caps + enforcement)
+- 🟡 **Budgets** — `spend-caps` enforcement live (**fails closed** on read truncation, `truncated` flag surfaced in `SpendCapCard`); full admin tab pending
 - ⬜ Create-* wizards
 - ⬜ SSOT registries consumed by the other slices
 
@@ -174,6 +175,9 @@ to match the other nine (currently schema-inline).
 - ✅ Landing page, OG image, super-admin gate, dashboard sidebar
 - ✅ **Full-width UI** (landing + dashboard, 1520px fluid) · landing reflects every shipped feature (Chat / Agents / Providers / Usage / MCP / Admin) · Overview default with quick-links + connect nudge
 - ✅ **Provider key validation** — a pasted API key is tested with a real 1-token call the moment you Save it (not the first time you chat), Providers list shows a persisted health badge (VERIFIED / NEEDS ATTENTION / NOT TESTED / NO AUTO-CHECK) + on-demand recheck
+- ✅ **Design-Platform app-shell** — 72px icon NavigationRail + secondary sidebar (sub-sections of the active group) + optional docked AI dock + light/dark theme toggle; `app/app/page.tsx` is now a ~156-line shell (was a 1200-line monolith)
+- ✅ **Mobile bottom-nav dock** (CareerPack-style) — 3 group tabs + center AI FAB + 'More' overflow sheet (quick-create · all sub-sections · theme · sign-out); replaces the old <640px rail-flip, restoring a mobile AI entry point
+- ✅ **Memory Graph** slice (`frontend/slices/memory-graph`, v0.2.0) — Obsidian-style force-directed graph over memories + agents + built-in skills + tools (agent→skill/tool cross-links); pan/zoom/drag + force sim + filters + node inspector + `@/[Title]` node-linking on MD/JSON import + add-memory dock; portable Convex-free `<MemoryGraph>` renderer + wired `<MemoryGraphPanel>` adapter; full metadata trio, no new Convex table
 
 ## What's next (loop order)
 - ✅ **AI Admin console** — providers/models/audit + content totals

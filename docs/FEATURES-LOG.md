@@ -3,7 +3,7 @@
 Shipped inventory, moved out of `MASTER-PLAN.md` §5 (the plan keeps the design:
 §3 data model, §6 per-pillar detail, §7 steal-from, §8 non-goals).
 
-**Verified against code 2026-07-05** (5-agent per-phase audit vs actual `web/convex` +
+**Verified against code 2026-07-08** (5-agent per-phase audit vs actual `web/convex` +
 `web/frontend/slices`). Ship date **2026-07-04** unless noted. Legend: ✅ confirmed in
 code · 🟡 shipped but narrower than the plan text (v0.1 scope) · see the v0.2 backlog for
 the deltas.
@@ -18,7 +18,7 @@ usage/caps/audit. The 🟡 items are documented-narrow scope, not regressions.
 
 - ✅ **1.1** Schema spine — `workspaces`/`memberships`/`invites` + `workspaceId` retrofits on modelCreds/usage/threads/agentDefs/agentRuns/mcpTokens/settings + indexes (`features/workspaces/tables.ts`, `schema.ts`).
 - ✅ **1.2** Authz core — `ROLE_RANK` + `requireWorkspaceRole` + action twin (`_shared/auth.ts`).
-- ✅ **1.3** Workspace fns — ensurePersonal/myWorkspaces/create/rename/remove/listMembers/updateRole/removeMember/leave (owner immutable, owner-only admin role changes).
+- ✅ **1.3** Workspace fns — ensurePersonal/myWorkspaces/create/rename/remove/listMembers/updateRole/removeMember/leave/transferOwnership (owner immutable, owner-only admin role changes; `transferOwnership` hands off owner→admin, promotes the target).
 - ✅ **1.4** Frontend — `WorkspaceProvider` + switcher, self-heal on `forbidden`.
 - ⏭️ **1.5** Backfill — deliberately SKIPPED (personal reads stay `by_user`; no prod migration).
 - ✅ **1.6** Scope retrofit — spend paths require `'member'` (viewers never reach `callForUser`); reads stay creator-private `by_user`.
@@ -31,8 +31,8 @@ usage/caps/audit. The 🟡 items are documented-narrow scope, not regressions.
 
 - ✅ **2.1** API keys — `sk-rr-…` + b64url(32B), sha256 at rest, shown once, workspace-bound; issue/list/revoke + card.
 - 🟡 **2.2** `/v1` non-streaming + pseudo-stream — Bearer/x-api-key auth, rate buckets, OpenAI + `/v1/models`. *(v0.2: `/v1/models` omits `combo/*`+`agent/*` pseudo-models; usage rows lack `source:'api'`/`apiKeyId`; internal errors map to 400 not 500)*
-- ✅ **2.3** provider-pool — pool fields, `fallbackRules` (429 exp-backoff / 5xx cooldown / terminal→dead), `pickCredentials` priority-then-LRU, ≤3-attempt loop in `callForUser`.
-- 🟡 **2.4** combos — table + CRUD + `combo/`+`agent/` prefix resolution. *(v0.2: fallback returns `refs[0]` only; `round_robin` rotation = dead code → behaves as fallback)*
+- ✅ **2.3** provider-pool — pool fields, `fallbackRules` (429 exp-backoff / 5xx cooldown / 402 quota→failover to next pooled cred + 240s cooldown / terminal→dead), `pickCredentials` priority-then-LRU, ≤3-attempt loop in `callForUser`.
+- 🟡 **2.4** combos — table + CRUD + `combo/`+`agent/` prefix resolution + `round_robin` rotation (`resolveCombo` returns the comboId, `callForUser` calls `bumpRotation` after each pick). *(v0.2: fallback returns `refs[0]` only)*
 - ✅ **2.5** mcp-client — `@modelcontextprotocol/sdk`, SSRF-guarded, secret-redacted errors, `mcp__*` merged into gateway tools (agent-surface only), probe + toolCache.
 - ⬜ **2.6** `/v1` real streaming + **tool passthrough** — **unbuilt**. Client `tools`/`tool_choice` dropped; messages flattened to strings; no `callForUserRaw`. Blocks external agent tool-loops via `/v1`. *(v0.2 — see backlog)*
 - ✅ **2.7** Anthropic `/v1/messages` translator — Claude Code (`ANTHROPIC_BASE_URL` + `sk-rr-…`) works; full SSE shape.
@@ -68,10 +68,17 @@ usage/caps/audit. The 🟡 items are documented-narrow scope, not regressions.
 
 - 🟡 **5.1** Rollup — `workspaceUsageDaily` via a **6h cron** (not inline `usage.log` upsert); no `byUser` field.
 - 🟡 **5.2** Cost — static rates map (ponytail-commented), no models.dev rates cron; `estCostUsd` computed at rollup, not at log time.
-- ✅ **5.3** Spend caps — monthly USD cap, `checkSpendCap` precheck. **Cap-bypass in `runAgent` fixed 2026-07-05** (it called `generateText` directly, skipping the guard). *(minor: `setSpendCap` not yet audited)*
+- ✅ **5.3** Spend caps — monthly USD cap, `checkSpendCap` precheck (**fails closed on read truncation** — was silently undercounting → under-enforcing; `truncated` flag now surfaced in `SpendCapCard`). **Cap-bypass in `runAgent` fixed 2026-07-05** (it called `generateText` directly, skipping the guard). *(minor: `setSpendCap` not yet audited)*
 - 🟡 **5.4** Usage card — per-workspace per-day/model table (viewer-gated, not a cross-tenant leak). *(v0.2: no per-member breakdown — needs `byUser` from 5.1)*
-- 🟡 **5.5** audit-log — `auditEvents` table + prune cron + card; only 2/~12 call sites wired (role_changed, removed), no `logAudit` helper, non-paginated card. *(v0.2)*
+- 🟡 **5.5** audit-log — `auditEvents` table + prune cron + card; 5 reachable call sites wired (role_changed, removed, member.left, invite.accepted, workspace.ownership_transferred) + cred.deleted latent (shared-cred only, until a shared-cred WRITE path ships), no `logAudit` helper, non-paginated card. *(v0.2)*
 - 🟡 **5.6** Slice trios + nav. *(minor: nav order differs from spec; Members/Audit buttons rely on card self-gating)*
+
+## Dashboard shell + graph (shipped 2026-07-08)
+
+- ✅ **App-shell** — `page.tsx` is now a thin ~156-line shell (was a 1200-line monolith): 72px icon `NavigationRail` + secondary sidebar (sub-sections of the active group) + optional docked AI dock + light/dark theme toggle + inline section switch.
+- ✅ **Mobile dock** — CareerPack-style bottom-nav: 3 primary group tabs + center AI FAB + "More" overflow sheet (quick-create + all sub-sections + theme toggle + sign-out); replaces the old crude <640px rail-flip, restores a mobile AI entry point.
+- ✅ **memory-graph slice** — `frontend/slices/memory-graph` (v0.2.0): Obsidian-style force-directed graph over memories + agents + built-in skills + tools with agent→skill/tool cross-links; pan/zoom/drag + force sim + filters + node inspector + `@/[Title]` node-linking via MD/JSON import + add-memory dock. Portable `<MemoryGraph>` renderer (Convex-free) + wired `<MemoryGraphPanel>` adapter over existing memory/agentDefs queries; scoped `<style>`; NO new Convex table/fn. Full metadata trio.
+- ✅ **audit.md** — repo-root best-practice + CRUD compliance scorecard for all 20 features (20 auditors + 1 critic).
 
 ---
 
@@ -87,10 +94,10 @@ Real deltas between the plan text and the code. None block v0.1 use; each is a s
 | 4.2 | scheduled-agents | `agentRuns` trace row + `consecutiveErrors` auto-pause + `source:'schedule'` | scheduled runs invisible in trace; failing schedule not auto-paused |
 | 4.3 | scheduled-agents | cadence radio + next-run countdown + deliver-to-channel picker | can't deliver schedule output to a channel |
 | 5.4 | usage-rollups | `byUser` in rollup + per-member usage table | no per-member cost view |
-| 2.4 | combos | wire `round_robin` rotation + fallback ref iteration | `round_robin` silently == fallback |
+| 2.4 | combos | fallback ref iteration (`round_robin` rotation ✅ shipped) | fallback still returns `refs[0]` only |
 | 2.9 | memory | inject agent-scope + thread-summary rows; write recall bumps | agent memories + auto-summaries never reach the model |
 | 2.2/3.5 | api-compat/channels | thread `source` tag (`api`/`channel`/`schedule`) through `usage.log` | usage attribution by surface missing |
-| 5.5 | audit-log | wire remaining ~10 audit sites + `logAudit` helper + paginate card | thin audit trail |
+| 5.5 | audit-log | remaining audit sites + `logAudit` helper + paginate card (member.left/invite.accepted/cred.deleted now wired) | thinner audit trail |
 | 2.8 | memory | `replace` op + structured over-budget error | memory self-curation weaker than hermes spec |
 
 ## Deferred (trigger-gated) — unchanged, see MASTER-PLAN §8

@@ -7,20 +7,25 @@ provider registry, MCP server) is meant to eventually become **droppable
 block components** consumable by other rr-based apps. Honor every rule
 below for every file you write or edit. When in doubt, ask before deviating.
 
-**Compliance snapshot (2026-07-03, full audit — see git history / ask for
-details): stack baseline mostly conforms (Next 16 + React 19 pinned,
-`proxy.ts`, `@convex-dev/auth`) except Tailwind (absent — plain CSS) and
-Convex hosting (Cloud, not self-hosted Docker Compose). Convex data-access
-rules mostly conform (args validators 65/65, `.withIndex` 20/20) except a
-shared `requireUser`/`requireAdmin` helper (doesn't exist yet — 3 different
-inline auth idioms) and a few uncapped `.collect()` calls (`admin.ts`'s
-stats aggregates, one uncapped usage-history MCP tool). Vertical-slice
-structure, the slice metadata trio, shadcn UI, and the 200-line file cap do
-NOT exist yet — this is one monolithic `web/app/app/page.tsx` (1200+ lines)
-today, not slices. These are known, tracked gaps, not oversights — see
-`docs/AI-SLICES-PROGRESS.md` for feature-level rr-slice parity tracking.
-Do not "fix" these unprompted; migration is a deliberate, separately-scoped
-effort.**
+**Compliance snapshot (2026-07-08, re-verified vs code): most of the
+2026-07-03 gaps are now CLOSED. Now conforming: the vertical-slice structure
+exists — 13 slices under `web/frontend/slices/` each shipping the full
+metadata trio (`slice.json` + `slice.contract.ts` + `slice.manifest.json`);
+the shared authz helper exists (`convex/_shared/auth.ts` → `requireUser` /
+`requireAdmin` / `requireWorkspaceRole`); the 200-line file cap is honored
+across source; and `web/app/app/page.tsx` is a thin ~158-line shell (icon
+rail + secondary sidebar + AI dock + mobile bottom-dock, light/dark theme),
+NOT the old ~1200-line monolith. Convex data-access broadly conforms (args
+validators + `.withIndex`). STILL-open, deliberate gaps: Tailwind/shadcn
+absent (plain CSS + design tokens + a lone `button.tsx`); Convex hosting is
+Cloud, not self-hosted Docker Compose (but the sc-git pre-push hook
+auto-deploys prod Convex on every push); ~6 per-user-scoped uncapped
+`.collect()` sites remain (bounded in practice, un-gated by rule); and the
+shared-credential WRITE path is unbuilt (so `cred.deleted` audit is latent).
+Full per-feature detail: `audit.md` (best-practice + CRUD scorecard, 20
+features). Feature-level rr-slice parity: `docs/AI-SLICES-PROGRESS.md`.
+Do not "fix" the remaining gaps unprompted; they're deliberate, separately-
+scoped work.**
 
 ---
 
