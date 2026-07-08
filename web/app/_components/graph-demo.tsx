@@ -6,7 +6,7 @@ import { SAMPLE_GRAPH } from "@/features/memory-graph";
 
 const MemoryGraph = dynamic(() => import("@/features/memory-graph").then((m) => m.MemoryGraph), {
   ssr: false,
-  loading: () => <div className="mg-loading">loading graph…</div>,
+  loading: () => <div className="gd-loading">loading graph…</div>,
 });
 
 export function GraphDemo() {

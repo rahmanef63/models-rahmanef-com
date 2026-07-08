@@ -171,17 +171,24 @@ a { color: inherit; text-decoration: none; }
 .codeblock .k { color: var(--accent); }
 .lib-grid { display: grid; grid-template-columns: 0.9fr 1.1fr; gap: 2.5rem; align-items: center; }
 
-/* memory-graph showcase — the real <MemoryGraph> component on sample data */
-.mg-lede { color: var(--muted); font-size: 0.95rem; line-height: 1.7; max-width: 62ch; margin: 0; }
-.mg-lede .mono { color: var(--accent); }
-.mg-legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; margin: 1rem 0 0; font-family: var(--font-mono); font-size: 0.76rem; color: var(--muted); }
-.mg-legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
-.mg-legend i { width: 9px; height: 9px; border-radius: 50%; }
-.mg-live { display: flex; height: 560px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin: 1.2rem 0; background: var(--bg-2); }
-.mg-loading { margin: auto; font-family: var(--font-mono); font-size: 0.82rem; color: var(--muted); }
-.mg-cta { display: flex; justify-content: center; }
+/* memory-graph showcase — the real <MemoryGraph> on sample data. gd- (graph-demo) namespace, kept
+   OUT of .mg-* because the graph injects GRAPH_CSS with a bare global .mg-legend{position:absolute}
+   that would otherwise hijack the landing legend into the wrong spot. */
+.gd-lede { color: var(--muted); font-size: 0.95rem; line-height: 1.7; max-width: 62ch; margin: 0; }
+.gd-lede .mono { color: var(--accent); }
+.gd-legend { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; margin: 1rem 0 0; font-family: var(--font-mono); font-size: 0.76rem; color: var(--muted); }
+.gd-legend span { display: inline-flex; align-items: center; gap: 0.45rem; }
+.gd-legend i { width: 9px; height: 9px; border-radius: 50%; }
+.gd-live { display: flex; height: 560px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin: 1.2rem 0; background: var(--bg-2); }
+.gd-loading { margin: auto; font-family: var(--font-mono); font-size: 0.82rem; color: var(--muted); }
+.gd-cta { display: flex; justify-content: center; }
 /* keep >= the graph's own min-height (520px) so the canvas is never clipped on phones */
-@media (max-width: 640px) { .mg-live { height: 520px; } }
+@media (max-width: 640px) { .gd-live { height: 520px; } }
+
+/* roadmap teaser strip on the landing */
+.teaser { display: flex; justify-content: space-between; align-items: center; gap: 2rem; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 8px; padding: 1.8rem 2rem; background: var(--bg-2); }
+.teaser h2 { font-family: var(--font-display); font-weight: 500; font-size: 1.6rem; margin: 0.4rem 0 0.5rem; }
+.teaser p { margin: 0; max-width: 60ch; }
 
 /* comparison table — scrolls inside its own container on mobile (no page overflow) */
 .cmp-lede { color: var(--muted); font-size: 0.95rem; line-height: 1.7; max-width: 68ch; margin: 0 0 1.4rem; }
@@ -214,6 +221,24 @@ a { color: inherit; text-decoration: none; }
 .rm-cta a { color: var(--accent); white-space: nowrap; }
 .foot-links { display: inline-flex; gap: 1.2rem; flex-wrap: wrap; }
 @media (max-width: 768px) { .rm-grid { grid-template-columns: 1fr; } }
+
+/* /roadmap — changelog timeline */
+.log { display: flex; flex-direction: column; gap: 1.5rem; border-left: 2px solid var(--line); padding-left: 1.5rem; }
+.log-entry { position: relative; }
+.log-entry::before { content: ""; position: absolute; left: calc(-1.5rem - 5px); top: 0.35rem; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px var(--bg); }
+.log-meta { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.55rem; flex-wrap: wrap; }
+.log-date { font-family: var(--font-mono); font-size: 0.82rem; color: var(--fg); font-weight: 700; }
+.log-tag { font-family: var(--font-mono); font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); border: 1px solid var(--line-2); border-radius: 999px; padding: 0.15rem 0.6rem; }
+.log-entry ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.log-entry li { color: var(--muted); font-size: 0.9rem; line-height: 1.5; padding-left: 1rem; position: relative; overflow-wrap: anywhere; }
+.log-entry li::before { content: "–"; position: absolute; left: 0; color: var(--line-2); }
+/* /roadmap — deep-doc cards */
+.doc-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+.doc-card { display: block; border: 1px solid var(--line); border-radius: 6px; padding: 1.1rem 1.2rem; background: var(--bg-2); transition: 0.16s; }
+.doc-card:hover { border-color: var(--accent); background: var(--bg-3); }
+.doc-card h3 { font-family: var(--font-mono); font-size: 0.9rem; margin: 0 0 0.4rem; color: var(--accent); }
+.doc-card p { color: var(--muted); font-size: 0.85rem; margin: 0; line-height: 1.5; }
+@media (max-width: 600px) { .doc-grid { grid-template-columns: repeat(2, 1fr); } }
 
 footer { border-top: 1px solid var(--line); padding: 2.5rem 0; margin-top: 3rem; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem; font-family: var(--font-mono); font-size: 0.8rem; color: var(--muted); }
 

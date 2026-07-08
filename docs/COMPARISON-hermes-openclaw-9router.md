@@ -6,6 +6,10 @@
 > Reference-project facts verified 2026-07-08 against each official site + GitHub README (see §9).
 >
 > Legend: ✅ have it · 🟡 partial / adjacent / weaker form · ❌ absent
+>
+> **Manef marks refreshed 2026-07-08 vs shipped code:** the `channels` slice (Telegram/Slack/WhatsApp/Discord
+> inbound) and the `api-compat` `/v1` gateway (OpenAI `/v1/chat/completions` + `/v1/models`, Anthropic
+> `/v1/messages`) are live — earlier revisions of this doc marked both ❌, which understated the repo.
 
 ---
 
@@ -18,14 +22,14 @@ from a fetched source are marked *(unverified)*; the granular feature matrix is 
 |---|---|---|---|---|
 | Stack layer | Distribution / channel gateway | Agent runtime + memory / learning loop | Routing / cost layer | Multi-tenant BYOK dashboard + agent runner |
 | Tagline | "Personal AI assistant you run on your own devices" | "The agent that grows with you" | "FREE AI Router & Token Saver" | Per-user model dashboard + agent loop + MCP |
-| Interfaces | ~23–29 chat channels + mobile/desktop nodes | Telegram/Discord/Slack/WhatsApp/Signal/Email + CLI/TUI | OpenAI-compatible endpoint for coding CLIs | Web dashboard + OAuth MCP server (no channels yet) |
+| Interfaces | ~23–29 chat channels + mobile/desktop nodes | Telegram/Discord/Slack/WhatsApp/Signal/Email + CLI/TUI | OpenAI-compatible endpoint for coding CLIs | Web dashboard + OAuth MCP server + /v1 gateway + 4 inbound channels |
 | Memory | Marketed, no README mechanism *(depth unverified)* | ✅ Cross-session (FTS5 + curated + user model) | ✗ (only SQLite config/usage) | Per-user Convex isolation; no learning loop |
 | Model routing | Model-agnostic BYOM, per-agent | Provider-agnostic (Nous Portal/OpenRouter/OpenAI/own) | ✅ 3-tier fallback, combos, 40+ providers / 100+ models, RTK saver | 22-provider BYOK; manual primary/secondary |
 | Multi-agent | ✅ routing to isolated agents | ✅ subagents + Python-RPC | ✗ single-request router | ✅ runAgent loop + agent defs, per-user/session |
 | Deploy | npm-global on-device + launchd/systemd daemon; Docker = sandbox | 6 backends (local/Docker/SSH/Singularity/Modal/Daytona), $5 VPS | Localhost / VPS / Docker / CF Workers | Dokploy + Convex Cloud (auto-deploy hook) |
 | Database | Not documented (workspace files) | FTS5 (SQLite inferred, not named) | SQLite | Convex (Cloud now; self-hosted = rr target) |
 | License | MIT | MIT | MIT | private / internal |
-| Weak spot | β Beta; memory depth undocumented | Needs Nous Portal sub / 5 API keys | Router only; free tiers can vanish | No channels; no learning loop; not self-hosted yet |
+| Weak spot | β Beta; memory depth undocumented | Needs Nous Portal sub / 5 API keys | Router only; free tiers can vanish | Channels v0.1 (4, Discord flaky); no learning loop; not self-hosted yet |
 
 ---
 
@@ -36,7 +40,7 @@ from a fetched source are marked *(unverified)*; the granular feature matrix is 
 | **hermes** | Mature single-user self-improving AI agent: CLI + TUI + desktop + a ~25-channel messaging gateway, a learning loop (auto-creates/improves skills, curated memory, FTS5 recall), 28 provider plugins over a models.dev catalog, cron, MCP client+server, ACP. | Python 3.11–3.13 core + Node (WhatsApp bridge, TUI, web) + React19/Vite/Electron/Tauri desktop + Rust (Tauri) |
 | **openclaw** | Self-hosted single-user "personal AI assistant" Gateway (WebSocket control plane) reaching you on 25+ chat channels, exposing OpenAI/OpenResponses HTTP, fronting ~60 pluggable providers with BYOK auth-profiles, agentic tool/skill/plugin runtime, MCP server + client, phone/desktop node mode. | TypeScript / Node.js (ESM, compiled `dist/*.js`, `bin openclaw.mjs`) |
 | **9router** | Self-hosted multi-provider AI router: one OpenAI/Anthropic/Gemini request fans out to 94 providers via a provider-agnostic SSE translation engine, plus a transparent MITM proxy that hijacks desktop coding-agent traffic and an RTK token-saver layer. | JavaScript/JSX on Node 22 (Next.js 16 + React 19.2, standalone) + SQLite; also global `9router` npm CLI |
-| **Manef** (`models-rahmanef-com`) | Multi-tenant BYOK model dashboard + agent runner, distilled from openclaw+hermes: 22 providers over a models.dev catalog, per-user AES-256-GCM keys, a unified tool registry feeding an agent loop and an OAuth-2.1 MCP server. | Next.js 16 / React 19 frontend (Dokploy/Docker) + Convex Cloud backend + `@convex-dev/auth`; rr vertical slices |
+| **Manef** (`models-rahmanef-com`) | Multi-tenant BYOK model dashboard + agent runner, distilled from openclaw+hermes: 22 providers over a models.dev catalog, per-user AES-256-GCM keys, a unified tool registry feeding an agent loop, an OAuth-2.1 MCP server, a `/v1` OpenAI+Anthropic gateway, and 4 inbound chat channels. | Next.js 16 / React 19 frontend (Dokploy/Docker) + Convex Cloud backend + `@convex-dev/auth`; rr vertical slices |
 
 ---
 
@@ -48,10 +52,10 @@ Every channel/surface across all four, one row each.
 
 | Channel | hermes | openclaw | 9router | Manef |
 |---|:--:|:--:|:--:|:--:|
-| telegram | ✅ | ✅ | ❌ | ❌ |
-| whatsapp | ✅ | ✅ | ❌ | ❌ |
-| discord | ✅ | ✅ | ❌ | ❌ |
-| slack | ✅ | ✅ | ❌ | ❌ |
+| telegram | ✅ | ✅ | ❌ | ✅ |
+| whatsapp | ✅ | ✅ | ❌ | ✅ |
+| discord | ✅ | ✅ | ❌ | 🟡 |
+| slack | ✅ | ✅ | ❌ | ✅ |
 | signal | ✅ | ✅ | ❌ | ❌ |
 | sms (Twilio) | ✅ | ✅ | ❌ | ❌ |
 | email / gmail-pubsub | ✅ | 🟡 | ❌ | ❌ |
@@ -91,9 +95,9 @@ Every channel/surface across all four, one row each.
 | tui | ✅ | ✅ | ❌ | ❌ |
 | desktop app (Electron / menubar / hub) | ✅ | ✅ | ❌ | ❌ |
 | mobile / phone node apps | 🟡 (Termux) | ✅ (iOS/Android node) | ❌ | ❌ |
-| REST API — OpenAI Chat Completions | ✅ | ✅ | ✅ | ❌ |
+| REST API — OpenAI Chat Completions | ✅ | ✅ | ✅ | ✅ |
 | REST API — OpenAI Responses (`/v1/responses`) | 🟡 (client-side) | ✅ | ✅ | ❌ |
-| REST API — Anthropic Messages | 🟡 (client-side) | 🟡 (southbound) | ✅ | ❌ |
+| REST API — Anthropic Messages | 🟡 (client-side) | 🟡 (southbound) | ✅ | ✅ |
 | REST API — Gemini/vertex compatible | 🟡 (client-side) | ❌ | ✅ | ❌ |
 | REST API — embeddings (`/v1/embeddings`) | ❌ | ✅ | ✅ | ❌ |
 | SSE streaming endpoint | ✅ | ✅ | ✅ | 🟡 (via MCP transport) |
@@ -101,7 +105,7 @@ Every channel/surface across all four, one row each.
 | MCP client / host (spawns external servers) | ✅ | ✅ | ✅ | ❌ |
 | ACP adapter (editor host, Zed/Codex/Copilot) | ✅ | ✅ | ❌ | ❌ |
 | MITM debug/interception proxy | ❌ | ✅ (debug) | ✅ (traffic hijack) | ❌ |
-| CLI-tool endpoint presets (point Claude Code/Codex/etc. at it) | 🟡 | ❌ | ✅ | ❌ |
+| CLI-tool endpoint presets (point Claude Code/Codex/etc. at it) | 🟡 | ❌ | ✅ | 🟡 |
 | tunnel exposure (Tailscale / CF / Vercel) | 🟡 | ✅ (Tailscale serve/funnel, Bonjour) | ✅ (Tailscale + proxy pools) | ❌ |
 
 ### 2b. MODALITIES
@@ -149,14 +153,16 @@ Every channel/surface across all four, one row each.
 ### Channels
 - [x] Web dashboard surface
 - [x] MCP server surface (bearer + OAuth 2.1)
-- [ ] Any messaging channel at all — telegram/whatsapp/discord/slack/signal (hermes, openclaw)
+- [x] Inbound messaging channels — telegram / slack / whatsapp / discord (Discord v0.1, latency-flaky)
+- [ ] Channel breadth — signal, sms, voice, matrix + the ~25 others (hermes, openclaw)
 - [ ] Enterprise/regional chat — teams, feishu, line, mattermost, WeChat/QQ (hermes, openclaw)
 - [ ] SMS + voice-call telephony (openclaw; hermes sms)
 - [ ] CLI + TUI surfaces (hermes, openclaw, 9router-cli)
 - [ ] Desktop app (hermes Electron, openclaw menubar/hub)
 - [ ] Mobile / phone node apps (openclaw iOS/Android node mode)
-- [ ] OpenAI-compatible REST API (`/v1/chat/completions`, `/v1/models`) (hermes, openclaw, 9router)
-- [ ] Anthropic / Gemini / Responses compatible REST (9router; openclaw responses)
+- [x] OpenAI-compatible REST API (`/v1/chat/completions` + `/v1/models`) — non-streaming v0.1
+- [x] Anthropic Messages REST (`/v1/messages`) — Claude Code connects today
+- [ ] Streaming SSE + client tool passthrough; Gemini / Responses shapes (9router; openclaw responses)
 - [ ] Inbound webhook + email/gmail triggers (hermes, openclaw)
 - [ ] ACP editor host (hermes, openclaw)
 
@@ -267,10 +273,10 @@ Every channel/surface across all four, one row each.
 
 ## 5. Biggest gaps to consider adopting (ranked)
 
-1. **Messaging channels — zero today.** Everyone but us reaches the user on chat platforms. Telegram + WhatsApp + Discord + Slack is the highest-leverage first wave (hermes, openclaw). This is the single largest category gap.
+1. **Messaging channels — 4 inbound shipped, breadth to go.** Telegram / Slack / WhatsApp / Discord inbound now work (Discord needs latency-hardening → type-5 deferred ack). The remaining gap is breadth — Signal / Matrix / SMS / voice + the ~25 others (hermes, openclaw) — and outbound-initiated flows.
 2. **Non-chat modalities.** We are chat/text only; the other three all ship vision + image-gen + tts + stt, and two ship embeddings (openclaw, 9router). Embeddings especially unlock RAG.
 3. **MCP client / host.** We serve MCP but cannot consume external MCP servers. All three others are MCP clients (hermes+openclaw both roles). Adopting a client turns every community MCP into a tool.
-4. **OpenAI/Anthropic-compatible REST API.** hermes, openclaw, 9router all expose `/v1/chat/completions` (+ `/v1/models`, responses). We only expose MCP — a compat API would let any existing tool point at us.
+4. **Streaming + broader REST.** We already ship `/v1` OpenAI + Anthropic (non-streaming) plus MCP — Claude Code points at us today. What's left: resumable SSE streaming, client `tools`/`tool_choice` passthrough, and Responses / Gemini shapes (9router, openclaw).
 5. **Scheduled agents (real cron surface).** We have Convex cron plumbing but no user-facing "run this agent on a schedule and deliver to a channel" (hermes, openclaw). Pairs naturally with gap #1.
 6. **Usage / cost / quota tracking + token-output compaction.** We only have prompt-injection savers; the others track spend and compress tool output (9router RTK, openclaw Tokenjuice, hermes usage_pricing).
 7. **More subscription logins + multi-key failover.** Add Copilot / Qwen / Gemini-CLI OAuth and a same-provider credential pool with cooldown/backoff (hermes credential_pool, openclaw auth.order, 9router accountFallback).
@@ -314,8 +320,8 @@ in `vectorChunks`, not scattered; routing stays simple (primary/secondary) befor
 every service on its own domain but one shared observability arch.
 
 > **Current vs target.** This repo today runs on **Convex Cloud** (not self-hosted `manef-db`), exposes
-> an **MCP server** (no chat channels yet), and uses a **22-provider BYOK registry** (not an
-> OpenRouter-primary router). The gateway / `vectorChunks` / OpenRouter-primary lines above describe the
+> an **MCP server** + a **`/v1` OpenAI+Anthropic gateway** + **4 inbound chat channels** (v0.1), and uses
+> a **22-provider BYOK registry** (not an OpenRouter-primary router). The gateway / `vectorChunks` / OpenRouter-primary lines above describe the
 > target Manef deployment from the design brief — they are **not** verified current-repo facts.
 
 ---

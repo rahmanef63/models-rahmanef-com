@@ -1,7 +1,5 @@
 import Link from "next/link";
 import { GraphDemo } from "./_components/graph-demo";
-import { Comparison } from "./_components/comparison";
-import { Roadmap } from "./_components/roadmap";
 
 const PROVIDERS = ["OpenAI", "Anthropic", "Google", "OpenRouter", "Groq", "xAI", "DeepSeek", "Mistral", "Moonshot", "Cohere", "Perplexity", "Together", "Fireworks", "Cerebras", "DeepInfra"];
 const GITHUB = "https://github.com/rahmanef63/models-rahmanef-com";
@@ -110,24 +108,31 @@ export default function Landing() {
           <span className="eyebrow">workspace / memory</span>
           <h2>Your knowledge, as a graph.</h2>
         </div>
-        <p className="mg-lede">
+        <p className="gd-lede">
           An <b>Obsidian-style</b> canvas over everything the workspace knows — memories, agents,
           skills and tools — in one live, force-directed graph. Drag a node, zoom, or link notes with{" "}
           <span className="mono">@</span> / <span className="mono">/</span> mentions. This is the real
           component below, running on sample data:
         </p>
-        <div className="mg-legend" aria-hidden>
+        <div className="gd-legend" aria-hidden>
           {MG_LEGEND.map(([label, color]) => (
             <span key={label}><i style={{ background: color }} /> {label}</span>
           ))}
         </div>
-        <div className="mg-live"><GraphDemo /></div>
-        <div className="mg-cta"><Link className="btn accent" href="/app">Open the graph →</Link></div>
+        <div className="gd-live"><GraphDemo /></div>
+        <div className="gd-cta"><Link className="btn accent" href="/app">Open the graph →</Link></div>
       </section>
 
-      <Comparison />
-
-      <Roadmap />
+      <section className="section">
+        <div className="teaser">
+          <div>
+            <span className="eyebrow">where it&apos;s going</span>
+            <h2>A foundation, not a competitor.</h2>
+            <p className="muted">Multi-tenant, encrypted, composable — every capability a droppable slice. See the full roadmap, how it compares to OpenClaw / Hermes / 9Router, and the changelog.</p>
+          </div>
+          <Link className="btn accent" href="/roadmap">Roadmap &amp; changelog →</Link>
+        </div>
+      </section>
 
       <section className="section">
         <div className="section-head">
@@ -167,7 +172,7 @@ export default function Landing() {
         <span>models — bring your own key</span>
         <span>distilled from openclaw &amp; hermes · built on convex + vercel</span>
         <span className="foot-links">
-          <a href={`${GITHUB}/blob/main/ROADMAP.md`} target="_blank" rel="noreferrer">roadmap ↗</a>
+          <Link href="/roadmap">roadmap</Link>
           <a href={GITHUB} target="_blank" rel="noreferrer">github ↗</a>
         </span>
       </footer>
