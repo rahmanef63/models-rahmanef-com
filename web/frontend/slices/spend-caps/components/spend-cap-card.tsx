@@ -7,7 +7,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
 
-type Status = { over: boolean; spentUsd: number; capUsd: number | null };
+type Status = { over: boolean; spentUsd: number; capUsd: number | null; truncated?: boolean };
 const usd = (n: number) => (n < 0.01 && n > 0 ? "<$0.01" : `$${n.toFixed(2)}`);
 
 export function SpendCapCard() {
@@ -54,6 +54,11 @@ export function SpendCapCard() {
           <p className="mono muted" style={{ fontSize: ".82rem", margin: ".8rem 0 .3rem" }}>
             ~{usd(status.spentUsd)} spent{status.capUsd != null ? ` · ${usd(status.capUsd)} cap` : " · no cap set"}{status.over ? " · OVER" : ""}
           </p>
+          {status.truncated && (
+            <p className="mono danger" style={{ fontSize: ".72rem", margin: "0 0 .4rem" }}>
+              Too many usage rows this month to sum exactly — the figure is a floor; calls are blocked (fail-closed) until it can be fully computed.
+            </p>
+          )}
           {status.capUsd != null && (
             <div style={{ height: 6, background: "var(--border, #2222)", borderRadius: 3, overflow: "hidden" }}>
               <div style={{ width: `${pct}%`, height: "100%", background: barColor }} />
