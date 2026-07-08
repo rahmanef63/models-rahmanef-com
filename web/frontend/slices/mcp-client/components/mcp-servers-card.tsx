@@ -17,9 +17,11 @@ export function McpServersCard() {
   const { workspaceId, role } = useWorkspace();
   const servers = useQuery(api.mcpServers.listServers, workspaceId ? { workspaceId: workspaceId as never } : {}) as Srv[] | undefined;
   const add = useAction(api.mcpServers.addServer);
+  const update = useAction(api.mcpServers.updateServer);
   const remove = useMutation(api.mcpServers.removeServer);
   const toggle = useMutation(api.mcpServers.toggleServer);
   const probe = useAction(api.mcpClientNode.probeServer);
+  const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [url, setUrl] = useState("");
   const [transport, setTransport] = useState("http");
@@ -28,12 +30,17 @@ export function McpServersCard() {
   const [err, setErr] = useState<string | null>(null);
   const canWrite = role !== "viewer";
 
-  async function create() {
+  function resetForm() { setEditId(null); setName(""); setUrl(""); setHeaders(""); }
+  function edit(s: Srv) { setEditId(s.id); setName(s.name); setUrl(s.url); setTransport(s.transport); setHeaders(""); setErr(null); }
+
+  async function save() {
     setErr(null); setBusy("add");
     try {
-      await add({ name: name.trim(), url: url.trim(), transport, workspaceId: workspaceId as never, headersJson: headers.trim() || undefined });
-      setName(""); setUrl(""); setHeaders("");
-    } catch (e) { setErr((e as { data?: { detail?: string } })?.data?.detail ?? "Failed to add server"); }
+      // on edit, a blank headers box means "keep existing" (backend: undefined = leave as-is).
+      if (editId) await update({ id: editId as never, name: name.trim(), url: url.trim(), transport, headersJson: headers.trim() || undefined });
+      else await add({ name: name.trim(), url: url.trim(), transport, workspaceId: workspaceId as never, headersJson: headers.trim() || undefined });
+      resetForm();
+    } catch (e) { setErr((e as { data?: { detail?: string } })?.data?.detail ?? "Failed to save server"); }
     finally { setBusy(null); }
   }
 
@@ -50,9 +57,10 @@ export function McpServersCard() {
             </select>
           </div>
           <input placeholder="https://server.example.com/mcp" value={url} onChange={(e) => setUrl(e.target.value)} />
-          <textarea placeholder='optional headers JSON, e.g. {"Authorization":"Bearer …"}' value={headers} onChange={(e) => setHeaders(e.target.value)} rows={2} style={{ fontFamily: "monospace", fontSize: ".82rem" }} />
-          <div className="row">
-            <button className="btn accent" disabled={!name.trim() || !url.trim() || busy === "add"} onClick={() => void create()}>{busy === "add" ? "Adding…" : "Add server"}</button>
+          <textarea placeholder={editId ? "headers JSON — leave blank to keep existing" : 'optional headers JSON, e.g. {"Authorization":"Bearer …"}'} value={headers} onChange={(e) => setHeaders(e.target.value)} rows={2} style={{ fontFamily: "monospace", fontSize: ".82rem" }} />
+          <div className="row" style={{ gap: ".5rem" }}>
+            <button className="btn accent" disabled={!name.trim() || !url.trim() || busy === "add"} onClick={() => void save()}>{busy === "add" ? (editId ? "Saving…" : "Adding…") : (editId ? "Save changes" : "Add server")}</button>
+            {editId && <button className="btn" onClick={resetForm}>Cancel</button>}
           </div>
           {err && <p className="mono danger" style={{ fontSize: ".8rem" }}>{err}</p>}
         </div>
@@ -67,6 +75,7 @@ export function McpServersCard() {
                   <span className="badge">{s.toolCount} tool{s.toolCount === 1 ? "" : "s"}</span>
                   <button className="link" disabled={busy === s.id} onClick={async () => { setBusy(s.id); try { await probe({ serverId: s.id as never }); } finally { setBusy(null); } }}>{busy === s.id ? "probing…" : "probe"}</button>
                   <label className="mono muted" style={{ fontSize: ".78rem" }}><input type="checkbox" checked={s.enabled} onChange={(e) => void toggle({ id: s.id as never, enabled: e.target.checked })} /> on</label>
+                  {canWrite && <button className="link" onClick={() => edit(s)}>edit</button>}
                   {canWrite && <button className="link danger" onClick={() => void remove({ id: s.id as never })}>remove</button>}
                 </span>
               </div>

@@ -21,7 +21,7 @@ export const contract = defineSliceContract({
   requires: { deps: ["@convex-dev/auth", "workspaces", "byok"] },
   provides: {
     components: ["ComboBuilderCard"],
-    convex: ["combos.listCombos", "combos.createCombo", "combos.renameCombo", "combos.removeCombo"],
+    convex: ["combos.listCombos", "combos.createCombo", "combos.updateCombo", "combos.removeCombo"],
     tables: ["combos"],
     tools: [],
   },

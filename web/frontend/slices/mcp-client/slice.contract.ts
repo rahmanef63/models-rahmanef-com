@@ -22,7 +22,7 @@ export const contract = defineSliceContract({
   requires: { deps: ["@convex-dev/auth", "@modelcontextprotocol/sdk"] },
   provides: {
     components: ["McpServersCard"],
-    convex: ["mcpServers.listServers", "mcpServers.addServer", "mcpServers.removeServer", "mcpServers.toggleServer", "mcpClientNode.probeServer"],
+    convex: ["mcpServers.listServers", "mcpServers.addServer", "mcpServers.updateServer", "mcpServers.removeServer", "mcpServers.toggleServer", "mcpClientNode.probeServer"],
     tables: ["mcpServers"],
     tools: ["mcp__<server>__<tool>"],
   },

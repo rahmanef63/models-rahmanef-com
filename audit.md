@@ -8,18 +8,20 @@
 
 ## Progress
 
-**All 20/20 features audited ✅ · 5 fixed + re-verified ✅** · avg **86.5/100** · 2×A 18×B · **0 HIGH + 24 MED** critiques open.
+**All 20/20 features audited ✅ · 9 fixed + re-verified ✅ · re-verified live 2026-07-08 ✅** · avg **87.0/100** · 4×A 16×B · **0 HIGH + ~20 MED** critiques open.
+
+> **Re-verification 2026-07-08** — a fresh 20-auditor pass was run; it replayed the pre-fix cache, so its scores reproduce the *initial* audit, not this file. Re-checked the 5 fix-pass changes against **current code** and all are live: `transferOwnership` (`workspaces.ts:157`) + `makeOwner` UI (`members-card.tsx:24`); `bumpRotation` call (`callForUser.ts:42`); spend-cap `truncated` fail-closed (`spendCaps.ts:30-31`); 402/quota → failover (`fallbackRules.ts:56`); audit hooks `member.left`/`invite.accepted`/`cred.deleted`/`workspace.ownership_transferred` (`workspaces.ts:150,170`, `workspaceInvites.ts:75`, `credentials.ts:109`). No convex regressions since the fix pass (`git log` last backend touch = `76ab742`). **Scores stand; this file is authoritative.**
 
 - [x] workspaces — 🔧 fixed
 - [x] byok
 - [x] api-compat
 - [x] memory
 - [x] memory-graph
-- [x] combos — 🔧 fixed
-- [x] mcp-client
+- [x] combos — 🔧 fixed · 🔧² CRUD
+- [x] mcp-client — 🔧² CRUD
 - [x] audit-log — 🔧 fixed
-- [x] channels
-- [x] scheduled-agents
+- [x] channels — 🔧² CRUD
+- [x] scheduled-agents — 🔧² CRUD
 - [x] usage-rollups
 - [x] provider-pool — 🔧 fixed
 - [x] spend-caps — 🔧 fixed
@@ -55,6 +57,23 @@ Shipped from the top of the recommended fix order, each **adversarially re-verif
 >
 > **Closed in a later follow-up (2026-07-08):** `SpendCapCard` now reads + surfaces the `truncated` flag (the previously-unwired UI half); the audit-log `slice.json` description now lists `leaves` + `ownership transfers` so the trio matches what actually fires. Remaining items above are genuine next steps.
 
+## 🔧 Fix pass 2 — CRUD-completeness batch (2026-07-08)
+
+User-requested batch: close the "Update"/"Delete" CRUD gaps flagged MED, keeping clear of the CLAUDE.md deliberate gaps (shadcn, shared-cred write, the 6 bare `.collect()`). Each fix is backend mutation **+ UI wiring** (the audit dings unwired mutations — e.g. the old `renameCombo` — as "no client-side update"), then re-verified: `tsc --noEmit` clean · `npm test` 4/4 · Convex codegen clean · ≤200-line cap held.
+
+| Feature | Score | Fix | What changed |
+|---|:---:|:---:|---|
+| mcp-client | **88 → 90** (A) | ✅ | Added `updateServer` action + `_update` (edit name/url/transport, re-encrypt **or** clear headers, re-run `assertSafeUrl`, drop the stale `toolCache` when url/transport changes) + inline **edit** in `McpServersCard`. The missing-Update path — the sole non-baseline A-blocker — is closed. |
+| scheduled-agents | **87 → 90** (A) | ✅ | Added `update` mutation (edit agent + prompt + interval, creator-or-admin guarded, new agent must belong to the schedule **owner** so the run-as-owner invariant holds) + wired edit form. Update was toggle-only; changing cadence no longer needs delete+recreate (run history preserved). |
+| combos | **86 → 89** (B) | ✅ | Replaced the dead rename-only `renameCombo` with `updateCombo` (name + refs + strategy + stickyLimit, reuses `validate()`, resets the round_robin cursor) + wired inline edit. Editing a combo's models no longer needs delete+recreate; contract `convex[]` updated. |
+| channels | **86 → 88** (B) | ✅ | `deleteChannel` now **cascades** the channel-owned rows — `channelIdentities` + `channelEvents` (bounded loop-until-empty) — so they no longer orphan. threads/messages are shared workbench data and are intentionally kept. |
+
+**Still open after this batch** (not in scope — deliberate or separately-scoped):
+- **channels** — `channelsCore.setModel` is implemented but never called from any frontend file, so a no-agent channel still can't get a fallback model (keeps channels at B, not A). Separate UI-wiring task.
+- **combos** — `stickyLimit` still stored-but-reserved; single-click delete has no confirm (both low).
+- **scheduled-agents** — claim-before-run can pair a fresh `lastRunAt` with a stale `ok` status if the node action crashes before `_markRun` (low).
+- **The CLAUDE.md deliberate gaps** — 6 bare `.collect()`, byok `.unique()`/`.first()`, `as never` at the Id boundary, shadcn absent, shared-cred WRITE — untouched by design (not fixed unprompted).
+
 ## Scoreboard
 
 CRUD legend: ✓ full · ◐ partial · ✗ missing · – n/a. 🔧 = fixed this pass.
@@ -65,14 +84,14 @@ CRUD legend: ✓ full · ◐ partial · ✗ missing · – n/a. 🔧 = fixed thi
 | 2 | [workspaces](#workspaces) 🔧 | 90 | A | ✓ | ✓ | ✓ | ✓ | Fix CONFIRMED and well-executed. transferOwnership is correct, atomic, owner-only, fully guarded (self/personal/non-member), Convex-rule-clean, and makes both p |
 | 3 | [api-compat](#api-compat) | 90 → **88** | A → **B** | ✓ | ✓ | – | ✓ | Tight, security-first gateway slice: complete-for-shape CRUD, full Convex validator/authz/index compliance, strong key hygiene, and clean portability — only low |
 | 4 | [ai-chat](#ai-chat) | 89 | B | ✓ | ✓ | ◐ | ✓ | Exemplary Convex backend (validators, indexing, authz, spend-caps, modularity all clean); dinged only by a partial thread-Update, a dangling-user-message edge c |
-| 5 | [mcp-client](#mcp-client) | 88 | B | ✓ | ✓ | ◐ | ✓ | Clean, security-forward external-MCP slice — full trio, airtight Convex validation/authz/encryption and thoughtful SSRF+redaction+loop guards; held back from an |
+| 5 | [mcp-client](#mcp-client) 🔧² | 88 → **90** | B → **A** | ✓ | ✓ | ✓ | ✓ | `updateServer` (edit url/name/transport, re-encrypt/clear headers, re-probe on url change) added + wired — the missing-Update A-blocker is closed. Airtight Convex + SSRF/redaction guards throughout. |
 | 6 | [byok](#byok) | 87 | B | ✓ | ✓ | ◐ | ✓ | Clean, security-minded BYOK slice: encryption + tenant derivation + validators + trio are textbook; deductions are a latent .unique()/.first() inconsistency, an |
 | 7 | [memory](#memory) | 87 | B | ✓ | ✓ | ✓ | ✓ | Strong, well-wired slice: complete CRUD (archive-only by design), textbook Convex hygiene, and injection-hardened — docked mainly for a stale barrel version, de |
-| 8 | [scheduled-agents](#scheduled-agents) | 87 | B | ✓ | ✓ | ◐ | ✓ | Tight, secure, well-documented cron slice — Convex rules fully honored and files tiny; held to B by toggle-only Update (no cadence edit), raw-HTML UI (project b |
+| 8 | [scheduled-agents](#scheduled-agents) 🔧² | 87 → **90** | B → **A** | ✓ | ✓ | ✓ | ✓ | `update` mutation (edit agent/prompt/cadence, owner-invariant preserved) + wired edit form — the toggle-only-Update B-cap is closed. Convex rules fully honored, files tiny. |
 | 9 | [provider-pool](#provider-pool) 🔧 | 87 | B | – | ✓ | ◐ | – | Fix CONFIRMED and correct. The retryable:false→true flip for 402/quota_exceeded is present (fallbackRules.ts:56-58) and correctly consumed by callForUser.ts:155 |
 | 10 | [memory-graph](#memory-graph) | 86 | B | ✓ | ✓ | ◐ | ✓ | Strong, highly-modular, genuinely portable frontend slice — trio + version + barrel + file-cap all green; main real gap is that the 'add child' UI promises a me |
-| 11 | [combos](#combos) 🔧 | 86 | B | ✓ | ✓ | ◐ | ✓ | Fix CONFIRMED and genuine — round_robin now rotates across refs and wraps (combos.ts:88 return-shape + callForUser.ts:40 bumpRotation wiring), fallback is prova |
-| 12 | [channels](#channels) | 86 | B | ✓ | ✓ | ◐ | ✓ | Backend is A-grade (flawless Convex compliance + strong crypto/abuse defense); dinged to a solid B by a missing cascade-delete, a setModel path that's implement |
+| 11 | [combos](#combos) 🔧² | 86 → **89** | B | ✓ | ✓ | ✓ | ✓ | `updateCombo` (refs+strategy+name, resets rotation) replaces the dead rename-only path + wired inline edit — Update now full. round_robin rotation (prior pass) still confirmed. |
+| 12 | [channels](#channels) 🔧² | 86 → **88** | B | ✓ | ✓ | ◐ | ✓ | `deleteChannel` now cascades `channelIdentities` + `channelEvents` (bounded loop; threads kept) — orphan-on-delete closed. Still B: `setModel` implemented-but-unwired remains. |
 | 13 | [audit-log](#audit-log) 🔧 | 85 | B | ✓ | ✓ | – | ◐ | Fix confirmed and real. The three added hooks (member.left, invite.accepted, cred.deleted) are present, atomic within the acting mutation's transaction, schema- |
 | 14 | [mcp-server-inbound](#mcp-server-inbound) | 85 | B | ✓ | ✓ | ◐ | ◐ | Security-first, tightly-scoped MCP inbound layer that nails the hard parts (hashed secrets, PKCE, correct IP trust, per-call workspace re-check) — dinged only b |
 | 15 | [skills-tools-registry](#skills-tools-registry) | 85 | B | – | ✓ | – | – | Clean, well-factored cross-cutting registry — single source of truth for both tool surfaces, tiny files, upstream authz correct; main ding is that the declared  |
@@ -82,7 +101,7 @@ CRUD legend: ✓ full · ◐ partial · ✗ missing · – n/a. 🔧 = fixed thi
 | 19 | [ai-agents](#ai-agents) | 84 | B | ✓ | ✓ | ◐ | ◐ | Careful, ownership-tight backend with full CRUD on agent configs; B-grade dinged by two unbounded .collect()s, no delete/retention for run history, and a worksp |
 | 20 | [ai-admin](#ai-admin) | 83 | B | – | ✓ | – | – | Clean, simple, correctly-gated read-only operator console that nails Convex authz + validators + no-bare-collect; the one real flaw is aggregate totals silently |
 
-_Scores with → were revised down by the critic. 🔧 = re-scored after a verified fix this pass._
+_Scores with → were revised (down by the critic, or up after a verified fix). 🔧 = fix pass 1 (2026-07-07). 🔧² = fix pass 2, CRUD-completeness batch (2026-07-08)._
 
 ## Portfolio review (skeptical critic)
 
@@ -266,6 +285,8 @@ Backend Convex hygiene is the portfolio's real strength and is scored honestly: 
 
 ### mcp-client
 
+> 🔧² **2026-07-08 — rescored 88 → 90 (A).** The "missing update path" critique below is CLOSED: `updateServer` action + `_update` + wired inline edit. Detail below is the pre-fix pass-1 record.
+
 **Score 88 · Grade B** — Clean, security-forward external-MCP slice — full trio, airtight Convex validation/authz/encryption and thoughtful SSRF+redaction+loop guards; held back from an A only by a missing update path and the plain-HTML (non-shadcn) form controls.
 
 **CRUD:** C ✓ · R ✓ · U ◐ · D ✓
@@ -375,6 +396,8 @@ Backend Convex hygiene is the portfolio's real strength and is scored honestly: 
 
 ### scheduled-agents
 
+> 🔧² **2026-07-08 — rescored 87 → 90 (A).** The "toggle-only Update" cap below is CLOSED: `update` mutation (agent/prompt/cadence) + wired edit form. Detail below is the pre-fix pass-1 record.
+
 **Score 87 · Grade B** — Tight, secure, well-documented cron slice — Convex rules fully honored and files tiny; held to B by toggle-only Update (no cadence edit), raw-HTML UI (project baseline), and a couple of minor metadata/doc drifts.
 
 **CRUD:** C ✓ · R ✓ · U ◐ · D ✓
@@ -480,6 +503,8 @@ Backend Convex hygiene is the portfolio's real strength and is scored honestly: 
 
 ### combos
 
+> 🔧² **2026-07-08 — rescored 86 → 89 (B).** The "name-only update" drag below is CLOSED: dead `renameCombo` replaced by full `updateCombo` (refs+strategy+name) + wired inline edit; contract `convex[]` updated. Detail below is the pass-1 record.
+
 **Score 86 · Grade B** — Fix CONFIRMED and genuine — round_robin now rotates across refs and wraps (combos.ts:88 return-shape + callForUser.ts:40 bumpRotation wiring), fallback is provably untouched, the return-shape change breaks no caller (single caller, tsc exit 0). This remediates the exact prior defect (silent no-op behaving as fallback). Convex rules and rr conventions remain strong; remaining drags are the UI shadcn/theme gap (project-wide, unchanged), name-only update, and a low-severity query/mutation rotation race under concurrency. Score raised 81→86, B.  
 **🔧 Fixed this pass** (✅ fix confirmed, 81→86): resolveCombo now returns an object, not a bare string: `web/convex/combos.ts:85-88` picks refs[rotationIndex % len] for round_robin (L86) / refs[0] for fallback (L87) and returns {ref, comboId, strategy:combo.strategy} (L88). `callForUser.ts:36` gets `resolved`, null-checks it (L37, object truthy / null falsy — intact), sets modelRef=resolved.ref (L38), and calls internal.combos.bumpRotation only when resolved.strategy==="round_robin" (L40). bumpRotation (`combos.ts:95-101`) patches rotationIndex=((idx?0)+1)%refs.length (L100) and is double-guarded strategy!=="round_robin"→return (L99). Sequential trace refs=[A,B,C]: A(→1),B(→2),C(→0),A — advances+wraps. Fallback: `combos.ts:87` returns refs[0] and `callForUser.ts:40` skips bump → cursor frozen, behaviour unchanged. grep shows exactly ONE caller each for resolveCombo and bumpRotation (both callForUser); `npx tsc --noEmit` exits 0 with no combos/callForUser errors.
 
@@ -515,6 +540,8 @@ Backend Convex hygiene is the portfolio's real strength and is scored honestly: 
 ---
 
 ### channels
+
+> 🔧² **2026-07-08 — rescored 86 → 88 (B).** The "missing cascade-delete" ding below is CLOSED: `deleteChannel` now cascades `channelIdentities` + `channelEvents` (threads kept). Still B — the `setModel` implemented-but-unwired path remains. Detail below is the pass-1 record.
 
 **Score 86 · Grade B** — Backend is A-grade (flawless Convex compliance + strong crypto/abuse defense); dinged to a solid B by a missing cascade-delete, a setModel path that's implemented server-side but never surfaced in the UI, and the app-wide non-shadcn plain-CSS UI.
 

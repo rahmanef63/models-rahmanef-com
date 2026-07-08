@@ -13,9 +13,11 @@ export function ComboBuilderCard() {
   const { workspaceId } = useWorkspace();
   const combos = useQuery(api.combos.listCombos, workspaceId ? { workspaceId: workspaceId as never } : "skip") as Combo[] | undefined;
   const create = useMutation(api.combos.createCombo);
+  const update = useMutation(api.combos.updateCombo);
   const remove = useMutation(api.combos.removeCombo);
 
   const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [strategy, setStrategy] = useState("fallback");
   const [refs, setRefs] = useState<string[]>([""]);
@@ -24,16 +26,19 @@ export function ComboBuilderCard() {
   const setRef = (i: number, val: string) => setRefs((r) => r.map((x, j) => (j === i ? val : x)));
   const addRef = () => setRefs((r) => (r.length < 5 ? [...r, ""] : r));
   const rmRef = (i: number) => setRefs((r) => r.filter((_, j) => j !== i));
-  const reset = () => { setName(""); setStrategy("fallback"); setRefs([""]); setErr(null); setOpen(false); };
+  const reset = () => { setEditId(null); setName(""); setStrategy("fallback"); setRefs([""]); setErr(null); setOpen(false); };
+  const edit = (c: Combo) => { setEditId(c.id); setName(c.name); setStrategy(c.strategy); setRefs(c.refs.length ? c.refs : [""]); setErr(null); setOpen(true); };
 
   const submit = async () => {
     if (!workspaceId) return;
     setErr(null);
     try {
-      await create({ workspaceId: workspaceId as never, name: name.trim(), refs: refs.map((r) => r.trim()).filter(Boolean), strategy });
+      const payload = { workspaceId: workspaceId as never, name: name.trim(), refs: refs.map((r) => r.trim()).filter(Boolean), strategy };
+      if (editId) await update({ ...payload, comboId: editId as never });
+      else await create(payload);
       reset();
     } catch (e: any) {
-      setErr(e?.data?.detail ?? e?.message ?? "Failed to create combo.");
+      setErr(e?.data?.detail ?? e?.message ?? "Failed to save combo.");
     }
   };
 
@@ -60,7 +65,7 @@ export function ComboBuilderCard() {
           {refs.length < 5 && <button className="link" onClick={addRef}>+ add model ref</button>}
           {err && <p className="sub danger" style={{ margin: 0 }}>{err}</p>}
           <div className="row" style={{ gap: ".5rem" }}>
-            <button className="btn accent" disabled={!name.trim() || !refs.some((r) => r.trim())} onClick={() => void submit()}>Create</button>
+            <button className="btn accent" disabled={!name.trim() || !refs.some((r) => r.trim())} onClick={() => void submit()}>{editId ? "Save" : "Create"}</button>
             <button className="btn" onClick={reset}>Cancel</button>
           </div>
         </div>
@@ -75,7 +80,10 @@ export function ComboBuilderCard() {
               <span className="name" style={{ fontSize: ".85rem" }}>
                 <code>combo/{c.name}</code> <span className="muted mono">· {c.strategy} · {c.refs.join(", ")}</span>
               </span>
-              <button className="link danger" onClick={() => workspaceId && void remove({ workspaceId: workspaceId as never, comboId: c.id as never })}>delete</button>
+              <span className="row" style={{ gap: ".5rem" }}>
+                <button className="link" onClick={() => edit(c)}>edit</button>
+                <button className="link danger" onClick={() => workspaceId && void remove({ workspaceId: workspaceId as never, comboId: c.id as never })}>delete</button>
+              </span>
             </li>
           ))}
         </ul>

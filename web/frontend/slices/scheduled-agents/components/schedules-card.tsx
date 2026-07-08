@@ -20,24 +20,29 @@ export function SchedulesCard() {
   const schedules = useQuery(api.scheduledAgents.list, wsArg) as Sched[] | undefined;
   const agents = useQuery(api.agentDefs.list, {}) as Agent[] | undefined;
   const create = useMutation(api.scheduledAgents.create);
+  const update = useMutation(api.scheduledAgents.update);
   const toggle = useMutation(api.scheduledAgents.toggle);
   const remove = useMutation(api.scheduledAgents.remove);
 
+  const [editId, setEditId] = useState<string | null>(null);
   const [agentId, setAgentId] = useState("");
   const [prompt, setPrompt] = useState("");
   const [every, setEvery] = useState(60);
   const [err, setErr] = useState<string | null>(null);
 
   const nameOf = (id: string) => agents?.find((x) => x._id === id)?.name ?? "(deleted agent)";
+  const resetForm = () => { setEditId(null); setAgentId(""); setPrompt(""); setEvery(60); setErr(null); };
+  const edit = (s: Sched) => { setEditId(s.id); setAgentId(s.agentId); setPrompt(s.prompt); setEvery(s.everyMinutes); setErr(null); };
 
   const submit = async () => {
     if (!workspaceId || !agentId || !prompt.trim()) return;
     setErr(null);
     try {
-      await create({ workspaceId: workspaceId as never, agentId: agentId as never, prompt: prompt.trim(), everyMinutes: Math.max(MIN_INTERVAL, every) });
-      setPrompt("");
+      const base = { workspaceId: workspaceId as never, agentId: agentId as never, prompt: prompt.trim(), everyMinutes: Math.max(MIN_INTERVAL, every) };
+      if (editId) { await update({ ...base, scheduleId: editId as never }); resetForm(); }
+      else { await create(base); setPrompt(""); }
     } catch (e: any) {
-      setErr(e?.data?.detail ?? e?.message ?? "Failed to create schedule.");
+      setErr(e?.data?.detail ?? e?.message ?? "Failed to save schedule.");
     }
   };
 
@@ -62,8 +67,9 @@ export function SchedulesCard() {
           </div>
           <textarea placeholder="prompt to run each interval (e.g. summarize today's new issues)" value={prompt} onChange={(e) => setPrompt(e.target.value)} rows={2} />
           {err && <p className="sub danger" style={{ margin: 0 }}>{err}</p>}
-          <div className="row">
-            <button className="btn accent" disabled={!agentId || !prompt.trim()} onClick={() => void submit()}>+ schedule</button>
+          <div className="row" style={{ gap: ".5rem" }}>
+            <button className="btn accent" disabled={!agentId || !prompt.trim()} onClick={() => void submit()}>{editId ? "Save" : "+ schedule"}</button>
+            {editId && <button className="btn" onClick={resetForm}>Cancel</button>}
           </div>
         </div>
       )}
@@ -80,6 +86,7 @@ export function SchedulesCard() {
                 </span>
               </span>
               <span className="row" style={{ gap: ".5rem" }}>
+                <button className="link" onClick={() => edit(s)}>edit</button>
                 <button className="link" onClick={() => workspaceId && void toggle({ workspaceId: workspaceId as never, scheduleId: s.id as never, enabled: !s.enabled })}>{s.enabled ? "pause" : "resume"}</button>
                 <button className="link danger" onClick={() => workspaceId && void remove({ workspaceId: workspaceId as never, scheduleId: s.id as never })}>delete</button>
               </span>

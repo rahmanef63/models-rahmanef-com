@@ -62,6 +62,21 @@ export const toggle = mutation({
   },
 });
 
+export const update = mutation({
+  args: { workspaceId: v.id("workspaces"), scheduleId: v.id("agentSchedules"), agentId: v.id("agentDefs"), prompt: v.string(), everyMinutes: v.number() },
+  handler: async (ctx, a) => {
+    const { userId, role } = await requireWorkspaceRole(ctx, a.workspaceId, "member");
+    const row = await ownedSchedule(ctx, a.workspaceId, a.scheduleId, userId, role);
+    const prompt = a.prompt.trim().slice(0, 4000);
+    if (!prompt) throw new ConvexError({ code: "invalid_request", detail: "prompt required" });
+    // the schedule runs as its OWNER, so the (possibly new) agent must belong to that owner, not the
+    // admin doing the edit — keeps the "runs your own agent under your creds" invariant.
+    const agent = await ctx.db.get(a.agentId);
+    if (!agent || agent.userId !== row.userId) throw new ConvexError({ code: "not_found", detail: "agent not found" });
+    await ctx.db.patch(a.scheduleId, { agentId: a.agentId, prompt, everyMinutes: clampInterval(a.everyMinutes), updatedAt: Date.now() });
+  },
+});
+
 export const remove = mutation({
   args: { workspaceId: v.id("workspaces"), scheduleId: v.id("agentSchedules") },
   handler: async (ctx, a) => {

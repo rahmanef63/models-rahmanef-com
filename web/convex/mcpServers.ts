@@ -82,6 +82,47 @@ export const _insert = internalMutation({
   },
 });
 
+// action: edit name/url/transport + optionally re-encrypt (or clear) headers, then internal _update.
+export const updateServer = action({
+  args: { id: v.id("mcpServers"), name: v.string(), url: v.string(), transport: v.string(), headersJson: v.optional(v.string()) },
+  handler: async (ctx, a): Promise<void> => {
+    const userId = await requireUser(ctx);
+    const name = a.name.trim().toLowerCase();
+    if (!SLUG.test(name)) throw new ConvexError({ code: "invalid_request", detail: "name must be a slug: a-z 0-9 _ - (≤32)" });
+    if (!TRANSPORTS.includes(a.transport)) throw new ConvexError({ code: "invalid_request", detail: "transport must be http|sse" });
+    assertSafeUrl(a.url); // re-check on edit (SSRF guard)
+    // headersJson: undefined = leave as-is · "" = clear · non-empty = replace (re-encrypt)
+    let headersCiphertext: string | undefined;
+    let clearHeaders = false;
+    if (a.headersJson !== undefined) {
+      if (!a.headersJson.trim()) clearHeaders = true;
+      else {
+        let parsed: unknown;
+        try { parsed = JSON.parse(a.headersJson); } catch { throw new ConvexError({ code: "invalid_request", detail: "headers must be valid JSON" }); }
+        if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new ConvexError({ code: "invalid_request", detail: "headers must be a JSON object" });
+        headersCiphertext = await encryptSecret(JSON.stringify(parsed));
+      }
+    }
+    await ctx.runMutation(internal.mcpServers._update, { id: a.id, userId, name, url: a.url, transport: a.transport, headersCiphertext, clearHeaders });
+  },
+});
+
+export const _update = internalMutation({
+  args: { id: v.id("mcpServers"), userId: v.id("users"), name: v.string(), url: v.string(), transport: v.string(), headersCiphertext: v.optional(v.string()), clearHeaders: v.boolean() },
+  handler: async (ctx, a) => {
+    const row = await ctx.db.get(a.id);
+    if (!row || row.userId !== a.userId) throw new ConvexError({ code: "not_found", detail: "server not found" });
+    const mine = await ctx.db.query("mcpServers").withIndex("by_user", (q) => q.eq("userId", a.userId)).take(100);
+    if (mine.some((r) => r.name === a.name && r._id !== a.id)) throw new ConvexError({ code: "conflict", detail: `A server named "${a.name}" already exists.` });
+    const patch: any = { name: a.name, url: a.url, transport: a.transport, updatedAt: Date.now() };
+    if (a.headersCiphertext !== undefined) patch.headersCiphertext = a.headersCiphertext;
+    else if (a.clearHeaders) patch.headersCiphertext = undefined;
+    // a changed url/transport invalidates the cached tool list — drop it so a stale probe can't linger.
+    if (row.url !== a.url || row.transport !== a.transport) { patch.toolCache = []; patch.lastProbeAt = undefined; patch.lastProbeOk = undefined; patch.lastProbeError = undefined; }
+    await ctx.db.patch(a.id, patch);
+  },
+});
+
 export const toggleServer = mutation({
   args: { id: v.id("mcpServers"), enabled: v.boolean() },
   handler: async (ctx, a) => {

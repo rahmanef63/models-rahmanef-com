@@ -46,17 +46,18 @@ export const createCombo = mutation({
   },
 });
 
-export const renameCombo = mutation({
-  args: { workspaceId: v.id("workspaces"), comboId: v.id("combos"), name: v.string() },
+// Edit a combo in place — name + refs + strategy (+ stickyLimit). Reuses validate(); resets the
+// round_robin cursor since refs may shrink. Supersedes the old rename-only path.
+export const updateCombo = mutation({
+  args: { workspaceId: v.id("workspaces"), comboId: v.id("combos"), name: v.string(), refs: v.array(v.string()), strategy: v.string(), stickyLimit: v.optional(v.number()) },
   handler: async (ctx, a) => {
     await requireWorkspaceRole(ctx, a.workspaceId, "member");
     const row = await ctx.db.get(a.comboId);
     if (!row || row.workspaceId !== a.workspaceId) throw new ConvexError({ code: "not_found", detail: "combo not found" });
-    const slug = slugify(a.name);
-    if (!slug) throw new ConvexError({ code: "invalid_request", detail: "name required" });
+    const { slug, cleaned } = validate(a.name, a.refs, a.strategy);
     const clash = await ctx.db.query("combos").withIndex("by_ws_name", (q) => q.eq("workspaceId", a.workspaceId).eq("name", slug)).unique();
     if (clash && clash._id !== a.comboId) throw new ConvexError({ code: "conflict", detail: `A combo named "${slug}" already exists.` });
-    await ctx.db.patch(a.comboId, { name: slug, updatedAt: Date.now() });
+    await ctx.db.patch(a.comboId, { name: slug, refs: cleaned, strategy: a.strategy, stickyLimit: Math.max(1, a.stickyLimit ?? row.stickyLimit ?? 1), rotationIndex: 0, updatedAt: Date.now() });
   },
 });
 

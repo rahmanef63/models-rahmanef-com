@@ -126,7 +126,23 @@ export const rotateSecret = mutation({
 
 export const deleteChannel = mutation({
   args: { id: v.id("channels") },
-  handler: async (ctx, a) => { await requireChannelAdmin(ctx, a.id); await ctx.db.delete(a.id); },
+  handler: async (ctx, a) => {
+    await requireChannelAdmin(ctx, a.id);
+    // cascade the channel-OWNED rows so they don't orphan. threads/messages are shared workbench
+    // data and are intentionally kept. ponytail: bounded loops — identities are per-sender and
+    // events are cron-pruned to ≤48h, so counts stay small; loop-until-empty covers the tail.
+    for (;;) {
+      const ids = await ctx.db.query("channelIdentities").withIndex("by_channel_external", (q) => q.eq("channelId", a.id)).take(200);
+      for (const r of ids) await ctx.db.delete(r._id);
+      if (ids.length < 200) break;
+    }
+    for (;;) {
+      const evs = await ctx.db.query("channelEvents").withIndex("by_channel_at", (q) => q.eq("channelId", a.id)).take(200);
+      for (const r of evs) await ctx.db.delete(r._id);
+      if (evs.length < 200) break;
+    }
+    await ctx.db.delete(a.id);
+  },
 });
 
 // internal: resolve a channel (full row, incl. ciphertext) by its webhook slug — the ingress path.
