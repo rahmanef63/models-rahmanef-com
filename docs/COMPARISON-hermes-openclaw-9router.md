@@ -1,10 +1,31 @@
-# hermes vs openclaw vs 9router vs us (models-rahmanef-com)
+# Manef vs OpenClaw vs Hermes vs 9Router
 
-> Evidence-based comparison of three self-hosted AI systems against **models-rahmanef-com** (the "us"
-> column). We are distilled from **openclaw + hermes**, so this doc doubles as a **gap / adopt
-> checklist**: what the others ship that we could pull in next.
+> Evidence-based comparison of three AI systems against **Manef** (this repo, `models-rahmanef-com`).
+> Manef is distilled from **OpenClaw + Hermes + 9Router**, so this doc doubles as a **gap / adopt
+> checklist**: what the others ship that Manef could pull in next.
+> Reference-project facts verified 2026-07-08 against each official site + GitHub README (see §9).
 >
 > Legend: ✅ have it · 🟡 partial / adjacent / weaker form · ❌ absent
+
+---
+
+## 0. Positioning at a glance
+
+Where each project sits in the agentic-AI stack, and the role Manef plays. Rows Manef can't confirm
+from a fetched source are marked *(unverified)*; the granular feature matrix is §2–§4.
+
+| Aspect | OpenClaw | Hermes | 9Router | Manef |
+|---|---|---|---|---|
+| Stack layer | Distribution / channel gateway | Agent runtime + memory / learning loop | Routing / cost layer | Multi-tenant BYOK dashboard + agent runner |
+| Tagline | "Personal AI assistant you run on your own devices" | "The agent that grows with you" | "FREE AI Router & Token Saver" | Per-user model dashboard + agent loop + MCP |
+| Interfaces | ~23–29 chat channels + mobile/desktop nodes | Telegram/Discord/Slack/WhatsApp/Signal/Email + CLI/TUI | OpenAI-compatible endpoint for coding CLIs | Web dashboard + OAuth MCP server (no channels yet) |
+| Memory | Marketed, no README mechanism *(depth unverified)* | ✅ Cross-session (FTS5 + curated + user model) | ✗ (only SQLite config/usage) | Per-user Convex isolation; no learning loop |
+| Model routing | Model-agnostic BYOM, per-agent | Provider-agnostic (Nous Portal/OpenRouter/OpenAI/own) | ✅ 3-tier fallback, combos, 40+ providers / 100+ models, RTK saver | 22-provider BYOK; manual primary/secondary |
+| Multi-agent | ✅ routing to isolated agents | ✅ subagents + Python-RPC | ✗ single-request router | ✅ runAgent loop + agent defs, per-user/session |
+| Deploy | npm-global on-device + launchd/systemd daemon; Docker = sandbox | 6 backends (local/Docker/SSH/Singularity/Modal/Daytona), $5 VPS | Localhost / VPS / Docker / CF Workers | Dokploy + Convex Cloud (auto-deploy hook) |
+| Database | Not documented (workspace files) | FTS5 (SQLite inferred, not named) | SQLite | Convex (Cloud now; self-hosted = rr target) |
+| License | MIT | MIT | MIT | private / internal |
+| Weak spot | β Beta; memory depth undocumented | Needs Nous Portal sub / 5 API keys | Router only; free tiers can vanish | No channels; no learning loop; not self-hosted yet |
 
 ---
 
@@ -15,7 +36,7 @@
 | **hermes** | Mature single-user self-improving AI agent: CLI + TUI + desktop + a ~25-channel messaging gateway, a learning loop (auto-creates/improves skills, curated memory, FTS5 recall), 28 provider plugins over a models.dev catalog, cron, MCP client+server, ACP. | Python 3.11–3.13 core + Node (WhatsApp bridge, TUI, web) + React19/Vite/Electron/Tauri desktop + Rust (Tauri) |
 | **openclaw** | Self-hosted single-user "personal AI assistant" Gateway (WebSocket control plane) reaching you on 25+ chat channels, exposing OpenAI/OpenResponses HTTP, fronting ~60 pluggable providers with BYOK auth-profiles, agentic tool/skill/plugin runtime, MCP server + client, phone/desktop node mode. | TypeScript / Node.js (ESM, compiled `dist/*.js`, `bin openclaw.mjs`) |
 | **9router** | Self-hosted multi-provider AI router: one OpenAI/Anthropic/Gemini request fans out to 94 providers via a provider-agnostic SSE translation engine, plus a transparent MITM proxy that hijacks desktop coding-agent traffic and an RTK token-saver layer. | JavaScript/JSX on Node 22 (Next.js 16 + React 19.2, standalone) + SQLite; also global `9router` npm CLI |
-| **us — models-rahmanef-com** | Multi-tenant BYOK model dashboard + agent runner, distilled from openclaw+hermes: 22 providers over a models.dev catalog, per-user AES-256-GCM keys, a unified tool registry feeding an agent loop and an OAuth-2.1 MCP server. | Next.js 16 / React 19 frontend (Dokploy/Docker) + Convex Cloud backend + `@convex-dev/auth`; rr vertical slices |
+| **Manef** (`models-rahmanef-com`) | Multi-tenant BYOK model dashboard + agent runner, distilled from openclaw+hermes: 22 providers over a models.dev catalog, per-user AES-256-GCM keys, a unified tool registry feeding an agent loop and an OAuth-2.1 MCP server. | Next.js 16 / React 19 frontend (Dokploy/Docker) + Convex Cloud backend + `@convex-dev/auth`; rr vertical slices |
 
 ---
 
@@ -25,7 +46,7 @@ Every channel/surface across all four, one row each.
 
 ### Messaging channels
 
-| Channel | hermes | openclaw | 9router | us |
+| Channel | hermes | openclaw | 9router | Manef |
 |---|:--:|:--:|:--:|:--:|
 | telegram | ✅ | ✅ | ❌ | ❌ |
 | whatsapp | ✅ | ✅ | ❌ | ❌ |
@@ -63,7 +84,7 @@ Every channel/surface across all four, one row each.
 
 ### Non-chat surfaces / APIs
 
-| Surface | hermes | openclaw | 9router | us |
+| Surface | hermes | openclaw | 9router | Manef |
 |---|:--:|:--:|:--:|:--:|
 | web dashboard / control UI | ✅ | ✅ | ✅ | ✅ |
 | cli | ✅ | ✅ | ✅ | ❌ |
@@ -85,7 +106,7 @@ Every channel/surface across all four, one row each.
 
 ### 2b. MODALITIES
 
-| Modality | hermes | openclaw | 9router | us |
+| Modality | hermes | openclaw | 9router | Manef |
 |---|:--:|:--:|:--:|:--:|
 | chat / text | ✅ | ✅ | ✅ | ✅ |
 | vision (image understanding) | ✅ | ✅ | ✅ | ❌ |
@@ -102,7 +123,7 @@ Every channel/surface across all four, one row each.
 
 ## 3. FEATURE comparison (the other categories)
 
-| Category | hermes | openclaw | 9router | us | Terse note |
+| Category | hermes | openclaw | 9router | Manef | Terse note |
 |---|:--:|:--:|:--:|:--:|---|
 | Model providers | ✅ | ✅ | ✅ | ✅ | hermes 28 plugins · openclaw ~60 · 9router 94 · **us 22 BYOK** |
 | Catalog | ✅ | ✅ | 🟡 | ✅ | hermes+us live **models.dev** w/ TTL+offline · openclaw per-provider 3-tier · 9router models.dev **baked-in static** |
@@ -256,4 +277,89 @@ Every channel/surface across all four, one row each.
 8. **CLI / TUI / desktop surfaces.** We are web-only; every competitor ships at least CLI+TUI, most ship desktop, openclaw ships mobile node apps.
 9. **Provider-format translation + optional MITM.** 9router's pivot-through-OpenAI translator and desktop-agent traffic hijack are how you retarget existing coding CLIs — a differentiated adopt if we want to front Claude Code/Codex.
 
-**What we already lead on (don't lose):** true **multi-tenancy** (only us), **AES-256-GCM per-user encryption at rest** (others store plaintext 0600 JSON), and the **rr vertical-slice / droppable-block** architecture that makes any of the above adoptable as a shippable slice.
+**What we already lead on (don't lose):** true **multi-tenancy** (only Manef), **AES-256-GCM per-user encryption at rest** (others store plaintext 0600 JSON), and the **rr vertical-slice / droppable-block** architecture that makes any of the above adoptable as a shippable slice.
+
+---
+
+## 6. What all four still lack (shared gaps)
+
+§5 is Manef's *adopt-from-others* list. This is the opposite: things **none** of the four ship
+end-to-end — the real greenfield if Manef wants to lead, not catch up.
+
+| Need | Why it matters | Status across all four |
+|---|---|---|
+| Unified policy engine | One language for approval, sandbox, budget, tool scope | Each has ad-hoc policy; no consistent end-to-end standard |
+| Shared observability spine | One timeline: channel in → memory used → model picked → fallback → cost out | Logs siloed (gateway / DB / provider usage) |
+| Portable memory + skill contract | Move memory/skills across runtimes without a rewrite | Hermes has the agentskills.io skill standard; memory formats stay non-portable |
+| Native cost governance | Pick model by task difficulty + budget, not a static fallback | 9Router is closest (fallback); none is risk/priority-aware |
+| First-class eval loop | Outcome eval + user feedback + skill regression in one system | Absent in all four |
+
+---
+
+## 7. Proposed Manef architecture (target — not yet built)
+
+Manef's intended shape as the fusion product (per the design brief). Today's repo is the
+dashboard + agent + MCP core (see §1); the layers below are the roadmap, not current state.
+
+```
+Surface Layer  ->  OpenClaw-style gateway (WhatsApp live, +Telegram/Discord)
+Brain Layer    ->  Hermes-style memory + skill loop (Convex vectorChunks)
+Route Layer    ->  9Router-style provider abstraction over OpenRouter (Gemini 3 Flash + GLM fallback)
+Data Layer     ->  Convex self-hosted (manef-db) as single source of truth
+Infra Layer    ->  VPS + Dokploy for all non-Convex services
+```
+
+Core principles: one agent + one session per user (sub-agents for specific tasks); memory centralized
+in `vectorChunks`, not scattered; routing stays simple (primary/secondary) before going cost-aware;
+every service on its own domain but one shared observability arch.
+
+> **Current vs target.** This repo today runs on **Convex Cloud** (not self-hosted `manef-db`), exposes
+> an **MCP server** (no chat channels yet), and uses a **22-provider BYOK registry** (not an
+> OpenRouter-primary router). The gateway / `vectorChunks` / OpenRouter-primary lines above describe the
+> target Manef deployment from the design brief — they are **not** verified current-repo facts.
+
+---
+
+## 8. FAQ
+
+**Q: Does Manef have to replace OpenClaw entirely?**
+No. OpenClaw stays as the gateway / surface layer — it's mature for WhatsApp and other channels. Manef
+adds the brain layer (memory) and route layer (cost-aware routing) on top.
+
+**Q: Why not just use Hermes directly?**
+Manef already has its own memory architecture via Convex `vectorChunks`, more integrated with the rest
+of the stack (Superspace, etc.). Hermes is a pattern reference, not adopted wholesale. (Verified aside:
+Hermes ships `hermes claw migrate`, an OpenClaw importer for settings/memories/skills/keys — it
+positions itself as an OpenClaw *successor*.)
+
+**Q: Which part of 9Router should Manef adopt first?**
+Auto-fallback + token saving (RTK). Manef is still manual primary/secondary; adding automatic fallback
++ quota tracking raises reliability immediately. (Manef already shipped part of this — see the
+`fallbackRules` 402/quota failover and `provider-pool` slice.)
+
+**Q: Most realistic MVP for the next 2 weeks?**
+Tidy observability (one log timeline), standardize the memory/skill format so it's portable, and add one
+simple cost-aware routing layer over the OpenRouter path.
+
+**Q: Is 9Router an agent or a chat app?**
+Neither — it's a routing proxy for coding CLIs (Claude Code, Cursor, Codex, …) behind one
+OpenAI-compatible endpoint. No memory, no orchestration. That's why Manef borrows its routing ideas,
+not its role.
+
+---
+
+## 9. Sources & verification
+
+Live-fetched then adversarially re-fetched **2026-07-08** (6 agents, research + verify passes). All three
+references are **MIT / open source** and reachable — except 9Router's marketing site.
+
+| Project | Verified from | Caveats surfaced |
+|---|---|---|
+| **OpenClaw** | `openclaw.ai` + `github.com/openclaw/openclaw` (+ raw README) | Marked **β Beta**. Homepage markets "persistent memory" but the README documents no memory mechanism → depth *unverified*. Sandboxing is per-**agent/session**, not per-channel. "Runs on own VPS" / bash one-liner install *not* on any fetched page (npm/pnpm global only). |
+| **Hermes** | `hermes-agent.nousresearch.com` + `github.com/NousResearch/hermes-agent` | Memory loop, subagents, 6 deploy backends confirmed. DB engine "SQLite" is *inferred* from FTS5, not named. Ships `hermes claw migrate` — an OpenClaw importer (successor positioning). |
+| **9Router** | `github.com/decolua/9router` (+ GitHub API) | **`9router.com` returned HTTP 403** — official site could not load; all facts from the repo. README states **40+ providers / 100+ models** (the §3 matrix's "94" is a prior repo-level count, not the README figure). Free-tier availability is volatile (iFlow/Qwen/Gemini-CLI discontinued in 2026). |
+
+Manef facts are code-derived from this repo. The §2–§4 provider *counts* come from prior repo-level
+inspection (cloning + counting adapters), which runs deeper than a homepage fetch; the 2026-07-08 pass
+confirmed the qualitative facts. The §7 target-architecture lines are from the design brief, **not**
+verified current state.
