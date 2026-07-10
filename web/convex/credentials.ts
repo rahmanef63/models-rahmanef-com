@@ -24,7 +24,14 @@ export const listConfiguredProviders = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
     const rows = await ctx.db.query("modelCreds").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
-    return rows.map(mapCred);
+    // one card per provider — collapse multi-key pools, keeping keyCount + the freshest health row.
+    const byProvider = new Map<string, { row: any; count: number }>();
+    for (const r of rows) {
+      const cur = byProvider.get(r.provider);
+      if (!cur) byProvider.set(r.provider, { row: r, count: 1 });
+      else { cur.count++; if ((r.updatedAt ?? 0) > (cur.row.updatedAt ?? 0)) cur.row = r; }
+    }
+    return [...byProvider.values()].map(({ row, count }) => ({ ...mapCred(row), keyCount: count }));
   },
 });
 
@@ -56,7 +63,8 @@ export const _recordCheck = internalMutation({
     const row = await ctx.db
       .query("modelCreds")
       .withIndex("by_user_provider", (q) => q.eq("userId", a.userId).eq("provider", a.provider))
-      .unique();
+      .filter((q) => q.eq(q.field("workspaceId"), undefined))
+      .first(); // personal primary — never .unique: a provider may hold multiple pool keys now
     if (!row) return; // credential was deleted mid-check — nothing to record
     await ctx.db.patch(row._id, { lastCheckedAt: Date.now(), lastCheckedOk: a.ok, lastCheckedCode: a.code, lastCheckedDetail: a.detail });
   },
@@ -70,7 +78,8 @@ export const store = internalMutation({
     const existing = await ctx.db
       .query("modelCreds")
       .withIndex("by_user_provider", (q) => q.eq("userId", a.userId).eq("provider", a.provider))
-      .unique();
+      .filter((q) => q.eq(q.field("workspaceId"), undefined))
+      .first(); // .first not .unique: a provider may now hold multiple personal pool keys — upsert the primary
     if (existing) await ctx.db.patch(existing._id, { kind: a.kind, ciphertext: a.ciphertext, expires: a.expires, updatedAt: Date.now(), refreshLeaseUntil: undefined });
     else await ctx.db.insert("modelCreds", { userId: a.userId, provider: a.provider, kind: a.kind, ciphertext: a.ciphertext, expires: a.expires, updatedAt: Date.now() });
   },
@@ -98,15 +107,16 @@ export const deleteCredential = mutation({
   args: { provider: v.string() },
   handler: async (ctx, a) => {
     const userId = await requireUser(ctx);
-    const row = await ctx.db
+    // provider-level "remove" = disconnect the provider = drop ALL its personal keys (the whole pool).
+    // Shared creds (workspaceId set) are managed via the workspace path, not this personal card; a
+    // single key is removable individually via credsPool.deleteCredentialById.
+    const rows = await ctx.db
       .query("modelCreds")
       .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", a.provider))
-      .unique();
-    if (row) {
+      .take(50);
+    for (const row of rows) {
+      if (row.workspaceId !== undefined) continue; // personal disconnect only
       await ctx.db.delete(row._id);
-      // audit only SHARED-credential deletes (workspaceId set) — the auditEvents trail is per-workspace,
-      // and a personal key deletion is not a team-visible action. Matches the slice's advertised scope.
-      if (row.workspaceId) await ctx.db.insert("auditEvents", { workspaceId: row.workspaceId, actorUserId: userId, action: "cred.deleted", target: row.provider, meta: { kind: row.kind }, at: Date.now() });
     }
   },
 });

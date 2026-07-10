@@ -37,6 +37,7 @@ import type * as claudeLib from "../claudeLib.js";
 import type * as codexLib from "../codexLib.js";
 import type * as combos from "../combos.js";
 import type * as credentials from "../credentials.js";
+import type * as credsPool from "../credsPool.js";
 import type * as crons from "../crons.js";
 import type * as crypto from "../crypto.js";
 import type * as fallbackRules from "../fallbackRules.js";
@@ -114,6 +115,7 @@ declare const fullApi: ApiFromModules<{
   codexLib: typeof codexLib;
   combos: typeof combos;
   credentials: typeof credentials;
+  credsPool: typeof credsPool;
   crons: typeof crons;
   crypto: typeof crypto;
   fallbackRules: typeof fallbackRules;

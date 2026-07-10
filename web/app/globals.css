@@ -531,3 +531,9 @@ textarea { resize: vertical; margin: 0.6rem 0; }
 .hbar-val { font-size: 0.76rem; white-space: nowrap; }
 .user-activity { padding-top: 0.5rem; }
 pre { background: var(--bg); border: 1px solid var(--line); padding: 0.9rem; border-radius: 3px; font-family: var(--font-mono); font-size: 0.82rem; white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 0.9rem; }
+
+/* multi-key pool manager (byok ProviderKeys) — per-provider key list + add-another-key row */
+.pkeys { margin-top: 0.5rem; padding-left: 0.6rem; border-left: 2px solid var(--line); }
+.pkey-list { list-style: none; margin: 0 0 0.5rem; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.pkey-list li { display: flex; align-items: center; gap: 0.5rem; font-size: 0.85rem; }
+.pkey-add input { font-size: 0.85rem; }

@@ -12,6 +12,7 @@ const CHANGELOG: { date: string; tag: string; items: string[] }[] = [
     "Landing: roadmap + changelog moved into a shared header; de-duped hero CTA",
     "Security: external MCP tool surface now workspace-scoped (was per-user)",
     "Roadmap corrected: MCP client + provider-pool failover marked shipped",
+    "BYOK: register >1 key per provider — the failover pool is now populatable",
   ] },
   { date: "2026-07-08", tag: "landing + hardening", items: [
     "Memory-graph slice + Obsidian graph; icon-rail app shell + mobile dock",

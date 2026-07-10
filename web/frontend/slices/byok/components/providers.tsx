@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { PROVIDER_LABEL, SUPPORTED, FRIENDLY, ErrorLine, type Cred, type Catalog } from "@/app/app/_components/shared";
+import { ProviderKeys } from "./provider-keys";
 
 // lowest cost.input CHAT-capable model.dev knows for a provider — used as the throwaway 1-token
 // connectivity test, and as the default when a provider has no catalog entry at all (5 of 22
@@ -116,6 +117,7 @@ export function ConnectedCreds({ providers, catalog, isAdmin, deleteCredential, 
   const [testing, setTesting] = useState<Record<string, boolean>>({});
   const [results, setResults] = useState<Record<string, TestResult>>({});
   const [errs, setErrs] = useState<Record<string, unknown>>({});
+  const [open, setOpen] = useState<Record<string, boolean>>({});
   function forget(provider: string) {
     setResults((rs) => { const { [provider]: _drop, ...rest } = rs; return rest; });
     setErrs((es) => { const { [provider]: _drop, ...rest } = es; return rest; });
@@ -147,6 +149,11 @@ export function ConnectedCreds({ providers, catalog, isAdmin, deleteCredential, 
                   {testing[p.provider] ? "testing…" : "test"}
                 </button>
               )}
+              {p.kind !== "oauth" && (
+                <button className="link" onClick={() => setOpen((o) => ({ ...o, [p.provider]: !o[p.provider] }))}>
+                  {p.keyCount && p.keyCount > 1 ? `${p.keyCount} keys` : "+ key"}
+                </button>
+              )}
               <button className="link danger" onClick={() => { forget(p.provider); void deleteCredential({ provider: p.provider }); }}>remove</button>
             </span>
             {/* a test run THIS session wins; otherwise fall back to the persisted last-check so a
@@ -156,6 +163,7 @@ export function ConnectedCreds({ providers, catalog, isAdmin, deleteCredential, 
             ) : (
               p.lastCheckedOk === false && <ErrorLine e={{ data: { code: p.lastCheckedCode ?? "internal", detail: p.lastCheckedDetail, provider: p.provider } }} isAdmin={isAdmin} />
             )}
+            {p.kind !== "oauth" && open[p.provider] && <ProviderKeys provider={p.provider} />}
           </li>
         );
       })}

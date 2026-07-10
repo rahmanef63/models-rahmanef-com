@@ -28,7 +28,7 @@ export const PROVIDER_LABEL: Record<string, string> = {
   "vercel-gateway": "Vercel AI Gateway",
 };
 
-export type Cred = { provider: string; kind: string; lastCheckedAt?: number; lastCheckedOk?: boolean; lastCheckedCode?: string; lastCheckedDetail?: string };
+export type Cred = { provider: string; kind: string; keyCount?: number; lastCheckedAt?: number; lastCheckedOk?: boolean; lastCheckedCode?: string; lastCheckedDetail?: string };
 export type Catalog = Record<string, { models?: Record<string, unknown> }>;
 
 export const fmt = (n: number) => (n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, "") + "k" : String(n));

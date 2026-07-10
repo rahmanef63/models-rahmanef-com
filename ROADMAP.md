@@ -37,7 +37,7 @@ here, as a slice — and every rr app gets it, multi-tenant and encrypted, for f
 - **`/v1` gateway** — OpenAI + Anthropic compatible (`sk-rr` keys; Claude Code works today)
 - **Channels** — Telegram / Slack / WhatsApp / Discord inbound (v0.1)
 - **Ops** — scheduled agents, usage rollups, spend caps, append-only audit
-- **Provider-pool failover** — same-provider ≤3-attempt failover with cooldown/backoff on the hot path
+- **Provider-pool failover** — same-provider ≤3-attempt failover with cooldown/backoff; register >1 key per provider
 - **Workspaces** — role-based invites, per-workspace isolation
 
 Quality bar: see [`audit.md`](audit.md) — 0 HIGH issues, avg ~87/100, 3 fix passes.
@@ -51,7 +51,7 @@ Highest-leverage gaps the others already prove out (who has it in parens). Each 
 - [ ] **Streaming `/v1` + tool passthrough** — resumable SSE + client `tools`/`tool_choice` *(hermes, openclaw, 9router)*
 - [ ] **More channels** — beyond the 4 inbound; harden Discord (type-5 deferred) *(hermes, openclaw)*
 - [ ] **Cost / quota dashboard** — "X% left", per-model spend *(hermes, openclaw, 9router)*
-- [ ] **Multi-key pool write path** — register >1 labelled key per provider so the shipped failover pool is populatable *(openclaw, 9router)*
+- [ ] **Workspace-shared key pool** — team-shared keys for the failover pool (personal multi-key already ships; the shared-cred write path is the remaining half) *(openclaw, 9router)*
 - [ ] **More OAuth logins** — Copilot / Qwen / Gemini-CLI *(all three)*
 - [ ] **CLI / TUI surface** *(hermes, openclaw)*
 
