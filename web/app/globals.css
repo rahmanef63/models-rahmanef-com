@@ -562,3 +562,10 @@ pre { background: var(--bg); border: 1px solid var(--line); padding: 0.9rem; bor
 .vault-chip { padding: 0.2rem 0.55rem; border: 1px solid var(--line); border-radius: 999px; background: transparent; color: inherit; font-size: 0.76rem; cursor: pointer; }
 .vault-chip:hover { border-color: var(--accent); color: var(--accent); }
 .vault-empty { color: inherit; }
+
+/* embed widget manager */
+.embed-form { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 1rem; }
+.embed-list { display: flex; flex-direction: column; gap: 0.9rem; margin-top: 1.4rem; }
+.embed-item { border: 1px solid var(--line); border-radius: 8px; padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.45rem; }
+.embed-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+.embed-snippet { margin: 0.2rem 0 0; font-size: 0.72rem; overflow-x: auto; white-space: pre; }

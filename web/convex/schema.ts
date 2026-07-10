@@ -54,6 +54,23 @@ export default defineSchema({
     .index("by_user", ["userId"])
     .index("by_user_provider", ["userId", "provider"])
     .index("by_ws_provider", ["workspaceId", "provider"]),
+  // embeds — a public, origin-gated chat widget any website drops in. `token` is PUBLISHABLE (it
+  // ships in the customer's client JS); security is the origin allowlist + rate limit + the owner's
+  // spend cap, NOT token secrecy. Runs as the owner. See app/api/embed + convex/embedChat.
+  embeds: defineTable({
+    userId: v.id("users"),
+    workspaceId: v.optional(v.id("workspaces")),
+    token: v.string(),
+    title: v.string(),
+    model: v.string(), // "provider/model" (or combo/…, agent/… — resolved by callForUser)
+    systemPrompt: v.optional(v.string()),
+    greeting: v.optional(v.string()),
+    allowedOrigins: v.array(v.string()), // exact origins the widget may call from
+    enabled: v.boolean(),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId"])
+    .index("by_token", ["token"]),
   // per-call usage log — powers the stats dashboard (like 9router's usageHistory)
   usage: defineTable({
     userId: v.id("users"),

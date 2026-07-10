@@ -10,6 +10,7 @@ import { Overview } from "./_components/overview";
 import { UsageCard } from "./_components/usage";
 import { TokenSaverCard } from "./_components/settings";
 import { McpCard } from "./_components/mcp";
+import { EmbedCard } from "./_components/embed";
 import { AdminCard } from "./_components/admin";
 import { AdminAnalyticsCard } from "./_components/admin-analytics";
 import { AdminSeedCard } from "./_components/admin-seed";
@@ -149,6 +150,7 @@ function Dashboard() {
       {section === "memory" && <MemoryPanel workspaceId={workspaceId ?? undefined} />}
       {section === "members" && <MembersCard />}
       {section === "mcp" && <McpCard />}
+      {section === "embed" && <EmbedCard models={myModels} />}
       {section === "api" && <ApiKeysCard />}
       {section === "combos" && <ComboBuilderCard />}
       {section === "mcp-servers" && <McpServersCard />}

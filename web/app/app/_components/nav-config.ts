@@ -39,6 +39,7 @@ const GROUPS: NavGroup[] = [
       { id: "mcp", label: "MCP Server" },
       { id: "mcp-servers", label: "MCP Clients" },
       { id: "channels", label: "Channels" },
+      { id: "embed", label: "Embed" },
       { id: "api", label: "API Keys" },
     ],
   },
