@@ -1,7 +1,7 @@
 // Saved, reusable AI Agent configs — name × model × instructions × tools × maxSteps × temperature.
 // The actual run loop lives in chat.ts (runAgent); this file is the deterministic CRUD half,
 // mirroring credentials.ts's ownership pattern (userId always from getAuthUserId, never the client).
-import { query, mutation, internalQuery } from "./_generated/server";
+import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUser } from "./_shared/auth";
@@ -147,4 +147,27 @@ export const getOwned = internalQuery({
 export const listForUser = internalQuery({
   args: { userId: v.id("users") },
   handler: (ctx, a) => ctx.db.query("agentDefs").withIndex("by_user", (q) => q.eq("userId", a.userId)).order("desc").collect(),
+});
+
+// explicit-userId upsert BY NAME — powers the agent_write tool (agent loop + MCP). Reuses the same
+// validators as create/update, so a tool can't persist an agent the UI would reject.
+export const _upsertForUser = internalMutation({
+  args: { userId: v.id("users"), name: v.string(), model: v.string(), instructions: v.optional(v.string()), tools: v.optional(v.array(v.string())), skills: v.optional(v.array(v.string())), maxSteps: v.optional(v.number()), temperature: v.optional(v.number()) },
+  handler: async (ctx, a): Promise<string> => {
+    const name = validateName(a.name);
+    const fields = {
+      model: validateModel(a.model),
+      instructions: a.instructions?.trim() ? a.instructions.trim().slice(0, 4000) : undefined,
+      tools: validateTools(a.tools ?? []),
+      skills: validateSkills(a.skills ?? []),
+      maxSteps: clampMaxSteps(a.maxSteps),
+      temperature: clampTemperature(a.temperature),
+      updatedAt: Date.now(),
+    };
+    const existing = (await ctx.db.query("agentDefs").withIndex("by_user", (q) => q.eq("userId", a.userId)).take(200))
+      .find((d) => d.name.toLowerCase() === name.toLowerCase());
+    if (existing) { await ctx.db.patch(existing._id, { name, ...fields }); return `Updated agent "${name}".`; }
+    await ctx.db.insert("agentDefs", { userId: a.userId, name, ...fields, createdAt: Date.now() });
+    return `Created agent "${name}" on ${fields.model}.`;
+  },
 });

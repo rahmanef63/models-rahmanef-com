@@ -3,7 +3,7 @@
 // call itself lives in scheduledAgentsRun.ts ("use node", so it can import callForUser). A schedule
 // runs AS its creator, spending that workspace's creds — so create/toggle/remove require the caller
 // to BE the creator (or a workspace admin). Spend is bounded by the enabled-gate + 15-min floor.
-import { query, mutation, internalMutation } from "./_generated/server";
+import { query, mutation, internalMutation, internalQuery } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { requireWorkspaceRole } from "./_shared/auth";
 
@@ -86,6 +86,35 @@ export const remove = mutation({
     const isAdmin = role === "admin" || role === "owner";
     if (row.userId !== userId && !isAdmin) throw new ConvexError({ code: "forbidden", detail: "Only the creator or a workspace admin can remove this schedule." });
     await ctx.db.delete(a.scheduleId);
+  },
+});
+
+// ── gateway-tool backends (explicit userId+workspaceId, pre-authorized by the caller). schedule_list
+// is read-only; schedule_write needs member+ and resolves the agent BY NAME under the caller (a
+// schedule runs as its owner, spending their creds), then dedups on (owner, agent, prompt). ──
+export const _forUser = internalQuery({
+  args: { userId: v.id("users"), workspaceId: v.id("workspaces") },
+  handler: async (ctx, a) =>
+    (await ctx.db.query("agentSchedules").withIndex("by_ws", (q) => q.eq("workspaceId", a.workspaceId)).take(100))
+      .map((s) => ({ agentId: s.agentId, prompt: s.prompt, everyMinutes: s.everyMinutes, enabled: s.enabled !== false, lastStatus: s.lastStatus })),
+});
+
+export const _createForUser = internalMutation({
+  args: { userId: v.id("users"), workspaceId: v.id("workspaces"), agentName: v.string(), prompt: v.string(), everyMinutes: v.number() },
+  handler: async (ctx, a): Promise<string> => {
+    const m = await ctx.db.query("memberships").withIndex("by_ws_user", (q) => q.eq("workspaceId", a.workspaceId).eq("userId", a.userId)).unique();
+    if (!m || m.role === "viewer") return "You need member access to schedule agents in this workspace.";
+    const prompt = a.prompt.trim().slice(0, 4000);
+    if (!prompt) return "A prompt is required.";
+    const nm = a.agentName.trim().toLowerCase();
+    const agent = (await ctx.db.query("agentDefs").withIndex("by_user", (q) => q.eq("userId", a.userId)).take(200)).find((d) => d.name.toLowerCase() === nm);
+    if (!agent) return `No agent named "${a.agentName}" — create it first with agent_write.`;
+    const every = clampInterval(a.everyMinutes);
+    const dup = (await ctx.db.query("agentSchedules").withIndex("by_ws", (q) => q.eq("workspaceId", a.workspaceId)).take(100))
+      .find((s) => s.userId === a.userId && s.agentId === agent._id && s.prompt === prompt);
+    if (dup) { await ctx.db.patch(dup._id, { everyMinutes: every, enabled: true, updatedAt: Date.now() }); return `Updated schedule for "${agent.name}" → every ${every} min.`; }
+    await ctx.db.insert("agentSchedules", { userId: a.userId, workspaceId: a.workspaceId, agentId: agent._id, prompt, everyMinutes: every, enabled: true, createdAt: Date.now(), updatedAt: Date.now() });
+    return `Scheduled "${agent.name}" to run every ${every} min.`;
   },
 });
 

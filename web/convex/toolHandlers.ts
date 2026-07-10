@@ -31,6 +31,31 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   vault_list: (ctx, userId) => ctx.runQuery(internal.memoryNotes._notesForUser, { userId }),
   vault_read: (ctx, userId, args) => ctx.runQuery(internal.memoryNotes._noteRead, { userId, title: String(args?.title ?? "") }),
   vault_write: (ctx, userId, args) => ctx.runMutation(internal.memoryNotes._noteUpsert, { userId, title: String(args?.title ?? ""), text: String(args?.content ?? ""), format: args?.format ? String(args.format) : undefined }),
+  doctor: async (ctx, userId) => {
+    const [providers, agents, notes] = await Promise.all([
+      ctx.runQuery(internal.credentials.providersForUser, { userId }),
+      ctx.runQuery(internal.agentDefs.listForUser, { userId }),
+      ctx.runQuery(internal.memoryNotes._notesForUser, { userId }),
+    ]);
+    const issues: string[] = [];
+    if (!providers.length) issues.push("No AI providers connected — connect one to run any model.");
+    for (const p of providers as any[]) if (p.lastCheckedOk === false) issues.push(`Provider "${p.provider}" failed its last health check (${p.lastCheckedCode ?? "error"}) — re-test or rotate the key.`);
+    return {
+      providers: (providers as any[]).map((p) => ({ provider: p.provider, kind: p.kind, healthy: p.lastCheckedOk !== false, lastError: p.lastCheckedOk === false ? (p.lastCheckedCode ?? "error") : undefined })),
+      counts: { providers: providers.length, agents: agents.length, vaultNotes: notes.length },
+      issues: issues.length ? issues : ["All good — providers healthy, nothing to fix."],
+    };
+  },
+  agent_write: (ctx, userId, args) => ctx.runMutation(internal.agentDefs._upsertForUser, { userId, name: String(args?.name ?? ""), model: String(args?.model ?? ""), instructions: args?.instructions != null ? String(args.instructions) : undefined, tools: Array.isArray(args?.tools) ? args.tools.map(String) : undefined, skills: Array.isArray(args?.skills) ? args.skills.map(String) : undefined, maxSteps: typeof args?.maxSteps === "number" ? args.maxSteps : undefined, temperature: typeof args?.temperature === "number" ? args.temperature : undefined }),
+  combo_list: (ctx, userId, _args, workspaceId) => workspaceId ? ctx.runQuery(internal.combos._forUser, { userId, workspaceId }) : "No workspace context for combos.",
+  combo_write: (ctx, userId, args, workspaceId) => workspaceId ? ctx.runMutation(internal.combos._upsertForUser, { userId, workspaceId, name: String(args?.name ?? ""), refs: Array.isArray(args?.refs) ? args.refs.map(String) : [], strategy: String(args?.strategy ?? "fallback") }) : "No workspace context for combos.",
+  schedule_list: (ctx, userId, _args, workspaceId) => workspaceId ? ctx.runQuery(internal.scheduledAgents._forUser, { userId, workspaceId }) : "No workspace context for schedules.",
+  schedule_write: (ctx, userId, args, workspaceId) => workspaceId ? ctx.runMutation(internal.scheduledAgents._createForUser, { userId, workspaceId, agentName: String(args?.agentName ?? ""), prompt: String(args?.prompt ?? ""), everyMinutes: Number(args?.everyMinutes ?? 15) }) : "No workspace context for schedules.",
+  get_budget_status: async (ctx, _userId, _args, workspaceId) => {
+    if (!workspaceId) return "No workspace context.";
+    const s: any = await ctx.runQuery(internal.spendCaps.checkSpendCap, { workspaceId });
+    return { spentUsd: Math.round(s.spentUsd * 100) / 100, capUsd: s.capUsd, over: s.over, pctLeft: s.capUsd ? Math.max(0, Math.round((1 - s.spentUsd / s.capUsd) * 100)) : null };
+  },
   chat: async (ctx, userId, args, workspaceId) => {
     const r = await callForUser(ctx, userId, workspaceId, String(args.model), [{ role: "user", content: String(args.prompt) }]); // token-bound workspace creds
     return r.text; // string → MCP asText(); chat is MCP-only, so no agent path hits this

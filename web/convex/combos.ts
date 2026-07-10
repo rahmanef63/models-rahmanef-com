@@ -71,6 +71,29 @@ export const removeCombo = mutation({
   },
 });
 
+// ── gateway-tool backends (explicit userId+workspaceId, pre-authorized by the caller like
+// resolveCombo/checkSpendCap). combo_list is read-only; combo_write requires member+ because an MCP
+// token can belong to a viewer whom mcpNode only membership-checks, not role-checks. ──
+export const _forUser = internalQuery({
+  args: { userId: v.id("users"), workspaceId: v.id("workspaces") },
+  handler: async (ctx, a) =>
+    (await ctx.db.query("combos").withIndex("by_ws", (q) => q.eq("workspaceId", a.workspaceId)).take(100))
+      .map((c) => ({ name: c.name, refs: c.refs, strategy: c.strategy })),
+});
+
+export const _upsertForUser = internalMutation({
+  args: { userId: v.id("users"), workspaceId: v.id("workspaces"), name: v.string(), refs: v.array(v.string()), strategy: v.string() },
+  handler: async (ctx, a): Promise<string> => {
+    const m = await ctx.db.query("memberships").withIndex("by_ws_user", (q) => q.eq("workspaceId", a.workspaceId).eq("userId", a.userId)).unique();
+    if (!m || m.role === "viewer") return "You need member access to write combos in this workspace.";
+    const { slug, cleaned } = validate(a.name, a.refs, a.strategy);
+    const existing = await ctx.db.query("combos").withIndex("by_ws_name", (q) => q.eq("workspaceId", a.workspaceId).eq("name", slug)).unique();
+    if (existing) { await ctx.db.patch(existing._id, { refs: cleaned, strategy: a.strategy, rotationIndex: 0, updatedAt: Date.now() }); return `Updated combo "${slug}".`; }
+    await ctx.db.insert("combos", { userId: a.userId, workspaceId: a.workspaceId, name: slug, refs: cleaned, strategy: a.strategy, rotationIndex: 0, stickyLimit: 1, createdAt: Date.now(), updatedAt: Date.now() });
+    return `Created combo "${slug}" (${a.strategy}) → ${cleaned.join(", ")}. Target it as combo/${slug}.`;
+  },
+});
+
 // ── resolution (internal; callForUser resolveModelRef calls this before the provider split) ──
 // Returns { ref: "provider/model", comboId, strategy }, or null when the name is unknown.
 //   fallback    → refs[0] (error-fallback across the rest is provider-pool 2.3, not yet wired).

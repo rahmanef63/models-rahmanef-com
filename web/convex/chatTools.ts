@@ -18,7 +18,9 @@ export async function gatewayTools(ctx: any, userId: any, ids?: string[], worksp
     out[t.id] = tool({
       description: t.description,
       inputSchema: jsonSchema(t.inputSchema as any),
-      execute: async (args: any) => handler(ctx, userId, args ?? {}),
+      // pass the agent's workspaceId (4th arg) so workspace-scoped tools (combos/schedules/budget)
+      // work on the agent surface too — same as the MCP path already does via mcpNode.
+      execute: async (args: any) => handler(ctx, userId, args ?? {}, workspaceId),
     });
   }
   // external MCP servers → mcp__<server>__<tool> tools. AGENT SURFACE ONLY (never re-exported on
