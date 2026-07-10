@@ -8,8 +8,18 @@ import { internal } from "./_generated/api";
 import { fetchModelsCatalog } from "./chatProviders";
 import { callForUser } from "./callForUser";
 
-// workspaceId (4th arg) is only used by the MCP `chat` tool (the sole spend tool); read-only tools ignore it.
+// workspaceId (4th arg) lets workspace-scoped tools (combos/schedules/budget/channels) act in the
+// caller's workspace — same value the MCP path and the agent path already resolve + authorize.
 export type ToolHandler = (ctx: any, userId: any, args: any, workspaceId?: any) => Promise<unknown>;
+
+// trust-boundary sanitizer: keep ONLY the known channel-secret keys before they hit the strict
+// v.object validator (a model passing an extra key would otherwise fail the whole call).
+const SECRET_KEYS = ["botToken", "signingSecret", "appSecret", "verifyToken", "phoneNumberId", "accessToken", "publicKey", "applicationId"];
+const pickSecrets = (o: any): Record<string, string> => {
+  const out: Record<string, string> = {};
+  if (o && typeof o === "object") for (const k of SECRET_KEYS) if (typeof o[k] === "string") out[k] = o[k];
+  return out;
+};
 
 export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   list_my_providers: (ctx, userId) => ctx.runQuery(internal.credentials.providersForUser, { userId }),
@@ -56,6 +66,9 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
     const s: any = await ctx.runQuery(internal.spendCaps.checkSpendCap, { workspaceId });
     return { spentUsd: Math.round(s.spentUsd * 100) / 100, capUsd: s.capUsd, over: s.over, pctLeft: s.capUsd ? Math.max(0, Math.round((1 - s.spentUsd / s.capUsd) * 100)) : null };
   },
+  channel_list: (ctx, userId, _args, workspaceId) => workspaceId ? ctx.runQuery(internal.channelsTools._channelsForUser, { userId, workspaceId }) : "No workspace context for channels.",
+  channel_create: (ctx, userId, args, workspaceId) => workspaceId ? ctx.runMutation(internal.channelsTools._channelCreateForUser, { userId, workspaceId, kind: String(args?.kind ?? ""), name: String(args?.name ?? ""), secrets: pickSecrets(args?.secrets), agentName: args?.agentName != null ? String(args.agentName) : undefined }) : "No workspace context for channels.",
+  channel_config: (ctx, userId, args, workspaceId) => workspaceId ? ctx.runMutation(internal.channelsTools._channelConfigForUser, { userId, workspaceId, name: String(args?.name ?? ""), model: args?.model != null ? String(args.model) : undefined, agentName: args?.agentName != null ? String(args.agentName) : undefined, enabled: typeof args?.enabled === "boolean" ? args.enabled : undefined }) : "No workspace context for channels.",
   chat: async (ctx, userId, args, workspaceId) => {
     const r = await callForUser(ctx, userId, workspaceId, String(args.model), [{ role: "user", content: String(args.prompt) }]); // token-bound workspace creds
     return r.text; // string → MCP asText(); chat is MCP-only, so no agent path hits this

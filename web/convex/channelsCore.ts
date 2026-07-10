@@ -10,14 +10,14 @@ import { requireWorkspaceRole } from "./_shared/auth";
 import { encryptSecret, decryptSecret } from "./crypto";
 
 const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-const rand = (n: number) => b64url(crypto.getRandomValues(new Uint8Array(n)));
-const KINDS = ["telegram", "slack", "whatsapp", "discord"]; // registry-driven adapters
+export const rand = (n: number) => b64url(crypto.getRandomValues(new Uint8Array(n)));
+export const KINDS = ["telegram", "slack", "whatsapp", "discord"]; // registry-driven adapters
 const bad = (detail: string) => new ConvexError({ code: "invalid_request", detail });
 
 // Per-kind secret builder. Returns the plaintext object to encrypt into secretCiphertext + (telegram
 // only) the freshly-minted webhook secretToken to surface once. Discord botToken/applicationId are
 // optional (only needed to register the /command); everything else is required for verify + reply.
-function channelSecret(kind: string, s: any): { secret: Record<string, string>; secretToken?: string } {
+export function channelSecret(kind: string, s: any): { secret: Record<string, string>; secretToken?: string } {
   const need = (k: string) => {
     const val = String(s?.[k] ?? "").trim();
     if (!val) throw bad(`"${k}" is required for a ${kind} channel.`);
