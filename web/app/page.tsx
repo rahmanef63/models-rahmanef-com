@@ -2,7 +2,7 @@ import Link from "next/link";
 import { GraphDemo } from "./_components/graph-demo";
 import { SiteNav } from "./_components/site-nav";
 
-const PROVIDERS = ["OpenAI", "Anthropic", "Google", "OpenRouter", "Groq", "xAI", "DeepSeek", "Mistral", "Moonshot", "Cohere", "Perplexity", "Together", "Fireworks", "Cerebras", "DeepInfra"];
+const PROVIDERS = ["OpenAI", "Anthropic", "Google", "OpenRouter", "Groq", "DeepSeek", "xAI", "Mistral", "Moonshot", "Together", "Fireworks", "Cerebras", "Perplexity", "DeepInfra", "Nebius", "Hyperbolic", "SambaNova", "Novita", "Cohere", "Zhipu GLM", "GitHub Models", "Vercel AI Gateway"];
 const GITHUB = "https://github.com/rahmanef63/models-rahmanef-com";
 
 const FEATURES = [

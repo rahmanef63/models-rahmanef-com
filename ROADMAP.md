@@ -33,9 +33,11 @@ here, as a slice — and every rr app gets it, multi-tenant and encrypted, for f
 - **Agent loop** — `runAgent` multi-step tool loop, saved agent defs, persisted runs + traces
 - **Memory** — per-scope memory, auto-summaries, + an Obsidian-style **memory graph**
 - **MCP server** — bearer + OAuth 2.1 PKCE + DCR, rate-limited, ChatGPT-connectable
+- **MCP client** — connect external MCP servers (HTTP/SSE); their tools surface to agents, per-workspace scoped
 - **`/v1` gateway** — OpenAI + Anthropic compatible (`sk-rr` keys; Claude Code works today)
 - **Channels** — Telegram / Slack / WhatsApp / Discord inbound (v0.1)
 - **Ops** — scheduled agents, usage rollups, spend caps, append-only audit
+- **Provider-pool failover** — same-provider ≤3-attempt failover with cooldown/backoff on the hot path
 - **Workspaces** — role-based invites, per-workspace isolation
 
 Quality bar: see [`audit.md`](audit.md) — 0 HIGH issues, avg ~87/100, 3 fix passes.
@@ -44,12 +46,12 @@ Quality bar: see [`audit.md`](audit.md) — 0 HIGH issues, avg ~87/100, 3 fix pa
 
 Highest-leverage gaps the others already prove out (who has it in parens). Each is a slice-sized task.
 
-- [ ] **MCP client / host** — consume external MCP servers, discover + register their tools *(hermes, openclaw, 9router)*
+- [ ] **OAuth-authenticated external MCP servers** — connect to MCP servers behind an OAuth login (the MCP client + static-header auth already ship; stdio-host is out of scope on Convex) *(hermes, openclaw)*
 - [ ] **Modalities** — vision + embeddings (→ RAG), then TTS/STT *(all three)*
 - [ ] **Streaming `/v1` + tool passthrough** — resumable SSE + client `tools`/`tool_choice` *(hermes, openclaw, 9router)*
 - [ ] **More channels** — beyond the 4 inbound; harden Discord (type-5 deferred) *(hermes, openclaw)*
 - [ ] **Cost / quota dashboard** — "X% left", per-model spend *(hermes, openclaw, 9router)*
-- [ ] **Multi-key failover** — same-provider credential pool with cooldown/backoff *(openclaw, 9router)*
+- [ ] **Multi-key pool write path** — register >1 labelled key per provider so the shipped failover pool is populatable *(openclaw, 9router)*
 - [ ] **More OAuth logins** — Copilot / Qwen / Gemini-CLI *(all three)*
 - [ ] **CLI / TUI surface** *(hermes, openclaw)*
 

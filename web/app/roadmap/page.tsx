@@ -7,6 +7,12 @@ const GH = "https://github.com/rahmanef63/models-rahmanef-com";
 
 // newest first. Dates: v0.1 ship + audit from docs/FEATURES-LOG.md; fix passes + landing from git log.
 const CHANGELOG: { date: string; tag: string; items: string[] }[] = [
+  { date: "2026-07-10", tag: "admin + landing + isolation", items: [
+    "Admin: analytics charts, per-user activity log + exact signup time, JSON preset seeding",
+    "Landing: roadmap + changelog moved into a shared header; de-duped hero CTA",
+    "Security: external MCP tool surface now workspace-scoped (was per-user)",
+    "Roadmap corrected: MCP client + provider-pool failover marked shipped",
+  ] },
   { date: "2026-07-08", tag: "landing + hardening", items: [
     "Memory-graph slice + Obsidian graph; icon-rail app shell + mobile dock",
     "CRUD completeness: updateCombo, mcp updateServer, schedule edit, channel cascade-delete",
