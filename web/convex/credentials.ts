@@ -24,12 +24,16 @@ export const listConfiguredProviders = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
     const rows = await ctx.db.query("modelCreds").withIndex("by_user", (q) => q.eq("userId", userId)).collect();
-    // one card per provider — collapse multi-key pools, keeping keyCount + the freshest health row.
+    // one card per provider — collapse multi-key pools + keyCount. Representative = the OLDEST row
+    // (min _creationTime), the same row store()/_recordCheck target via .first(). Using max-updatedAt
+    // would pick a freshly-added pool key (newest updatedAt, no health yet) and flip the card to
+    // NOT-TESTED the moment a 2nd key is added, while the badge write lands on the old row — they'd
+    // never agree. Per-key status lives in the ProviderKeys expander instead.
     const byProvider = new Map<string, { row: any; count: number }>();
     for (const r of rows) {
       const cur = byProvider.get(r.provider);
       if (!cur) byProvider.set(r.provider, { row: r, count: 1 });
-      else { cur.count++; if ((r.updatedAt ?? 0) > (cur.row.updatedAt ?? 0)) cur.row = r; }
+      else { cur.count++; if (r._creationTime < cur.row._creationTime) cur.row = r; }
     }
     return [...byProvider.values()].map(({ row, count }) => ({ ...mapCred(row), keyCount: count }));
   },
@@ -80,7 +84,9 @@ export const store = internalMutation({
       .withIndex("by_user_provider", (q) => q.eq("userId", a.userId).eq("provider", a.provider))
       .filter((q) => q.eq(q.field("workspaceId"), undefined))
       .first(); // .first not .unique: a provider may now hold multiple personal pool keys — upsert the primary
-    if (existing) await ctx.db.patch(existing._id, { kind: a.kind, ciphertext: a.ciphertext, expires: a.expires, updatedAt: Date.now(), refreshLeaseUntil: undefined });
+    // a fresh key write un-bricks the row: reset the pool-health verdict so re-pasting a valid key
+    // into a cred that pickCredentials had benched (dead/exhausted) brings it back into rotation.
+    if (existing) await ctx.db.patch(existing._id, { kind: a.kind, ciphertext: a.ciphertext, expires: a.expires, updatedAt: Date.now(), refreshLeaseUntil: undefined, status: "ok", cooldownUntil: undefined, backoffLevel: 0, lastErrorCode: undefined });
     else await ctx.db.insert("modelCreds", { userId: a.userId, provider: a.provider, kind: a.kind, ciphertext: a.ciphertext, expires: a.expires, updatedAt: Date.now() });
   },
 });
