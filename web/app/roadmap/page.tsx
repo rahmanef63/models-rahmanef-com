@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Roadmap } from "../_components/roadmap";
 import { Comparison } from "../_components/comparison";
+import { SiteNav } from "../_components/site-nav";
 
 const GH = "https://github.com/rahmanef63/models-rahmanef-com";
 
@@ -43,14 +44,7 @@ export const metadata = {
 export default function RoadmapPage() {
   return (
     <div className="wrap">
-      <nav className="nav">
-        <Link className="brand" href="/">models<b>.</b></Link>
-        <div className="nav-links">
-          <Link href="/">home</Link>
-          <a href={GH} target="_blank" rel="noreferrer">source</a>
-          <Link className="btn accent" href="/app">Open dashboard →</Link>
-        </div>
-      </nav>
+      <SiteNav home />
 
       <header className="section">
         <span className="eyebrow">roadmap</span>
@@ -60,7 +54,7 @@ export default function RoadmapPage() {
 
       <Roadmap />
 
-      <section className="section">
+      <section className="section" id="changelog" style={{ scrollMarginTop: "1.5rem" }}>
         <div className="section-head">
           <span className="eyebrow">changelog</span>
           <h2>What shipped, when.</h2>

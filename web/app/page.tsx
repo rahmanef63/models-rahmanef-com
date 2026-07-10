@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { GraphDemo } from "./_components/graph-demo";
+import { SiteNav } from "./_components/site-nav";
 
 const PROVIDERS = ["OpenAI", "Anthropic", "Google", "OpenRouter", "Groq", "xAI", "DeepSeek", "Mistral", "Moonshot", "Cohere", "Perplexity", "Together", "Fireworks", "Cerebras", "DeepInfra"];
 const GITHUB = "https://github.com/rahmanef63/models-rahmanef-com";
@@ -27,13 +28,7 @@ const MG_LEGEND = [["memories", "var(--accent)"], ["agents", "#5aa9ff"], ["skill
 export default function Landing() {
   return (
     <div className="wrap">
-      <nav className="nav reveal">
-        <div className="brand">models<b>.</b></div>
-        <div className="nav-links">
-          <a href={GITHUB} target="_blank" rel="noreferrer">source</a>
-          <Link className="btn accent" href="/app">Open dashboard →</Link>
-        </div>
-      </nav>
+      <SiteNav />
 
       <header className="hero">
         <div>
@@ -48,7 +43,7 @@ export default function Landing() {
           </p>
           <div className="cta-row reveal" style={{ ["--d" as string]: "0.3s" }}>
             <Link className="btn accent" href="/app">Open dashboard →</Link>
-            <a className="btn" href={GITHUB} target="_blank" rel="noreferrer">View source</a>
+            <a className="btn" href="#modules">See what's inside ↓</a>
           </div>
         </div>
         <aside className="readout reveal" style={{ ["--d" as string]: "0.4s" }} aria-hidden>
@@ -87,7 +82,7 @@ export default function Landing() {
         </div>
       </section>
 
-      <section className="section">
+      <section className="section" id="modules">
         <div className="section-head">
           <span className="eyebrow">inside the dashboard</span>
           <h2>Everything, in one console.</h2>
