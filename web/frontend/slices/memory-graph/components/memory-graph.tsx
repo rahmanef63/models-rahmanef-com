@@ -66,7 +66,14 @@ export function MemoryGraph({ data, labels: over, className, onAddMemory, onImpo
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "/" && document.activeElement !== inputRef.current) { e.preventDefault(); setExpanded(true); inputRef.current?.focus(); }
+      // "/" = summon the composer's node/skill mention picker. Only when NOT already typing in a
+      // field (else it hijacks "/" in the graph search box), and INSERT the "/" so the picker
+      // actually opens — preventDefault alone would just eat the trigger char and open nothing.
+      if (e.key === "/") {
+        const ae = document.activeElement as HTMLElement | null;
+        const typing = !!ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA" || ae.isContentEditable);
+        if (!typing) { e.preventDefault(); setExpanded(true); setComposerValue((v) => (v.endsWith("/") ? v : v + "/")); inputRef.current?.focus(); }
+      }
       if (e.key === "Escape") { setInspectorOpen(false); setExpanded(false); st.setContextParent(null); inputRef.current?.blur(); engine.resetView(); }
     };
     window.addEventListener("keydown", onKey);
