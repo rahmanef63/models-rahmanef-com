@@ -17,7 +17,8 @@ const CLUSTERS: ClusterDef[] = [
 const clip = (s: string) => (s.length > 24 ? s.slice(0, 24).trim() + "…" : s);
 
 export function useGraphData(brand = "Memory") {
-  const memory = useQuery(api.memory.listMemories, { scope: "user" });
+  // vault docs (notes + facts + summaries) — titled so [[Title]] wikilinks in bodies resolve to edges
+  const memory = useQuery(api.memoryNotes.listNotes);
   const agents = useQuery(api.agentDefs.list);
   const skills = useQuery(api.agentDefs.listSkillsRegistry);
   const tools = useQuery(api.agentDefs.listToolRegistry);
@@ -30,8 +31,8 @@ export function useGraphData(brand = "Memory") {
       { id: "core", type: "core", title: brand, body: "Pusat memory — semua yang model pelajari, plus agent, skill & tool yang menyusunnya." },
       ...CLUSTERS.map((c): GraphNode => ({ id: c.id, type: "cluster", title: c.label, icon: c.icon, parent: "core", group: c.id })),
     ];
-    for (const m of memory?.items ?? [])
-      nodes.push({ id: `mem-${m.id}`, type: "memory", title: clip(m.text), body: m.text, parent: "memories", group: "memories", tags: [m.kind], existing: true, pinned: m.pinned, attachment: m.kind === "summary" });
+    for (const m of memory ?? [])
+      nodes.push({ id: `mem-${m.id}`, type: "memory", title: m.title || clip(m.text), body: m.text, parent: "memories", group: "memories", tags: [m.kind], existing: true, pinned: m.pinned, attachment: m.kind === "summary" });
     for (const s of skills ?? [])
       nodes.push({ id: `skill-${s.id}`, type: "skill", title: s.label, body: s.description, parent: "skills", group: "skills", tags: ["skill"], existing: true });
     for (const t of tools ?? [])

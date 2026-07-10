@@ -8,10 +8,12 @@ export const memoryTables = {
   memories: defineTable({
     userId: v.id("users"),
     workspaceId: v.optional(v.id("workspaces")),
-    scope: v.string(), // 'user' | 'workspace' | 'agent'
+    scope: v.string(), // 'user' | 'workspace' | 'agent' | 'note' (vault doc — never injected)
     agentId: v.optional(v.id("agentDefs")), // required when scope='agent'
-    kind: v.string(), // 'fact' | 'preference' | 'summary'
+    kind: v.string(), // 'fact' | 'preference' | 'summary' | 'note'
     text: v.string(), // fence-tags stripped at write; char-budgeted per scope
+    title: v.optional(v.string()),  // vault node name — drives the tree label + [[Title]] link target
+    format: v.optional(v.string()), // 'md' (default) | 'json' — how the vault editor renders `text`
     source: v.string(), // 'explicit-tool' | 'ui' | 'auto-summary'
     sourceThreadId: v.optional(v.id("threads")),
     summarizedMsgCount: v.optional(v.number()), // watermark: msg count at last auto-summary (summary rows)

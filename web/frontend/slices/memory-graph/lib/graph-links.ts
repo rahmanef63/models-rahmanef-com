@@ -3,6 +3,7 @@
 // Link syntax inside a memory's body text — BRACKET FORM ONLY:
 //   @[Convex]        → resolves to the node titled/ided "Convex"
 //   /[Researcher]    → same, `/` sigil (mirrors the composer's @// mention picker)
+//   [[Convex]]       → Obsidian-style wikilink (same resolution) — for the md/json vault editor
 // A resolved ref becomes a `{ kind: "link" }` edge from the authoring node to the target.
 // Bracket-only is deliberate: bare `@word` / `/word` appears constantly in prose (n/a, and/or,
 // URLs, dates like 12/25, emails) and must NOT create edges. The composer always inserts brackets.
@@ -10,7 +11,8 @@
 
 import type { GraphEdge, GraphNode } from "../types";
 
-const REF_RE = /[@/]\[([^\]]+)\]/g;
+// group 1 = @[…] / /[…] sigil form; group 2 = [[…]] Obsidian wikilink form.
+const REF_RE = /(?:[@/]\[([^\]]+)\]|\[\[([^\]]+)\]\])/g;
 
 // lowercase, non-alphanumerics → single space, trimmed + collapsed
 function normalize(text: string): string {
@@ -37,7 +39,7 @@ export function parseRefs(text: string): string[] {
   const out: string[] = [];
   const seen = new Set<string>();
   for (const match of text.matchAll(REF_RE)) {
-    const ref = match[1].trim();
+    const ref = (match[1] ?? match[2]).trim();
     if (ref.length < 2) continue; // ignore 1-char refs (too ambiguous for substring resolution)
     const key = ref.toLowerCase();
     if (seen.has(key)) continue;

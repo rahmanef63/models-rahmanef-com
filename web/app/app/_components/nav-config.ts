@@ -15,6 +15,7 @@ export const ICONS: Record<string, string> = {
   workspace: "M12 3.2l7.5 4.4v8.8L12 20.8l-7.5-4.4V7.6z",
   admin: "M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6z",
   create: "M12 5v14M5 12h14",
+  memory: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8M12 3v3M12 18v3M3 12h3M18 12h3",
 };
 
 const GROUPS: NavGroup[] = [
@@ -54,13 +55,21 @@ const GROUPS: NavGroup[] = [
     ],
   },
   {
+    id: "memory",
+    label: "Memory",
+    icon: ICONS.memory,
+    sections: [
+      { id: "notes", label: "Vault" },
+      { id: "graph", label: "Graph" },
+      { id: "memory", label: "Facts" },
+    ],
+  },
+  {
     id: "workspace",
     label: "Workspace",
     icon: ICONS.workspace,
     sections: [
-      { id: "graph", label: "Memory Graph" },
       { id: "members", label: "Members" },
-      { id: "memory", label: "Memory" },
       { id: "settings", label: "Settings" },
     ],
   },

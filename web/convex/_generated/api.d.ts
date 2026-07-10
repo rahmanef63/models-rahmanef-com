@@ -62,6 +62,7 @@ import type * as mcpServers from "../mcpServers.js";
 import type * as memory from "../memory.js";
 import type * as memoryAutoSummary from "../memoryAutoSummary.js";
 import type * as memoryCuration from "../memoryCuration.js";
+import type * as memoryNotes from "../memoryNotes.js";
 import type * as memorySummarize from "../memorySummarize.js";
 import type * as oauth from "../oauth.js";
 import type * as providerPool from "../providerPool.js";
@@ -140,6 +141,7 @@ declare const fullApi: ApiFromModules<{
   memory: typeof memory;
   memoryAutoSummary: typeof memoryAutoSummary;
   memoryCuration: typeof memoryCuration;
+  memoryNotes: typeof memoryNotes;
   memorySummarize: typeof memorySummarize;
   oauth: typeof oauth;
   providerPool: typeof providerPool;

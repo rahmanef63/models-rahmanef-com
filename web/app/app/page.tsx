@@ -18,7 +18,7 @@ import { AgentsCard } from "./_components/agents-card";
 import { WorkbenchCard } from "./_components/workbench";
 import { WorkspaceProvider, WorkspaceSwitcher, MembersCard, useWorkspace } from "@/features/workspaces";
 import { ApiKeysCard } from "@/features/api-compat";
-import { MemoryPanel } from "@/features/memory";
+import { MemoryPanel, MemoryVault, NoteTree } from "@/features/memory";
 import { ComboBuilderCard } from "@/features/combos";
 import { McpServersCard } from "@/features/mcp-client";
 import { ChannelsCard } from "@/features/channels";
@@ -71,6 +71,7 @@ function Dashboard() {
   const [claudeModels, setClaudeModels] = useState<string[]>([]);
   const [banner, setBanner] = useState("");
   const [section, setSection] = useState("overview");
+  const [noteId, setNoteId] = useState<string | null>(null); // selected vault note (or "new")
 
   useEffect(() => {
     fetch("https://models.dev/api.json").then((r) => r.json()).then(setCatalog).catch(() => {});
@@ -113,6 +114,7 @@ function Dashboard() {
       workspaceSwitcher={<WorkspaceSwitcher />}
       aiDock={section === "overview" ? <AiDock modelCount={myModels.length} go={setSection} /> : undefined}
       bleed={section === "graph"}
+      secondaryPanel={section === "notes" ? <NoteTree selectedId={noteId} onOpen={setNoteId} onNew={() => setNoteId("new")} /> : undefined}
     >
       {banner && <div className="banner">{banner}</div>}
 
@@ -143,6 +145,7 @@ function Dashboard() {
       {section === "usage" && <UsageCard catalog={catalog} />}
       {section === "settings" && <TokenSaverCard />}
       {section === "graph" && <MemoryGraphPanel />}
+      {section === "notes" && <MemoryVault noteId={noteId} onOpen={setNoteId} onClosed={() => setNoteId(null)} />}
       {section === "memory" && <MemoryPanel workspaceId={workspaceId ?? undefined} />}
       {section === "members" && <MembersCard />}
       {section === "mcp" && <McpCard />}
