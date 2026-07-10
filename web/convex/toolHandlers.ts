@@ -28,6 +28,9 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   },
   memory: (ctx, userId, args) => ctx.runMutation(internal.memory._toolWrite, { userId, op: String(args?.op ?? "add"), text: args?.text, match: args?.match }),
   recall_memory: (ctx, userId, args) => ctx.runQuery(internal.memory._toolSearch, { userId, query: String(args?.query ?? "") }),
+  vault_list: (ctx, userId) => ctx.runQuery(internal.memoryNotes._notesForUser, { userId }),
+  vault_read: (ctx, userId, args) => ctx.runQuery(internal.memoryNotes._noteRead, { userId, title: String(args?.title ?? "") }),
+  vault_write: (ctx, userId, args) => ctx.runMutation(internal.memoryNotes._noteUpsert, { userId, title: String(args?.title ?? ""), text: String(args?.content ?? ""), format: args?.format ? String(args.format) : undefined }),
   chat: async (ctx, userId, args, workspaceId) => {
     const r = await callForUser(ctx, userId, workspaceId, String(args.model), [{ role: "user", content: String(args.prompt) }]); // token-bound workspace creds
     return r.text; // string → MCP asText(); chat is MCP-only, so no agent path hits this

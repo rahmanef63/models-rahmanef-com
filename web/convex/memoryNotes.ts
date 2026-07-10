@@ -2,7 +2,7 @@
 // recalled facts: the "note" scope is NEVER injected into the prompt (_buildContext reads only
 // user/workspace scopes), so a note can be a large md doc or a json blob without touching the recall
 // budget. Obsidian-style [[Title]] links in a body become graph edges (memory-graph/lib/graph-links).
-import { query, mutation } from "./_generated/server";
+import { query, mutation, internalQuery, internalMutation } from "./_generated/server";
 import { v, ConvexError } from "convex/values";
 import { requireUser } from "./_shared/auth";
 
@@ -57,5 +57,57 @@ export const upsertNote = mutation({
       userId, scope: "note", kind: "note", title, text, format: a.format,
       source: "ui", createdAt: Date.now(), updatedAt: Date.now(),
     });
+  },
+});
+
+// ── vault gateway-tools backend (explicit userId — serves both the agent loop + the MCP token path,
+// which has no auth session). Scoped to "note" docs: the AI's document space, separate from the
+// short `memory` facts. Return short strings/objects the model reads. ──
+
+const activeNotes = async (ctx: any, userId: any) =>
+  (await ctx.db.query("memories").withIndex("by_user_scope", (q: any) => q.eq("userId", userId).eq("scope", "note")).take(300))
+    .filter((n: any) => !n.archived);
+
+export const _notesForUser = internalQuery({
+  args: { userId: v.id("users") },
+  handler: async (ctx, a) =>
+    (await activeNotes(ctx, a.userId))
+      .sort((x: any, y: any) => (y.updatedAt ?? 0) - (x.updatedAt ?? 0))
+      .map((n: any) => ({ title: n.title || "(untitled)", format: n.format ?? "md", chars: n.text.length })),
+});
+
+export const _noteRead = internalQuery({
+  args: { userId: v.id("users"), title: v.string() },
+  handler: async (ctx, a) => {
+    const t = a.title.trim().toLowerCase();
+    const n = (await activeNotes(ctx, a.userId)).find((r: any) => (r.title || "").trim().toLowerCase() === t);
+    if (!n) return { found: false as const };
+    return { found: true as const, title: n.title, format: n.format ?? "md", content: n.text };
+  },
+});
+
+// upsert BY TITLE (case-insensitive) — the AI writes "note X = …" and we create or update it.
+// Trust boundary: json is parse-validated, title/body capped; errors come back as a readable string.
+export const _noteUpsert = internalMutation({
+  args: { userId: v.id("users"), title: v.string(), text: v.string(), format: v.optional(v.string()) },
+  handler: async (ctx, a): Promise<string> => {
+    const format = a.format && FORMATS.has(a.format) ? a.format : "md";
+    if (format === "json" && a.text.trim()) {
+      try { JSON.parse(a.text); } catch { return `Not saved — content is not valid JSON.`; }
+    }
+    const title = a.title.trim().slice(0, MAX_TITLE);
+    if (!title) return `Not saved — a title is required.`;
+    const text = a.text.slice(0, MAX_BODY);
+    const t = title.toLowerCase();
+    const existing = (await activeNotes(ctx, a.userId)).find((n: any) => (n.title || "").trim().toLowerCase() === t);
+    if (existing) {
+      await ctx.db.patch(existing._id, { title, text, format, updatedAt: Date.now() });
+      return `Updated vault note "${title}".`;
+    }
+    await ctx.db.insert("memories", {
+      userId: a.userId, scope: "note", kind: "note", title, text, format,
+      source: "explicit-tool", createdAt: Date.now(), updatedAt: Date.now(),
+    });
+    return `Created vault note "${title}".`;
   },
 });
