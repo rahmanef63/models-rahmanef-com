@@ -11,6 +11,8 @@
 import type * as _shared_auth from "../_shared/auth.js";
 import type * as _shared_ssrf from "../_shared/ssrf.js";
 import type * as admin from "../admin.js";
+import type * as adminAnalytics from "../adminAnalytics.js";
+import type * as adminSeed from "../adminSeed.js";
 import type * as agentDefs from "../agentDefs.js";
 import type * as agents from "../agents.js";
 import type * as apiKeys from "../apiKeys.js";
@@ -86,6 +88,8 @@ declare const fullApi: ApiFromModules<{
   "_shared/auth": typeof _shared_auth;
   "_shared/ssrf": typeof _shared_ssrf;
   admin: typeof admin;
+  adminAnalytics: typeof adminAnalytics;
+  adminSeed: typeof adminSeed;
   agentDefs: typeof agentDefs;
   agents: typeof agents;
   apiKeys: typeof apiKeys;

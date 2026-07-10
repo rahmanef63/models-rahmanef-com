@@ -11,6 +11,8 @@ import { UsageCard } from "./_components/usage";
 import { TokenSaverCard } from "./_components/settings";
 import { McpCard } from "./_components/mcp";
 import { AdminCard } from "./_components/admin";
+import { AdminAnalyticsCard } from "./_components/admin-analytics";
+import { AdminSeedCard } from "./_components/admin-seed";
 import { ConnectProviders, ConnectedCreds } from "@/features/byok";
 import { AgentsCard } from "./_components/agents-card";
 import { WorkbenchCard } from "./_components/workbench";
@@ -153,6 +155,8 @@ function Dashboard() {
       {section === "budget" && <SpendCapCard />}
       {section === "audit" && <AuditLogCard />}
       {section === "admin" && me?.isSuperAdmin && <AdminCard />}
+      {section === "analytics" && me?.isSuperAdmin && <AdminAnalyticsCard />}
+      {section === "seed" && me?.isSuperAdmin && <AdminSeedCard />}
     </DashboardShell>
   );
 }

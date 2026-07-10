@@ -70,7 +70,11 @@ const ADMIN_GROUP: NavGroup = {
   id: "admin",
   label: "Admin",
   icon: ICONS.admin,
-  sections: [{ id: "admin", label: "Admin" }],
+  sections: [
+    { id: "admin", label: "Admin" },
+    { id: "analytics", label: "Analytics" },
+    { id: "seed", label: "Seed" },
+  ],
 };
 
 export function groupsFor(isAdmin: boolean): NavGroup[] {

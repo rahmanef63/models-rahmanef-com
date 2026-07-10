@@ -2,6 +2,8 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { PROVIDER_LABEL, fmt } from "./shared";
+import { HBarList } from "./charts";
+import { AdminUsers } from "./admin-users";
 
 function Stat({ n, l, danger }: { n: number; l: string; danger?: boolean }) {
   return (
@@ -14,12 +16,11 @@ function Stat({ n, l, danger }: { n: number; l: string; danger?: boolean }) {
 
 export function AdminCard() {
   const stats = useQuery(api.admin.adminStats);
-  const users = useQuery(api.admin.adminUsers);
   const ov = useQuery(api.admin.adminOverview);
   return (
     <section className="card">
       <h2>Admin <span className="badge oauth">SUPER</span></h2>
-      <p className="sub">Operator console — identities, counts, and aggregates only. Never a key or message content.</p>
+      <p className="sub">Operator console — identities, counts, and aggregates only. Never a key or message content. See <b>Analytics</b> for 30-day trends and <b>Seed</b> to bulk-import agent presets.</p>
       {stats === undefined ? (
         <p className="muted mono">…</p>
       ) : (
@@ -38,39 +39,18 @@ export function AdminCard() {
       {ov && ov.providers.length > 0 && (
         <div className="admin-block">
           <h3>Providers connected</h3>
-          <ul className="creds">
-            {ov.providers.map(([slug, n]) => (
-              <li key={slug}><span className="name">{PROVIDER_LABEL[slug] ?? slug}</span><span className="mono muted">{n}</span></li>
-            ))}
-          </ul>
+          <HBarList items={ov.providers.map(([slug, value]) => ({ label: PROVIDER_LABEL[slug] ?? slug, value }))} />
         </div>
       )}
 
       {ov && ov.topModels.length > 0 && (
         <div className="admin-block">
           <h3>Top models · global</h3>
-          <ul className="creds">
-            {ov.topModels.map(([m, n]) => (
-              <li key={m}><span className="name mono" style={{ fontSize: ".82rem" }}>{m}</span><span className="mono muted">{n}×</span></li>
-            ))}
-          </ul>
+          <HBarList items={ov.topModels.map(([label, value]) => ({ label, value }))} unit="×" />
         </div>
       )}
 
-      {users !== undefined && (
-        <div className="admin-block">
-          <h3>Users</h3>
-          <ul className="creds">
-            {users.map((u) => (
-              <li key={u.id}>
-                <span className="name mono" style={{ fontSize: ".85rem" }}>{u.email || u.name || "user·" + u.id.slice(-6)}</span>
-                <span className="mono muted" style={{ fontSize: ".72rem" }}>{new Date(u.createdAt).toISOString().slice(0, 10)}</span>
-                <span className="badge">{u.providers} {u.providers === 1 ? "provider" : "providers"}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <AdminUsers />
     </section>
   );
 }
