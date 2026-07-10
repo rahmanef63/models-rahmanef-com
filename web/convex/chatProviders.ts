@@ -30,17 +30,20 @@ export const OPENAI_COMPAT: Record<string, string> = {
   "vercel-gateway": "https://ai-gateway.vercel.sh/v1",
 };
 
-export function modelFor(provider: string, model: string, apiKey: string) {
+export function modelFor(provider: string, model: string, apiKey: string, endpoint?: string) {
   switch (provider) {
     case "openai": return createOpenAI({ apiKey })(model);
     case "anthropic": return createAnthropic({ apiKey })(model);
     case "google": return createGoogleGenerativeAI({ apiKey })(model);
     case "openrouter": return createOpenRouter({ apiKey })(model);
-    default:
-      // .chat() = /chat/completions. The shorthand `(model)` defaults to OpenAI's /responses
-      // API, which third-party OpenAI-compatible hosts (Mistral, Groq, …) don't implement → 404.
-      if (OPENAI_COMPAT[provider]) return createOpenAI({ apiKey, baseURL: OPENAI_COMPAT[provider] }).chat(model);
+    default: {
+      // .chat() = /chat/completions. The shorthand `(model)` defaults to OpenAI's /responses API,
+      // which third-party OpenAI-compatible hosts (Mistral, Groq, …) don't implement → 404. A built-in
+      // OPENAI_COMPAT host wins; otherwise a stored custom `endpoint` (BYOK custom provider) is used.
+      const baseURL = OPENAI_COMPAT[provider] ?? endpoint;
+      if (baseURL) return createOpenAI({ apiKey, baseURL }).chat(model);
       return null;
+    }
   }
 }
 

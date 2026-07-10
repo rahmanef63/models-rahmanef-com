@@ -5,8 +5,14 @@
 // EXPLICIT userId (not getAuthUserId) is what lets ONE handler serve both the authed agent path and
 // the token-authed MCP path — the MCP action ctx has no auth session to derive a user from.
 import { internal } from "./_generated/api";
-import { fetchModelsCatalog } from "./chatProviders";
+import { fetchModelsCatalog, OPENAI_COMPAT } from "./chatProviders";
 import { callForUser } from "./callForUser";
+import { encryptSecret } from "./crypto";
+import { assertSafeUrl } from "./_shared/ssrf";
+
+const OAUTH_ONLY = new Set(["openai-codex", "anthropic-oauth"]);
+const KNOWN_PROVIDERS = new Set(["openai", "anthropic", "google", "openrouter", ...Object.keys(OPENAI_COMPAT)]);
+const slugify = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32);
 
 // workspaceId (4th arg) lets workspace-scoped tools (combos/schedules/budget/channels) act in the
 // caller's workspace — same value the MCP path and the agent path already resolve + authorize.
@@ -69,6 +75,26 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   channel_list: (ctx, userId, _args, workspaceId) => workspaceId ? ctx.runQuery(internal.channelsTools._channelsForUser, { userId, workspaceId }) : "No workspace context for channels.",
   channel_create: (ctx, userId, args, workspaceId) => workspaceId ? ctx.runMutation(internal.channelsTools._channelCreateForUser, { userId, workspaceId, kind: String(args?.kind ?? ""), name: String(args?.name ?? ""), secrets: pickSecrets(args?.secrets), agentName: args?.agentName != null ? String(args.agentName) : undefined }) : "No workspace context for channels.",
   channel_config: (ctx, userId, args, workspaceId) => workspaceId ? ctx.runMutation(internal.channelsTools._channelConfigForUser, { userId, workspaceId, name: String(args?.name ?? ""), model: args?.model != null ? String(args.model) : undefined, agentName: args?.agentName != null ? String(args.agentName) : undefined, enabled: typeof args?.enabled === "boolean" ? args.enabled : undefined }) : "No workspace context for channels.",
+  connect_provider: async (ctx, userId, args) => {
+    const provider = String(args?.provider ?? "").trim().toLowerCase();
+    if (OAUTH_ONLY.has(provider)) return "That provider uses OAuth sign-in — connect it in the UI, not with an API key.";
+    if (!KNOWN_PROVIDERS.has(provider)) return `Unknown provider "${provider}". For a custom OpenAI-compatible endpoint use connect_custom_provider.`;
+    const key = String(args?.apiKey ?? "");
+    if (!key) return "apiKey required.";
+    await ctx.runMutation(internal.credentials._connectForUser, { userId, provider, ciphertext: await encryptSecret(key) });
+    return `Connected "${provider}". Target models as ${provider}/<model>.`;
+  },
+  connect_custom_provider: async (ctx, userId, args) => {
+    const name = slugify(String(args?.name ?? ""));
+    if (!name) return "A name is required (letters/numbers).";
+    if (KNOWN_PROVIDERS.has(name) || OAUTH_ONLY.has(name)) return `"${name}" is a built-in provider — use connect_provider.`;
+    const baseURL = String(args?.baseURL ?? "").trim();
+    try { assertSafeUrl(baseURL); } catch (e: any) { return `Invalid endpoint: ${e?.data?.detail ?? "bad URL"}.`; }
+    const key = String(args?.apiKey ?? "");
+    if (!key) return "apiKey required.";
+    await ctx.runMutation(internal.credentials._connectForUser, { userId, provider: name, ciphertext: await encryptSecret(key), endpoint: baseURL });
+    return `Connected custom provider "${name}" → ${baseURL}. Target models as ${name}/<model> (must speak OpenAI /chat/completions).`;
+  },
   chat: async (ctx, userId, args, workspaceId) => {
     const r = await callForUser(ctx, userId, workspaceId, String(args.model), [{ role: "user", content: String(args.prompt) }]); // token-bound workspace creds
     return r.text; // string → MCP asText(); chat is MCP-only, so no agent path hits this

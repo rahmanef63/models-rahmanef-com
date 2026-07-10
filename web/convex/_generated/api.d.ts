@@ -29,6 +29,7 @@ import type * as channelsCore from "../channelsCore.js";
 import type * as channelsCrypto from "../channelsCrypto.js";
 import type * as channelsDispatch from "../channelsDispatch.js";
 import type * as channelsIngest from "../channelsIngest.js";
+import type * as channelsTools from "../channelsTools.js";
 import type * as chat from "../chat.js";
 import type * as chatErrors from "../chatErrors.js";
 import type * as chatProviders from "../chatProviders.js";
@@ -108,6 +109,7 @@ declare const fullApi: ApiFromModules<{
   channelsCrypto: typeof channelsCrypto;
   channelsDispatch: typeof channelsDispatch;
   channelsIngest: typeof channelsIngest;
+  channelsTools: typeof channelsTools;
   chat: typeof chat;
   chatErrors: typeof chatErrors;
   chatProviders: typeof chatProviders;

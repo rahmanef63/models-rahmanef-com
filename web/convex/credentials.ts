@@ -91,6 +91,22 @@ export const store = internalMutation({
   },
 });
 
+// internal: connect a provider from a TOOL (explicit userId; ciphertext already encrypted in the
+// node handler). Upserts the personal api_key row like store(), + an optional custom `endpoint`
+// (BYOK custom OpenAI-compatible provider), and un-bricks the pool-health verdict on rewrite.
+export const _connectForUser = internalMutation({
+  args: { userId: v.id("users"), provider: v.string(), ciphertext: v.string(), endpoint: v.optional(v.string()) },
+  handler: async (ctx, a) => {
+    const existing = await ctx.db
+      .query("modelCreds")
+      .withIndex("by_user_provider", (q) => q.eq("userId", a.userId).eq("provider", a.provider))
+      .filter((q) => q.eq(q.field("workspaceId"), undefined))
+      .first();
+    if (existing) { await ctx.db.patch(existing._id, { kind: "api_key", ciphertext: a.ciphertext, endpoint: a.endpoint, updatedAt: Date.now(), status: "ok", cooldownUntil: undefined, backoffLevel: 0, lastErrorCode: undefined, refreshLeaseUntil: undefined }); return; }
+    await ctx.db.insert("modelCreds", { userId: a.userId, provider: a.provider, kind: "api_key", ciphertext: a.ciphertext, endpoint: a.endpoint, updatedAt: Date.now() });
+  },
+});
+
 // internal: single-flight lease so only ONE concurrent request refreshes a rotating OAuth
 // token. Returns win:true only if the token is actually stale AND no live lease is held.
 export const claimRefresh = internalMutation({

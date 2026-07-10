@@ -101,7 +101,7 @@ export const runAgent = action({
     try {
       row = await ctx.runQuery(internal.credentials.resolveCred, { userId, workspaceId, provider });
       if (!row) throw new ConvexError({ code: "not_connected", detail: `No credentials for "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
-      m = modelFor(provider, model, await decryptSecret(row.ciphertext));
+      m = modelFor(provider, model, await decryptSecret(row.ciphertext), row.endpoint);
       if (!m) throw new ConvexError({ code: "internal", detail: `Unknown provider "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
     } catch (e) {
       // no run exists yet at this point — nothing to mark failed, just classify + rethrow

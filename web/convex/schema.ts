@@ -32,6 +32,7 @@ export default defineSchema({
     provider: v.string(),
     kind: v.optional(v.string()),
     ciphertext: v.string(),
+    endpoint: v.optional(v.string()), // custom OpenAI-compatible baseURL (BYOK custom provider); unset = built-in host
     updatedAt: v.number(),
     expires: v.optional(v.number()), // plaintext token expiry (oauth) — lets the lease check staleness without decrypting
     refreshLeaseUntil: v.optional(v.number()), // single-flight refresh lease
