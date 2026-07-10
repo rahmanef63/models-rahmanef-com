@@ -127,7 +127,7 @@ export async function callForUser(
         // workspace-shared), skipping any in cooldown / marked dead. On a fallback-worthy error we
         // cool the bad cred and try the next; a non-fallback error (400/404) aborts immediately.
         // If the pool is empty we fall back to the resolveCred row. codex/claude OAuth are NOT pooled.
-        const tools = agentOpts?.tools ?? (settings.agentMode ? await gatewayTools(ctx, userId) : undefined);
+        const tools = agentOpts?.tools ?? (settings.agentMode ? await gatewayTools(ctx, userId, undefined, workspaceId) : undefined);
         const genBase = {
           ...(systemPrompt ? { system: systemPrompt } : {}),
           messages: inputMessages as any,

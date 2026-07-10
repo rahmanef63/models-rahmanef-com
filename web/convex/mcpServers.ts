@@ -146,11 +146,15 @@ export const removeServer = mutation({
 // ── internal (node module reads these) ──────────────────────────────────────
 // enabled rows for a user, WITH ciphertext so the node module can decrypt per call. Internal only.
 export const _enabledServers = internalQuery({
-  args: { userId: v.id("users") },
+  args: { userId: v.id("users"), workspaceId: v.optional(v.id("workspaces")) },
   handler: async (ctx, a) => {
     const rows = await ctx.db.query("mcpServers").withIndex("by_user", (q) => q.eq("userId", a.userId)).take(100);
+    // per-workspace isolation (mirrors listServers scoping): a personal server (no workspaceId) is
+    // ambient — usable in any context; a workspace-scoped server is visible ONLY inside its own
+    // workspace. Without this an agent in workspace A could invoke a server the same user registered
+    // in workspace B, breaking the "per-workspace isolation" claim.
     return rows
-      .filter((r) => r.enabled !== false)
+      .filter((r) => r.enabled !== false && (r.workspaceId == null || r.workspaceId === a.workspaceId))
       .map((r) => ({ id: r._id, name: r.name, url: r.url, transport: r.transport, headersCiphertext: r.headersCiphertext, toolCache: r.toolCache ?? [] }));
   },
 });

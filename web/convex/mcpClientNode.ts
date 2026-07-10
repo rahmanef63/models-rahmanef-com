@@ -82,8 +82,8 @@ async function callRemote(srv: Srv, headers: Record<string, string> | undefined,
 
 // Build AI-SDK tools from every enabled server's cached tool list. `ids` filters by tool id the
 // same way the registry tools are filtered (a saved agentDef's `tools`). AGENT SURFACE ONLY.
-export async function mcpClientTools(ctx: any, userId: any, ids?: string[]): Promise<Record<string, any>> {
-  const servers = await ctx.runQuery(internal.mcpServers._enabledServers, { userId });
+export async function mcpClientTools(ctx: any, userId: any, ids?: string[], workspaceId?: any): Promise<Record<string, any>> {
+  const servers = await ctx.runQuery(internal.mcpServers._enabledServers, { userId, workspaceId });
   const out: Record<string, any> = {};
   for (const s of servers as (Srv & { toolCache: any[] })[]) {
     const headers = await decodeHeaders(s.headersCiphertext);

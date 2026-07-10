@@ -30,7 +30,7 @@ export async function computeReply(
       .filter(Boolean)
       .join("\n\n");
     const system = [cx.agent.instructions, skillText].filter(Boolean).join("\n\n") || undefined;
-    agentOpts = { system, tools: gatewayTools(ctx, cx.userId, cx.agent.tools), maxSteps: cx.agent.maxSteps, temperature: cx.agent.temperature };
+    agentOpts = { system, tools: gatewayTools(ctx, cx.userId, cx.agent.tools, cx.workspaceId), maxSteps: cx.agent.maxSteps, temperature: cx.agent.temperature };
   }
   if (!modelRef) return { configured: false, reply: NOT_CONFIGURED };
   try {
