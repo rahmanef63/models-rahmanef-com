@@ -14,7 +14,7 @@
     "./convex/crypto": "./adapters/convex/crypto.ts"
   },
   "scripts": {
-    "test": "node test.mjs && node api.test.mjs && node --experimental-strip-types adapters/convex/crypto.test.ts && node --experimental-strip-types fallbackRules.test.ts"
+    "test": "node test.mjs && node api.test.mjs && node --experimental-strip-types adapters/convex/crypto.test.ts && node --experimental-strip-types fallbackRules.test.ts && node --experimental-strip-types web/apiV1Tools.test.mjs"
   },
   "files": ["src", "adapters", "bin", "examples"]
 }

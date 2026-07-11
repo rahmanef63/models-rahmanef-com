@@ -1,17 +1,28 @@
 "use node";
 // /v1 OpenAI-compatible gateway. The Next /v1/[...path] route proxies here (same pattern as /mcp).
 // API-KEY auth ONLY (sk-rr-…) — never session auth. Every path lands in callForUser (the one pipeline
-// that touches provider creds), scoped to the key's workspace. Non-streaming + pseudo-stream (2.2);
-// real streaming/tool-passthrough is 2.6.
+// that touches provider creds), scoped to the key's workspace. Non-streaming + pseudo-stream (2.2).
+// Tool passthrough is OUTBOUND-only: client tool declarations reach the model and its tool-calls are
+// returned (both wire formats) — feeding tool RESULTS back in (inbound) + real SSE are still pending.
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
+import { tool, jsonSchema } from "ai";
 import { callForUser } from "./callForUser";
 import { fetchModelsCatalog } from "./chatProviders";
+import { parseOpenAITools, parseAnthropicTools, toOpenAIToolCalls, toAnthropicToolUse, type ToolSpec } from "./apiV1Tools";
 
 async function sha256hex(s: string): Promise<string> {
   const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
   return [...d].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// client tool declarations → execute-less AI-SDK tools. No `execute` = the model emits the call and
+// the SDK returns it (finishReason "tool-calls") instead of running it — that's the passthrough.
+function passthroughTools(specs: ToolSpec[]): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const s of specs) out[s.name] = tool({ description: s.description, inputSchema: jsonSchema(s.parameters as any) });
+  return out;
 }
 
 export const handle = action({
@@ -49,9 +60,12 @@ export const handle = action({
         ? body.messages.map((m: any) => ({ role: String(m.role), content: typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "") }))
         : [];
       if (!model || !messages.length) return err(400, "invalid_request", "'model' and non-empty 'messages' are required.");
+      const { specs, toolChoice } = parseOpenAITools(body);
+      const opts = specs.length ? { tools: passthroughTools(specs), toolChoice } : undefined;
       try {
-        const r = await callForUser(ctx, userId, workspaceId, model, messages);
-        return { kind: "chat", model, text: r.text, promptTokens: r.promptTokens ?? 0, completionTokens: r.completionTokens ?? 0, stream: !!body.stream };
+        const r = await callForUser(ctx, userId, workspaceId, model, messages, opts);
+        const toolCalls = r.toolCalls?.length ? toOpenAIToolCalls(r.toolCalls) : undefined;
+        return { kind: "chat", model, text: r.text, promptTokens: r.promptTokens ?? 0, completionTokens: r.completionTokens ?? 0, stream: !!body.stream, toolCalls };
       } catch (e: any) {
         const d = e?.data && typeof e.data === "object" ? e.data : { code: "internal", detail: String(e?.message ?? e) };
         const status = d.code === "invalid_api_key" || d.code === "not_connected" ? 401 : d.code === "rate_limited" ? 429 : d.code === "quota_exceeded" ? 402 : d.code === "not_found" ? 404 : 400;
@@ -69,9 +83,12 @@ export const handle = action({
         ? body.messages.map((m: any) => ({ role: String(m.role), content: anthText(m.content) }))
         : [];
       if (!model || !msgs.length) return err(400, "invalid_request", "'model' and non-empty 'messages' are required.");
+      const { specs, toolChoice } = parseAnthropicTools(body);
+      const opts = specs.length ? { ...(system ? { system } : {}), tools: passthroughTools(specs), toolChoice } : system ? { system } : undefined;
       try {
-        const r = await callForUser(ctx, userId, workspaceId, model, msgs, system ? { system } : undefined);
-        return { kind: "anthropic", model: String(body.model ?? ""), text: r.text, promptTokens: r.promptTokens ?? 0, completionTokens: r.completionTokens ?? 0, stream: !!body.stream };
+        const r = await callForUser(ctx, userId, workspaceId, model, msgs, opts);
+        const toolUse = r.toolCalls?.length ? toAnthropicToolUse(r.toolCalls) : undefined;
+        return { kind: "anthropic", model: String(body.model ?? ""), text: r.text, promptTokens: r.promptTokens ?? 0, completionTokens: r.completionTokens ?? 0, stream: !!body.stream, toolUse };
       } catch (e: any) {
         const d = e?.data && typeof e.data === "object" ? e.data : { code: "internal", detail: String(e?.message ?? e) };
         const status = d.code === "invalid_api_key" || d.code === "not_connected" ? 401 : d.code === "rate_limited" ? 429 : d.code === "quota_exceeded" ? 402 : d.code === "not_found" ? 404 : 400;

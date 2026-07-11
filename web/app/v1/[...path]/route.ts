@@ -29,17 +29,32 @@ async function call(req: Request, method: string, params: { path?: string[] }): 
 
   if (r.kind === "anthropic") {
     const id = "msg_" + Math.random().toString(36).slice(2, 14);
-    const body = { id, type: "message", role: "assistant", model: r.model, content: [{ type: "text", text: r.text }], stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: r.promptTokens, output_tokens: r.completionTokens } };
+    const toolUse: any[] = Array.isArray(r.toolUse) ? r.toolUse : [];
+    const hasTools = toolUse.length > 0;
+    const stopReason = hasTools ? "tool_use" : "end_turn";
+    const content = [...(r.text ? [{ type: "text", text: r.text }] : []), ...toolUse];
+    const body = { id, type: "message", role: "assistant", model: r.model, content: content.length ? content : [{ type: "text", text: "" }], stop_reason: stopReason, stop_sequence: null, usage: { input_tokens: r.promptTokens, output_tokens: r.completionTokens } };
     if (!r.stream) return Response.json(body);
     const enc = new TextEncoder();
     const ev = (event: string, data: unknown) => enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     const stream = new ReadableStream({
       start(c) {
         c.enqueue(ev("message_start", { type: "message_start", message: { ...body, content: [], stop_reason: null, usage: { input_tokens: r.promptTokens, output_tokens: 0 } } }));
-        c.enqueue(ev("content_block_start", { type: "content_block_start", index: 0, content_block: { type: "text", text: "" } }));
-        c.enqueue(ev("content_block_delta", { type: "content_block_delta", index: 0, delta: { type: "text_delta", text: r.text } }));
-        c.enqueue(ev("content_block_stop", { type: "content_block_stop", index: 0 }));
-        c.enqueue(ev("message_delta", { type: "message_delta", delta: { stop_reason: "end_turn", stop_sequence: null }, usage: { output_tokens: r.completionTokens } }));
+        let idx = 0;
+        if (r.text) {
+          c.enqueue(ev("content_block_start", { type: "content_block_start", index: idx, content_block: { type: "text", text: "" } }));
+          c.enqueue(ev("content_block_delta", { type: "content_block_delta", index: idx, delta: { type: "text_delta", text: r.text } }));
+          c.enqueue(ev("content_block_stop", { type: "content_block_stop", index: idx }));
+          idx++;
+        }
+        for (const tu of toolUse) {
+          // tool_use streams as an empty-input block_start then the whole args as one input_json_delta
+          c.enqueue(ev("content_block_start", { type: "content_block_start", index: idx, content_block: { type: "tool_use", id: tu.id, name: tu.name, input: {} } }));
+          c.enqueue(ev("content_block_delta", { type: "content_block_delta", index: idx, delta: { type: "input_json_delta", partial_json: JSON.stringify(tu.input ?? {}) } }));
+          c.enqueue(ev("content_block_stop", { type: "content_block_stop", index: idx }));
+          idx++;
+        }
+        c.enqueue(ev("message_delta", { type: "message_delta", delta: { stop_reason: stopReason, stop_sequence: null }, usage: { output_tokens: r.completionTokens } }));
         c.enqueue(ev("message_stop", { type: "message_stop" }));
         c.close();
       },
@@ -50,6 +65,9 @@ async function call(req: Request, method: string, params: { path?: string[] }): 
   // chat completion (OpenAI)
   const id = "chatcmpl-" + Math.random().toString(36).slice(2, 14);
   const created = Math.floor(Date.now() / 1000);
+  const toolCalls: any[] = Array.isArray(r.toolCalls) ? r.toolCalls : [];
+  const hasTools = toolCalls.length > 0;
+  const finish = hasTools ? "tool_calls" : "stop";
   if (r.stream) {
     const enc = new TextEncoder();
     const chunk = (o: unknown) => enc.encode(`data: ${JSON.stringify(o)}\n\n`);
@@ -57,8 +75,10 @@ async function call(req: Request, method: string, params: { path?: string[] }): 
     const stream = new ReadableStream({
       start(c) {
         c.enqueue(chunk({ ...base, choices: [{ index: 0, delta: { role: "assistant" }, finish_reason: null }] }));
-        c.enqueue(chunk({ ...base, choices: [{ index: 0, delta: { content: r.text }, finish_reason: null }] }));
-        c.enqueue(chunk({ ...base, choices: [{ index: 0, delta: {}, finish_reason: "stop" }] }));
+        if (r.text) c.enqueue(chunk({ ...base, choices: [{ index: 0, delta: { content: r.text }, finish_reason: null }] }));
+        // tool_calls stream with a per-call `index`; emit each whole in one delta (pseudo-stream)
+        if (hasTools) c.enqueue(chunk({ ...base, choices: [{ index: 0, delta: { tool_calls: toolCalls.map((tc, i) => ({ index: i, ...tc })) }, finish_reason: null }] }));
+        c.enqueue(chunk({ ...base, choices: [{ index: 0, delta: {}, finish_reason: finish }] }));
         c.enqueue(enc.encode("data: [DONE]\n\n"));
         c.close();
       },
@@ -67,7 +87,7 @@ async function call(req: Request, method: string, params: { path?: string[] }): 
   }
   return Response.json({
     id, object: "chat.completion", created, model: r.model,
-    choices: [{ index: 0, message: { role: "assistant", content: r.text }, finish_reason: "stop" }],
+    choices: [{ index: 0, message: { role: "assistant", content: r.text || null, ...(hasTools ? { tool_calls: toolCalls } : {}) }, finish_reason: finish }],
     usage: { prompt_tokens: r.promptTokens, completion_tokens: r.completionTokens, total_tokens: r.promptTokens + r.completionTokens },
   });
 }

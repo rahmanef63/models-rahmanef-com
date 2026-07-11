@@ -27,8 +27,8 @@ export async function callForUser(
   workspaceId: any, // Id<"workspaces"> | undefined — undefined = personal creds only (MCP tool / cred test)
   modelRef: string,
   inputMessages: { role: string; content: string }[],
-  agentOpts?: { system?: string; tools?: Record<string, any>; maxSteps?: number; temperature?: number },
-): Promise<{ text: string; promptTokens: number; completionTokens: number }> {
+  agentOpts?: { system?: string; tools?: Record<string, any>; toolChoice?: any; maxSteps?: number; temperature?: number },
+): Promise<{ text: string; promptTokens: number; completionTokens: number; toolCalls?: any[]; finishReason?: string }> {
     // resolveModelRef: reserved prefixes indirect to a concrete "provider/model" BEFORE the split.
     //   combo/<name> -> the combo's chosen ref (strategy-driven; fallback picks refs[0] for now).
     //   agent/<id>   -> that agent's fixed model. Contained prefix-resolution (no retry loop — 2.3).
@@ -64,6 +64,7 @@ export async function callForUser(
     // failure (not just the model call itself) gets classified into a structured ConvexError
     // instead of escaping as a plain Error (which Convex redacts to a bare "Server Error").
     let text = "", promptTokens = 0, completionTokens = 0;
+    let toolCalls: any[] = [], finishReason: string | undefined; // set by the AI-SDK path (execute-less passthrough tools return calls)
     try {
       const row = await ctx.runQuery(internal.credentials.resolveCred, { userId, workspaceId, provider });
       if (!row) throw new ConvexError({ code: "not_connected", detail: `No credentials for "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
@@ -132,6 +133,7 @@ export async function callForUser(
           ...(systemPrompt ? { system: systemPrompt } : {}),
           messages: inputMessages as any,
           ...(tools ? { tools, stopWhen: stepCountIs(agentOpts?.maxSteps ?? 5) } : {}),
+          ...(agentOpts?.toolChoice ? { toolChoice: agentOpts.toolChoice } : {}),
           ...(agentOpts?.temperature != null ? { temperature: agentOpts.temperature } : {}),
         };
         const pool = await ctx.runQuery(internal.providerPool.pickCredentials, { userId, workspaceId, provider });
@@ -143,7 +145,9 @@ export async function callForUser(
           if (!m) throw new ConvexError({ code: "internal", detail: `Unknown provider "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
           try {
             const result = await generateText({ model: m, ...genBase });
-            text = result.text || "(no text)";
+            toolCalls = (result as any).toolCalls ?? [];
+            finishReason = (result as any).finishReason;
+            text = result.text || (toolCalls.length ? "" : "(no text)"); // a pure tool-call turn has no text
             const u: any = result.usage ?? {};
             promptTokens = u.inputTokens ?? u.promptTokens ?? 0;
             completionTokens = u.outputTokens ?? u.completionTokens ?? 0;
@@ -169,5 +173,5 @@ export async function callForUser(
     }
 
     await logUsage("ok", promptTokens, completionTokens);
-    return { text, promptTokens, completionTokens };
+    return { text, promptTokens, completionTokens, toolCalls, finishReason };
 }
