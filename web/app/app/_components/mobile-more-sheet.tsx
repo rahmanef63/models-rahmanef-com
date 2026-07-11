@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { type NavGroup } from "./nav-config";
 import { type RailAccount } from "./navigation-rail";
 import { type Theme } from "./use-theme";
+import { X } from "lucide-react";
 import { RailIcon } from "./rail-icon";
 
 // Overflow bottom sheet for the mobile BottomDock (CareerPack MoreDrawer pattern, plain-CSS: no vaul).
@@ -36,7 +37,7 @@ export function MobileMoreSheet({ groups, section, go, account, theme, toggleThe
         <span className="more-grab" aria-hidden />
         <div className="more-head">
           <strong>Semua menu</strong>
-          <button className="more-x" onClick={onClose} aria-label="Tutup">✕</button>
+          <button className="more-x" onClick={onClose} aria-label="Tutup"><X size={18} /></button>
         </div>
         <div className="more-scroll">
           <section className="more-grp">
@@ -49,7 +50,7 @@ export function MobileMoreSheet({ groups, section, go, account, theme, toggleThe
           </section>
           {groups.map((g) => (
             <section key={g.id} className="more-grp">
-              <div className="more-grp-h"><RailIcon d={g.icon} /> {g.label}</div>
+              <div className="more-grp-h"><RailIcon icon={g.icon} /> {g.label}</div>
               <div className="more-tiles">
                 {g.sections.map((s) => (
                   <button key={s.id} className={`more-tile ${section === s.id ? "on" : ""}`} aria-current={section === s.id ? "page" : undefined} onClick={() => jump(s.id)}>

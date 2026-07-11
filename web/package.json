@@ -26,6 +26,7 @@
     "clsx": "^2.1.1",
     "convex": "^1.32.0",
     "geoip-lite": "^2.0.3",
+    "lucide-react": "^1.24.0",
     "next": "16.1.6",
     "react": "19.2.3",
     "react-dom": "19.2.3",

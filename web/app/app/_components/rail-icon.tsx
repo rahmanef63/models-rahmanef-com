@@ -1,9 +1,7 @@
-// Shared 24×24 stroke-icon renderer for a nav-config ICONS path `d`. Used by both the desktop
-// NavigationRail and the mobile BottomDock so the SVG wrapper isn't duplicated.
-export function RailIcon({ d }: { d: string }) {
-  return (
-    <svg className="rail-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d={d} />
-    </svg>
-  );
+import { type LucideIcon } from "lucide-react";
+
+// Consistent nav icon renderer — a lucide icon at the rail's size + stroke. Shared by the desktop
+// NavigationRail and the mobile BottomDock so the sizing isn't duplicated. (rr: lucide-react icons.)
+export function RailIcon({ icon: Icon }: { icon: LucideIcon }) {
+  return <Icon className="rail-ico" size={20} strokeWidth={1.7} aria-hidden />;
 }

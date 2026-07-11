@@ -140,7 +140,7 @@ function Dashboard() {
       workspaceSwitcher={<WorkspaceSwitcher />}
       aiDock={section === "overview" ? <AiDock modelCount={providers === undefined ? undefined : myModels.length} onCompose={startChat} openWorkbench={() => go("chat")} /> : undefined}
       onCompose={() => setComposeOpen(true)}
-      bleed={section === "graph"}
+      bleed={section === "graph" || section === "chat"}
       secondaryPanel={section === "notes" ? <NoteTree selectedId={noteId} onOpen={setNoteId} onNew={() => setNoteId("new")} /> : undefined}
     >
       {banner && <div className="banner">{banner}</div>}

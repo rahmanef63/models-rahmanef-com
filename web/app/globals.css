@@ -472,12 +472,14 @@ textarea { resize: vertical; margin: 0.6rem 0; }
 .trace { margin: 0.7rem 0 0 0.4rem; padding-left: 0.85rem; border-left: 1px solid var(--line); display: flex; flex-direction: column; gap: 0.55rem; }
 .trace .tools { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-bottom: 0.3rem; }
 .trace p { font-size: 0.85rem; color: var(--muted); margin: 0; }
-.wb-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.1rem; }
-.wb-head h2 { margin: 0 0 0.2rem; }
-.wb { display: grid; grid-template-columns: 224px 1fr; gap: 1.25rem; margin-top: 0.4rem; }
-.wb-threads { min-width: 0; }
-.wb-threads-h { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 0.5rem; }
-.wb-threads > ul { list-style: none; display: flex; flex-direction: column; gap: 0.2rem; max-height: 480px; overflow-y: auto; }
+/* full-bleed two-pane chat (rr: workspace surface = h-dvh, no marketing chrome). Rendered inside
+   .dash-region.bleed so it fills the whole content area edge-to-edge and full height. */
+.wb-shell { width: 100%; flex-grow: 1; height: 100%; display: flex; min-height: 0; background: var(--bg); }
+.wb-threads { flex: none; width: 264px; display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); background: var(--bg-2); }
+.wb-threads-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.8rem 0.85rem; border-bottom: 1px solid var(--line); }
+.wb-threads-head strong { font-family: var(--font-display); font-weight: 500; font-size: 1rem; }
+.wb-threads > ul { list-style: none; display: flex; flex-direction: column; gap: 0.15rem; overflow-y: auto; padding: 0.5rem; flex: 1; min-height: 0; }
+.wb-back { display: none; }
 .wb-threads li { display: flex; align-items: center; gap: 0.2rem; border-radius: 7px; }
 .wb-threads li.on { background: var(--bg-3); }
 .wb-threads li.empty { padding: 0.55rem 0.4rem; font-size: 0.74rem; }
@@ -488,8 +490,10 @@ textarea { resize: vertical; margin: 0.6rem 0; }
 .t-route.oauth { color: var(--accent-dim); }
 .wb-threads li .del { color: var(--muted); font-size: 1rem; line-height: 1; padding: 0.2rem 0.4rem; flex-shrink: 0; }
 .wb-threads li .del:hover { color: var(--danger); }
-.wb-main { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
-.wb-modelbar { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; padding: 0.7rem 0.95rem; background: var(--bg-3); border: 1px solid var(--line); border-radius: 9px; }
+.wb-main { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.wb-body { flex: 1; min-height: 0; overflow-y: auto; padding: 1rem clamp(1rem, 3vw, 2rem); }
+.wb-modelbar { display: flex; align-items: center; gap: 0.6rem; padding: 0.65rem clamp(0.85rem, 3vw, 1.4rem); background: var(--bg-2); border-bottom: 1px solid var(--line); }
+.wb-modelbar .wb-mb-id { flex: 1; }
 .wb-mb-id { display: flex; align-items: baseline; gap: 0.55rem; min-width: 0; flex-wrap: wrap; }
 .wb-mb-prov { font-family: var(--font-display); font-weight: 500; font-size: 1.04rem; color: var(--fg); }
 .wb-mb-model { font-size: 0.79rem; color: var(--accent); overflow: hidden; text-overflow: ellipsis; }
@@ -516,20 +520,30 @@ textarea { resize: vertical; margin: 0.6rem 0; }
 /* keyboard focus ring — inset for the two overflow-clipped scroll containers so edge rows still show it */
 .btn:focus-visible, .rail-item:focus-visible, .rail-create:focus-visible, .rail-avatar:focus-visible, .rail-pop-item:focus-visible, .sec-item:focus-visible, .prov-chip:focus-visible, .link:focus-visible, .thread-btn:focus-visible, .model-row:focus-visible, .ai-dock-prompt:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .model-row:focus-visible, .thread-btn:focus-visible { outline-offset: -2px; }
-.wb-msgs { display: flex; flex-direction: column; gap: 0.95rem; max-height: 480px; overflow-y: auto; padding: 0.3rem 0.2rem; }
-.msg { display: grid; grid-template-columns: 74px 1fr; gap: 0.7rem; align-items: start; }
-.msg .who { font-size: 0.67rem; text-transform: uppercase; letter-spacing: 0.08em; padding-top: 0.2rem; }
-.msg.user .who { color: var(--accent-dim); }
-.msg > div { min-width: 0; max-width: 76ch; word-break: break-word; white-space: pre-wrap; color: var(--fg); line-height: 1.62; }
-.msg.assistant > div { background: var(--bg-2); border: 1px solid var(--line); border-radius: 9px; padding: 0.7rem 0.9rem; }
+.wb-msgs { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0.95rem; overflow-y: auto; padding: 1.1rem clamp(1rem, 3vw, 2rem); }
+/* chat bubbles — assistant left, user right (rr chat UX) */
+.msg { display: flex; }
+.msg.user { justify-content: flex-end; }
+.msg.assistant { justify-content: flex-start; }
+.msg-bubble { min-width: 0; max-width: min(72ch, 84%); padding: 0.7rem 0.95rem; border-radius: 13px; color: var(--fg); line-height: 1.62; word-break: break-word; white-space: pre-wrap; }
+.msg.assistant .msg-bubble { background: var(--bg-2); border: 1px solid var(--line); border-top-left-radius: 4px; }
+.msg.user .msg-bubble { background: color-mix(in srgb, var(--accent) 15%, var(--bg-2)); border: 1px solid var(--accent-dim); border-top-right-radius: 4px; }
 .wb-typing { display: inline-flex; gap: 4px; padding: 0.65rem 0.3rem; }
 .wb-typing i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite both; }
 .wb-typing i:nth-child(2) { animation-delay: 0.2s; }
 .wb-typing i:nth-child(3) { animation-delay: 0.4s; }
 @keyframes blink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
+.wb-composer-wrap { border-top: 1px solid var(--line); padding: 0.7rem clamp(0.85rem, 3vw, 1.4rem); background: var(--bg-2); }
 .wb-composer { display: flex; gap: 0.5rem; align-items: flex-end; }
-.wb-composer textarea { flex: 1; }
-@media (max-width: 640px) { .wb { grid-template-columns: 1fr; } }
+.wb-composer textarea { flex: 1; margin: 0; }
+.wb-send { padding-left: 0.9rem; padding-right: 0.9rem; }
+/* mobile: one pane at a time — thread list, or the conversation with a back arrow (rr mobile-first) */
+@media (max-width: 640px) {
+  .wb-threads { width: 100%; border-right: none; }
+  .wb-shell[data-view="chat"] .wb-threads { display: none; }
+  .wb-shell[data-view="list"] .wb-main { display: none; }
+  .wb-back { display: inline-flex; }
+}
 .bars { display: flex; align-items: flex-end; gap: 3px; height: 48px; margin-top: 1.1rem; }
 .bar { flex: 1; background: var(--accent-dim); border-radius: 2px 2px 0 0; min-height: 2px; transition: height 0.3s; }
 .banner { border: 1px solid var(--accent-dim); border-radius: 3px; padding: 0.65rem 0.9rem; margin-bottom: 1rem; font-family: var(--font-mono); font-size: 0.84rem; }
