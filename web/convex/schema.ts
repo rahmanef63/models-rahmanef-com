@@ -11,6 +11,7 @@ import { scheduledAgentTables } from "./features/scheduledAgents/tables";
 import { usageRollupTables } from "./features/usageRollups/tables";
 import { auditLogTables } from "./features/auditLog/tables";
 import { pageviewTables } from "./features/pageviews/tables";
+import { ragTables } from "./features/rag/tables";
 
 // authTables = users, authAccounts, authSessions, ... (from @convex-dev/auth).
 // workspaceTables = workspaces/memberships/invites (the tenant boundary — see features/workspaces).
@@ -27,6 +28,7 @@ export default defineSchema({
   ...usageRollupTables,
   ...auditLogTables,
   ...pageviewTables,
+  ...ragTables,
   // kind: "api_key" (ciphertext = the key) | "oauth" (ciphertext = JSON {access,refresh,expires,accountId})
   modelCreds: defineTable({
     userId: v.id("users"),
