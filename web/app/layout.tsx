@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Fraunces, Hanken_Grotesk, JetBrains_Mono } from "next/font/google";
 import { ConvexAuthNextjsServerProvider } from "@convex-dev/auth/nextjs/server";
 import { ConvexClientProvider } from "@/components/convex-provider";
+import { AnalyticsBeacon } from "@/components/analytics-beacon";
+import { Suspense } from "react";
 import "./globals.css";
 
 const display = Fraunces({ subsets: ["latin"], variable: "--font-display", weight: ["400", "500", "600"], style: ["normal", "italic"] });
@@ -32,6 +34,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Apply the saved dashboard theme before first paint so a light-preference user doesn't
             flash the default-dark palette on reload. Keep the key in sync with use-theme.ts. */}
         <script dangerouslySetInnerHTML={{ __html: `try{document.documentElement.setAttribute('data-theme',localStorage.getItem('models-theme')==='light'?'light':'dark')}catch(e){}` }} />
+        <Suspense fallback={null}>
+          <AnalyticsBeacon />
+        </Suspense>
         <ConvexAuthNextjsServerProvider>
           <ConvexClientProvider>{children}</ConvexClientProvider>
         </ConvexAuthNextjsServerProvider>
