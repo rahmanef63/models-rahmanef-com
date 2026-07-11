@@ -61,6 +61,7 @@ const GROUPS: NavGroup[] = [
     icon: ICONS.memory,
     sections: [
       { id: "notes", label: "Vault" },
+      { id: "knowledge", label: "Knowledge" },
       { id: "graph", label: "Graph" },
       { id: "memory", label: "Facts" },
     ],
@@ -83,6 +84,7 @@ const ADMIN_GROUP: NavGroup = {
   sections: [
     { id: "admin", label: "Admin" },
     { id: "analytics", label: "Analytics" },
+    { id: "traffic", label: "Traffic" },
     { id: "seed", label: "Seed" },
   ],
 };

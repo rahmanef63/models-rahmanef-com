@@ -618,3 +618,4 @@ pre { background: var(--bg); border: 1px solid var(--line); padding: 0.9rem; bor
 .wb-img-chip button { position: absolute; top: -6px; right: -6px; width: 18px; height: 18px; border-radius: 50%; border: 0; background: var(--danger); color: #fff; font-size: 0.72rem; line-height: 1; cursor: pointer; }
 .wb-attach { flex: none; background: transparent; border: 1px solid var(--line-2); border-radius: 8px; padding: 0 0.6rem; cursor: pointer; font-size: 1rem; }
 .wb-attach:hover { border-color: var(--accent); }
+.wb-attach.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent); }

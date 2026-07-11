@@ -158,14 +158,19 @@ export const _history = internalQuery({
 });
 
 export const sendMessage = action({
-  args: { threadId: v.id("threads"), content: v.string(), workspaceId: v.optional(v.id("workspaces")), imageIds: v.optional(v.array(v.id("_storage"))) },
+  args: { threadId: v.id("threads"), content: v.string(), workspaceId: v.optional(v.id("workspaces")), imageIds: v.optional(v.array(v.id("_storage"))), useRag: v.optional(v.boolean()) },
   handler: async (ctx, a): Promise<{ text: string }> => {
     const userId = await requireUser(ctx);
     const { model, agentId } = await ctx.runMutation(internal.threads._append, { userId, threadId: a.threadId, role: "user", content: a.content, images: a.imageIds });
     const history = await ctx.runQuery(internal.threads._history, { userId, threadId: a.threadId });
+    // RAG: retrieve doc chunks for this message and hand them to chat.chat (best-effort — [] on any failure).
+    let ragContext: string[] | undefined;
+    if (a.useRag && a.content.trim()) {
+      try { ragContext = await ctx.runAction(internal.ragNode.retrieve, { userId, query: a.content, workspaceId: a.workspaceId }); } catch { /* chat still works without RAG */ }
+    }
     let text: string;
     try {
-      ({ text } = await ctx.runAction(api.chat.chat, agentId ? { workspaceId: a.workspaceId, agentId, messages: history } : { workspaceId: a.workspaceId, model, messages: history }));
+      ({ text } = await ctx.runAction(api.chat.chat, agentId ? { workspaceId: a.workspaceId, agentId, messages: history, ragContext } : { workspaceId: a.workspaceId, model, messages: history, ragContext }));
     } catch (e) {
       // re-throw as a fresh ConvexError HERE (V8 runtime) so the real reason reaches the client — a
       // ConvexError thrown inside the "use node" chat action loses its data across the runAction boundary.

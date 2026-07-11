@@ -36,6 +36,7 @@ export function WorkbenchCard({ models, providers, catalog, isAdmin, prefill, on
   const [input, setInput] = useState("");
   const [pendingSkillIds, setPendingSkillIds] = useState<string[]>([]); // skills armed for the NEXT send (client-only)
   const [pendingImages, setPendingImages] = useState<{ id: string; preview: string }[]>([]); // images attached to the NEXT send
+  const [useRag, setUseRag] = useState(false); // retrieve from my Knowledge docs for each message
   const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [rebinding, setRebinding] = useState(false);
@@ -121,7 +122,7 @@ export function WorkbenchCard({ models, providers, catalog, isAdmin, prefill, on
       setInput("");
       setPendingSkillIds([]);
       setPendingImages([]);
-      await sendMessage({ threadId: tid as any, content, workspaceId: (workspaceId ?? undefined) as any, imageIds: imageIds.length ? (imageIds as any) : undefined });
+      await sendMessage({ threadId: tid as any, content, workspaceId: (workspaceId ?? undefined) as any, imageIds: imageIds.length ? (imageIds as any) : undefined, useRag: useRag || undefined });
     } catch (e) {
       setErr(e);
     } finally {
@@ -239,6 +240,7 @@ export function WorkbenchCard({ models, providers, catalog, isAdmin, prefill, on
                 )}
                 <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => void onFiles(e)} />
                 <button type="button" className="wb-attach" title="Attach image (vision models)" aria-label="Attach image" onClick={() => fileRef.current?.click()}>📎</button>
+                <button type="button" className={`wb-attach ${useRag ? "on" : ""}`} title="Use my Knowledge documents (RAG)" aria-pressed={useRag} onClick={() => setUseRag((v) => !v)}>📚</button>
                 <textarea rows={2} placeholder="message  ·  @ agent  ·  / skill  ·  📎 image  ·  (⌘/Ctrl+Enter to send)" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void send(); }} />
                 <button className="btn accent" disabled={busy || rebinding || (!input.trim() && pendingImages.length === 0)} onClick={() => void send()}>{busy ? "…" : rebinding ? "switching…" : "Send"}</button>
               </div>

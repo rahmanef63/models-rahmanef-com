@@ -13,6 +13,7 @@ import { McpCard } from "./_components/mcp";
 import { EmbedCard } from "./_components/embed";
 import { AdminCard } from "./_components/admin";
 import { AdminAnalyticsCard } from "./_components/admin-analytics";
+import { AdminTrafficCard } from "./_components/admin-traffic";
 import { AdminSeedCard } from "./_components/admin-seed";
 import { ConnectProviders, ConnectedCreds } from "@/features/byok";
 import { AgentsCard } from "./_components/agents-card";
@@ -20,6 +21,7 @@ import { WorkbenchCard } from "./_components/workbench";
 import { WorkspaceProvider, WorkspaceSwitcher, MembersCard, useWorkspace } from "@/features/workspaces";
 import { ApiKeysCard } from "@/features/api-compat";
 import { MemoryPanel, MemoryVault, NoteTree } from "@/features/memory";
+import { KnowledgeCard } from "./_components/knowledge";
 import { ComboBuilderCard } from "@/features/combos";
 import { McpServersCard } from "@/features/mcp-client";
 import { ChannelsCard } from "@/features/channels";
@@ -174,6 +176,7 @@ function Dashboard() {
       {section === "graph" && <MemoryGraphPanel />}
       {section === "notes" && <MemoryVault noteId={noteId} onOpen={setNoteId} onClosed={() => setNoteId(null)} />}
       {section === "memory" && <MemoryPanel workspaceId={workspaceId ?? undefined} />}
+      {section === "knowledge" && <KnowledgeCard />}
       {section === "members" && <MembersCard />}
       {section === "mcp" && <McpCard />}
       {section === "embed" && <EmbedCard models={myModels} />}
@@ -187,6 +190,7 @@ function Dashboard() {
       {section === "audit" && <AuditLogCard />}
       {section === "admin" && me?.isSuperAdmin && <AdminCard />}
       {section === "analytics" && me?.isSuperAdmin && <AdminAnalyticsCard />}
+      {section === "traffic" && me?.isSuperAdmin && <AdminTrafficCard />}
       {section === "seed" && me?.isSuperAdmin && <AdminSeedCard />}
     </DashboardShell>
   );

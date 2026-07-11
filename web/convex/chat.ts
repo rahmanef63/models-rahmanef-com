@@ -26,11 +26,16 @@ export const chat = action({
     // content is usually a string; a vision message is AI-SDK content PARTS (text + image). callForUser
     // passes either straight to generateText (and flattens parts to text for the codex/claude paths).
     messages: v.array(v.object({ role: v.string(), content: v.union(v.string(), v.array(v.any())) })),
+    ragContext: v.optional(v.array(v.string())), // retrieved doc chunks to prepend to the system prompt
   },
   handler: async (ctx, a): Promise<{ text: string }> => {
     const userId = await requireUser(ctx);
     // spend requires 'member' (viewers never reach callForUser); no workspaceId → the personal ws
     const workspaceId = await resolveWorkspaceAction(ctx, userId, a.workspaceId, "member");
+    // RAG context → a system preamble the model should ground its answer in (both paths use it).
+    const ragSystem = a.ragContext?.length
+      ? "Relevant context retrieved from the user's documents — ground your answer in it and cite as [n] where used:\n\n" + a.ragContext.map((c, i) => `[${i + 1}] ${c}`).join("\n\n")
+      : undefined;
     if (a.agentId) {
       const def = await ctx.runQuery(internal.agentDefs.getOwned, { userId, id: a.agentId });
       if (!def) throw new ConvexError({ code: "not_found", detail: "Agent not found" } satisfies ChatErrorInfo);
@@ -46,11 +51,11 @@ export const chat = action({
         .map((id: string) => SKILLS_REGISTRY.find((s) => s.id === id)?.instructions)
         .filter(Boolean)
         .join("\n\n");
-      const system = [def.instructions, skillText].filter(Boolean).join("\n\n") || undefined;
+      const system = [def.instructions, skillText, ragSystem].filter(Boolean).join("\n\n") || undefined;
       return callForUser(ctx, userId, workspaceId, def.model, a.messages, { system, tools: await gatewayTools(ctx, userId, def.tools, workspaceId), maxSteps: def.maxSteps, temperature: def.temperature });
     }
     if (!a.model) throw new ConvexError({ code: "invalid_request", detail: "model or agentId required" } satisfies ChatErrorInfo);
-    return callForUser(ctx, userId, workspaceId, a.model, a.messages);
+    return callForUser(ctx, userId, workspaceId, a.model, a.messages, ragSystem ? { system: ragSystem } : undefined);
   },
 });
 
