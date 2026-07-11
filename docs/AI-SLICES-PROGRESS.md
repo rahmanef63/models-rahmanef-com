@@ -37,7 +37,7 @@ root `audit.md` for the 20-feature best-practice + CRUD compliance scorecard).
 |---|---|---|---|---|---|---|
 | **byok** | ✅ | ✅ | `byok/` (helpers barrel) | `modelCreds` | 🟡 | extracted in-place from monolith; tables in `schema.ts` not a `tables.ts`; needs `MODELS_ENC_KEY` + ai-sdk provider peers before lift |
 | **workspaces** | ✅ | ✅ | `workspaces/` | `workspaces,memberships,invites` | ✅ | authz core (`requireWorkspaceRole`); peer for most other slices |
-| **api-compat** | ✅ | ✅ | `apiCompat/` | `apiKeys` | ✅ | `/v1` gateway; non-streaming + pseudo-stream in v0.1 |
+| **api-compat** | ✅ | ✅ | `apiCompat/` | `apiKeys` | ✅ | `/v1` gateway: chat/completions · messages · models · **embeddings · images/generations · audio/speech · audio/transcriptions**; non-streaming + pseudo-stream |
 | **memory** | ✅ | ✅ | `memory/` | `memories` | ✅ | v0.2.0; registers registry + cron |
 | **combos** | ✅ | ✅ | `combos/` | `combos` | ✅ | resolved in callForUser; peers workspaces + byok |
 | **mcp-client** | ✅ | ✅ | `mcpClient/` | `mcpServers` | ✅ | needs `MODELS_ENC_KEY` + `@modelcontextprotocol/sdk` |
@@ -65,7 +65,7 @@ to match the other nine (currently schema-inline).
 - ✅ Per-call usage log (requests, in/out tokens) — `usage.ts`
 - ✅ User attribution
 - ✅ Cost (USD) — est. spend from models.dev $/M rates in the Usage card (per-model tokens × rate; OAuth/uncatalogued models skipped, marked an estimate)
-- ⬜ **Public `/v1` OpenAI-compatible endpoint** (point Claude Code / Codex / Cursor at us) — 🅿️ parked
+- ✅ **Public `/v1` OpenAI- + Anthropic-compatible endpoint** (point Claude Code / Codex / Cursor at us) — `sk-rr-…` key auth; chat/completions · messages · models · embeddings · images/generations · audio/speech · audio/transcriptions. Tool passthrough (in+out). Real token streaming still pending (pseudo-stream today).
 - 🟡 Combos: fallback + round-robin **live** (`combos` slice — round-robin now actually rotates via `resolveCombo`/`bumpRotation`); fusion (panel + judge) pending
 - 🟡 Per-cred failover + cooldown **live** (`provider-pool` fails over on 402/quota_exceeded, cools the cred 240s); per-model backoff pending
 - ⬜ RTK tool-result compression
@@ -85,9 +85,9 @@ to match the other nine (currently schema-inline).
 - ⬜ **Sidebar copilot** mode (embed in another app)
 - ⬜ **Search** mode (Perplexity-style Q + answer + citations)
 - ⬜ Streaming (resumable SSE) — we do request/response
-- ⬜ Multimodal attachments (image / PDF / audio)
+- 🟡 Multimodal attachments — **image IN done** (native chat via `_storage`; `/v1` via `image_url`/Anthropic image blocks) + **image/audio OUT** via `/v1/images/generations` + `/v1/audio/speech`, **audio IN** via `/v1/audio/transcriptions`; PDF-in still pending
 - ⬜ Branching / forking threads
-- ⬜ RAG citations (vector search)
+- ✅ RAG citations (vector search) — `useRag` flag → `ragNode.retrieve` → citation-prompt in `chat.ts`
 - ⬜ Message / thread **search**
 - ⬜ ChatAdminPanel (persona / guardrails / starter chips)
 

@@ -6,21 +6,14 @@
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v, ConvexError } from "convex/values";
-import { createOpenAI } from "@ai-sdk/openai";
 import { embed, embedMany } from "ai";
 import { requireUser, resolveWorkspaceAction } from "./_shared/auth";
-import { decryptSecret } from "./crypto";
-import { chunkText, EMBED_MODEL } from "./ragChunk";
+import { chunkText } from "./ragChunk";
+import { resolveEmbedder } from "./embeddings";
 
 const MAX_DOC_CHARS = 200_000;
-
-// resolve the caller's OpenAI key (embeddings only run on OpenAI's fixed-dim model here).
-async function embedder(ctx: any, userId: string, workspaceId: any) {
-  const cred = await ctx.runQuery(internal.credentials.resolveCred, { userId, workspaceId, provider: "openai" });
-  if (!cred) throw new ConvexError({ code: "not_connected", detail: "RAG needs an OpenAI API key (for embeddings) — connect one in Providers." });
-  const apiKey = await decryptSecret(cred.ciphertext);
-  return createOpenAI({ apiKey }).embedding(EMBED_MODEL);
-}
+// RAG pins the fixed-dim model (EMBED_MODEL) via resolveEmbedder's default so the vectorIndex matches.
+const embedder = (ctx: any, userId: string, workspaceId: any) => resolveEmbedder(ctx, userId, workspaceId);
 
 export const createDoc = action({
   args: { title: v.string(), text: v.string(), workspaceId: v.optional(v.id("workspaces")) },

@@ -27,6 +27,18 @@ async function call(req: Request, method: string, params: { path?: string[] }): 
   if (r.kind === "error") return errJson(r.status, r.code, r.message);
   if (r.kind === "models") return Response.json({ object: "list", data: r.data });
 
+  if (r.kind === "embeddings") {
+    const data = (r.data as number[][]).map((embedding, index) => ({ object: "embedding", index, embedding }));
+    return Response.json({ object: "list", data, model: r.model, usage: { prompt_tokens: r.tokens, total_tokens: r.tokens } });
+  }
+  if (r.kind === "image") {
+    return Response.json({ created: Math.floor(Date.now() / 1000), data: (r.data as string[]).map((b64) => ({ b64_json: b64 })) });
+  }
+  if (r.kind === "audio") { // raw audio bytes, like OpenAI /v1/audio/speech
+    return new Response(Buffer.from(r.audio, "base64"), { headers: { "content-type": r.contentType || "audio/mpeg", "cache-control": "no-store" } });
+  }
+  if (r.kind === "transcription") return Response.json({ text: r.text });
+
   if (r.kind === "anthropic") {
     const id = "msg_" + Math.random().toString(36).slice(2, 14);
     const toolUse: any[] = Array.isArray(r.toolUse) ? r.toolUse : [];

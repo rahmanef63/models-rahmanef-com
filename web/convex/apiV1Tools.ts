@@ -75,6 +75,26 @@ export function toAnthropicToolUse(calls: SdkToolCall[]): any[] {
 const asText = (c: any): string => (typeof c === "string" ? c : c == null ? "" : JSON.stringify(c));
 const parseArgs = (s: any): any => { if (s == null) return {}; if (typeof s !== "string") return s; try { return JSON.parse(s); } catch { return {}; } };
 
+// VISION IN: widen an OpenAI content array (text + image_url/input_image parts) into AI-SDK content
+// parts, so a client POSTing images to /v1 keeps them (same {type:'image',image:url} shape threads.ts
+// builds). A data: URL or https URL both work as `image`.
+function openAIParts(content: any[]): any[] {
+  return content.map((p: any) => {
+    if (p?.type === "image_url") return { type: "image", image: typeof p.image_url === "string" ? p.image_url : p.image_url?.url };
+    if (p?.type === "input_image") return { type: "image", image: p.image_url?.url ?? p.image_url ?? p.image };
+    return { type: "text", text: String(p?.text ?? (p?.type === "input_text" ? p?.text : "") ?? "") };
+  });
+}
+// Anthropic image block → AI-SDK image part (source is {type:'url',url} or {type:'base64',media_type,data}).
+function anthPart(b: any): any {
+  if (b?.type === "image") {
+    const s = b.source ?? {};
+    if (s.type === "url" && s.url) return { type: "image", image: s.url };
+    if (s.data) return { type: "image", image: `data:${s.media_type || "image/png"};base64,${s.data}` };
+  }
+  return { type: "text", text: String(b?.text ?? "") };
+}
+
 // OpenAI: assistant.tool_calls[{id,function:{name,arguments}}] + {role:'tool',tool_call_id,content}
 export function toModelMessagesOpenAI(messages: any[]): any[] {
   const nameById = new Map<string, string>();
@@ -90,6 +110,8 @@ export function toModelMessagesOpenAI(messages: any[]): any[] {
       if (m.content) parts.push({ type: "text", text: asText(m.content) });
       for (const tc of m.tool_calls) parts.push({ type: "tool-call", toolCallId: String(tc?.id ?? ""), toolName: String(tc?.function?.name ?? ""), input: parseArgs(tc?.function?.arguments) });
       out.push({ role: "assistant", content: parts });
+    } else if (Array.isArray(m?.content)) {
+      out.push({ role, content: openAIParts(m.content) }); // vision: keep image_url parts
     } else {
       out.push({ role, content: asText(m?.content) });
     }
@@ -113,7 +135,7 @@ export function toModelMessagesAnthropic(messages: any[]): any[] {
       const results = content.filter((b: any) => b?.type === "tool_result");
       const texts = content.filter((b: any) => b?.type !== "tool_result");
       if (results.length) out.push({ role: "tool", content: results.map((b: any) => ({ type: "tool-result", toolCallId: String(b.tool_use_id), toolName: nameById.get(String(b.tool_use_id)) ?? "tool", output: { type: "text", value: anthResultText(b.content) } })) });
-      if (texts.length) out.push({ role: "user", content: texts.map((b: any) => ({ type: "text", text: String(b?.text ?? "") })) });
+      if (texts.length) out.push({ role: "user", content: texts.map(anthPart) }); // vision: keep image blocks
     }
   }
   return out;

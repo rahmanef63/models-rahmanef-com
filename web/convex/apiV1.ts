@@ -10,6 +10,7 @@ import { v } from "convex/values";
 import { tool, jsonSchema } from "ai";
 import { callForUser } from "./callForUser";
 import { fetchModelsCatalog } from "./chatProviders";
+import { EMBED_MODEL } from "./ragChunk";
 import { parseOpenAITools, parseAnthropicTools, toOpenAIToolCalls, toAnthropicToolUse, toModelMessagesOpenAI, toModelMessagesAnthropic, type ToolSpec } from "./apiV1Tools";
 
 async function sha256hex(s: string): Promise<string> {
@@ -29,6 +30,12 @@ export const handle = action({
   args: { method: v.string(), path: v.string(), key: v.optional(v.string()), ip: v.optional(v.string()), body: v.optional(v.any()) },
   handler: async (ctx, a): Promise<any> => {
     const err = (status: number, code: string, message: string) => ({ kind: "error", status, code, message });
+    // classify a thrown provider/ConvexError into an HTTP status + our error shape (shared by every POST branch).
+    const fail = (e: any) => {
+      const d = e?.data && typeof e.data === "object" ? e.data : { code: "internal", detail: String(e?.message ?? e) };
+      const status = d.code === "invalid_api_key" || d.code === "not_connected" ? 401 : d.code === "rate_limited" ? 429 : d.code === "quota_exceeded" ? 402 : d.code === "not_found" ? 404 : 400;
+      return err(status, d.code ?? "error", d.detail ?? "provider error");
+    };
     if (!a.key) return err(401, "missing_key", "Provide an API key via 'Authorization: Bearer sk-rr-…' or 'x-api-key'.");
 
     const ipRl = await ctx.runMutation(internal.rateLimit.hit, { key: `v1ip:${a.ip ?? "?"}`, max: 240, windowMs: 60_000 });
@@ -66,11 +73,7 @@ export const handle = action({
         const r = await callForUser(ctx, userId, workspaceId, model, messages, opts);
         const toolCalls = r.toolCalls?.length ? toOpenAIToolCalls(r.toolCalls) : undefined;
         return { kind: "chat", model, text: r.text, promptTokens: r.promptTokens ?? 0, completionTokens: r.completionTokens ?? 0, stream: !!body.stream, toolCalls };
-      } catch (e: any) {
-        const d = e?.data && typeof e.data === "object" ? e.data : { code: "internal", detail: String(e?.message ?? e) };
-        const status = d.code === "invalid_api_key" || d.code === "not_connected" ? 401 : d.code === "rate_limited" ? 429 : d.code === "quota_exceeded" ? 402 : d.code === "not_found" ? 404 : 400;
-        return err(status, d.code ?? "error", d.detail ?? "provider error");
-      }
+      } catch (e: any) { return fail(e); }
     }
 
     // Anthropic Messages API — so Claude Code (ANTHROPIC_BASE_URL=…, ANTHROPIC_AUTH_TOKEN=sk-rr-…) works.
@@ -89,13 +92,54 @@ export const handle = action({
         const r = await callForUser(ctx, userId, workspaceId, model, msgs, opts);
         const toolUse = r.toolCalls?.length ? toAnthropicToolUse(r.toolCalls) : undefined;
         return { kind: "anthropic", model: String(body.model ?? ""), text: r.text, promptTokens: r.promptTokens ?? 0, completionTokens: r.completionTokens ?? 0, stream: !!body.stream, toolUse };
-      } catch (e: any) {
-        const d = e?.data && typeof e.data === "object" ? e.data : { code: "internal", detail: String(e?.message ?? e) };
-        const status = d.code === "invalid_api_key" || d.code === "not_connected" ? 401 : d.code === "rate_limited" ? 429 : d.code === "quota_exceeded" ? 402 : d.code === "not_found" ? 404 : 400;
-        return err(status, d.code ?? "error", d.detail ?? "provider error");
-      }
+      } catch (e: any) { return fail(e); }
     }
 
-    return err(404, "not_found", `No route for ${a.method} /${p}. Supported: POST /v1/chat/completions, POST /v1/messages, GET /v1/models.`);
+    // Embeddings — reuse the RAG embedder (OpenAI). Client's requested model passes through; defaults to text-embedding-3-small.
+    if (a.method === "POST" && (p === "v1/embeddings" || p === "embeddings")) {
+      const body = a.body ?? {};
+      const raw = body.input;
+      const input = Array.isArray(raw) ? raw.map((x: any) => String(x)) : raw != null ? [String(raw)] : [];
+      if (!input.length) return err(400, "invalid_request", "'input' (string or string[]) is required.");
+      try {
+        const r = await ctx.runAction(internal.embeddings.embedBatch, { userId, workspaceId, input, model: body.model ? String(body.model) : undefined });
+        return { kind: "embeddings", model: r.model, data: r.embeddings, tokens: r.tokens };
+      } catch (e: any) { return fail(e); }
+    }
+
+    // Image generation (multimodal OUT) — OpenAI gpt-image-1 / dall-e-3.
+    if (a.method === "POST" && (p === "v1/images/generations" || p === "images/generations")) {
+      const body = a.body ?? {};
+      const prompt = String(body.prompt ?? "");
+      if (!prompt) return err(400, "invalid_request", "'prompt' is required.");
+      try {
+        const r = await ctx.runAction(internal.imageGen.generate, { userId, workspaceId, prompt, model: body.model ? String(body.model) : undefined, n: typeof body.n === "number" ? body.n : undefined, size: body.size ? String(body.size) : undefined });
+        return { kind: "image", model: r.model, data: r.images };
+      } catch (e: any) { return fail(e); }
+    }
+
+    // Audio OUT (TTS) — OpenAI tts-1.
+    if (a.method === "POST" && (p === "v1/audio/speech" || p === "audio/speech")) {
+      const body = a.body ?? {};
+      const input = String(body.input ?? "");
+      if (!input) return err(400, "invalid_request", "'input' is required.");
+      try {
+        const r = await ctx.runAction(internal.audioGen.speech, { userId, workspaceId, input, model: body.model ? String(body.model) : undefined, voice: body.voice ? String(body.voice) : undefined });
+        return { kind: "audio", audio: r.audio, contentType: r.contentType };
+      } catch (e: any) { return fail(e); }
+    }
+
+    // Audio IN (STT) — OpenAI whisper-1. Base64 audio in a JSON body ('file' or 'audio'), not multipart.
+    if (a.method === "POST" && (p === "v1/audio/transcriptions" || p === "audio/transcriptions")) {
+      const body = a.body ?? {};
+      const audioBase64 = String(body.file ?? body.audio ?? "");
+      if (!audioBase64) return err(400, "invalid_request", "Provide base64 audio in 'file' (JSON body — multipart not supported).");
+      try {
+        const r = await ctx.runAction(internal.audioGen.transcription, { userId, workspaceId, audioBase64, model: body.model ? String(body.model) : undefined });
+        return { kind: "transcription", text: r.text };
+      } catch (e: any) { return fail(e); }
+    }
+
+    return err(404, "not_found", `No route for ${a.method} /${p}. Supported: POST /v1/chat/completions, /v1/messages, /v1/embeddings, /v1/images/generations, /v1/audio/speech, /v1/audio/transcriptions; GET /v1/models.`);
   },
 });

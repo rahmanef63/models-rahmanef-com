@@ -18,6 +18,7 @@ import type * as agents from "../agents.js";
 import type * as apiKeys from "../apiKeys.js";
 import type * as apiV1 from "../apiV1.js";
 import type * as apiV1Tools from "../apiV1Tools.js";
+import type * as audioGen from "../audioGen.js";
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
 import type * as callForUser from "../callForUser.js";
@@ -45,6 +46,7 @@ import type * as crons from "../crons.js";
 import type * as crypto from "../crypto.js";
 import type * as customProvider from "../customProvider.js";
 import type * as embedChat from "../embedChat.js";
+import type * as embeddings from "../embeddings.js";
 import type * as embeds from "../embeds.js";
 import type * as fallbackRules from "../fallbackRules.js";
 import type * as features_apiCompat_tables from "../features/apiCompat/tables.js";
@@ -61,6 +63,7 @@ import type * as features_usageRollups_rates from "../features/usageRollups/rate
 import type * as features_usageRollups_tables from "../features/usageRollups/tables.js";
 import type * as features_workspaces_tables from "../features/workspaces/tables.js";
 import type * as http from "../http.js";
+import type * as imageGen from "../imageGen.js";
 import type * as mcp from "../mcp.js";
 import type * as mcpClientNode from "../mcpClientNode.js";
 import type * as mcpNode from "../mcpNode.js";
@@ -110,6 +113,7 @@ declare const fullApi: ApiFromModules<{
   apiKeys: typeof apiKeys;
   apiV1: typeof apiV1;
   apiV1Tools: typeof apiV1Tools;
+  audioGen: typeof audioGen;
   audit: typeof audit;
   auth: typeof auth;
   callForUser: typeof callForUser;
@@ -137,6 +141,7 @@ declare const fullApi: ApiFromModules<{
   crypto: typeof crypto;
   customProvider: typeof customProvider;
   embedChat: typeof embedChat;
+  embeddings: typeof embeddings;
   embeds: typeof embeds;
   fallbackRules: typeof fallbackRules;
   "features/apiCompat/tables": typeof features_apiCompat_tables;
@@ -153,6 +158,7 @@ declare const fullApi: ApiFromModules<{
   "features/usageRollups/tables": typeof features_usageRollups_tables;
   "features/workspaces/tables": typeof features_workspaces_tables;
   http: typeof http;
+  imageGen: typeof imageGen;
   mcp: typeof mcp;
   mcpClientNode: typeof mcpClientNode;
   mcpNode: typeof mcpNode;
