@@ -1,10 +1,11 @@
 "use node";
 // Discord adapter — INTERACTIONS webhook (slash commands), not free-form messages. Auth = Ed25519:
 // X-Signature-Ed25519 over (X-Signature-Timestamp + rawBody) with the app public key. PING (type 1)
-// → PONG {type:1}. APPLICATION_COMMAND (type 2) → run callForUser INLINE and reply {type:4,data:
-// {content}} (Discord wants the answer in the HTTP response). The per-sender + per-channel spend
-// guard runs BEFORE callForUser, same as the other adapters. See notes on the 3s window limitation.
-import { action } from "./_generated/server";
+// → PONG {type:1}. APPLICATION_COMMAND (type 2) → ack with a type-5 DEFERRED response NOW (Discord
+// enforces a ~3s window a model call blows), then a scheduled turn edits the original via the
+// interaction follow-up webhook. Instant replies (disabled / rate-limit / access-denied) stay inline
+// type-4. The per-sender + per-channel spend guard runs BEFORE any model call, like the others.
+import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v } from "convex/values";
 import { decryptSecret } from "./crypto";
@@ -13,6 +14,18 @@ import { computeReply, notAuthorizedText } from "./channelsDispatch";
 
 const MAX = 2000; // Discord message content cap
 const say = (content: string) => ({ type: 4, data: { content: content.slice(0, MAX) } });
+
+// edit the deferred (type-5) response — the interaction token authorizes it (no bot auth needed),
+// valid ~15 min. Best-effort: errors bubble to dispatch, which logs the channel error and bails.
+const API = "https://discord.com/api/v10";
+async function editDeferred(applicationId: string, token: string, content: string): Promise<void> {
+  const res = await fetch(`${API}/webhooks/${applicationId}/${token}/messages/@original`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content: content.slice(0, MAX) }),
+  });
+  if (!res.ok) throw new Error(`Discord followup ${res.status}: ${(await res.text()).slice(0, 200)}`);
+}
 
 // first string option value in a slash command (e.g. /ask question:… → the question text).
 export function extractDiscord(body: any): { externalUserId: string; text: string; senderName?: string } | null {
@@ -51,11 +64,27 @@ export const ingest = action({
     // command always gets one response) with the how-to-get-added hint, but NO callForUser spend.
     const access = await ctx.runMutation(internal.channelsAccess._checkAccess, { channelId: ch._id, externalUserId: msg.externalUserId });
     if (!access.allowed) return { json: say(notAuthorizedText(msg.externalUserId)) };
-    // Discord wants the answer in this response, so run the model INLINE (no scheduler defer here).
-    const cx = await ctx.runQuery(internal.channelsIngest._getDispatchContext, { channelId: ch._id, threadId: res.threadId });
-    if (!cx) return { json: say("(no context)") };
-    const { configured, reply } = await computeReply(ctx, cx, ch._id);
-    if (configured) await ctx.runMutation(internal.channelsIngest._logOut, { channelId: ch._id, threadId: res.threadId, text: reply });
-    return { json: say(reply) };
+    // model call can exceed Discord's ~3s window → ack type-5 (deferred) NOW, run the turn in a
+    // scheduled action, then edit @original via the follow-up webhook. applicationId + token (from
+    // the interaction, ephemeral) authorize that edit. Mirrors the telegram/slack/whatsapp defer.
+    const applicationId = String(body.application_id ?? "");
+    if (!applicationId || !body.token) return { json: say("(missing interaction token)") };
+    await ctx.scheduler.runAfter(0, internal.channelDiscord.dispatch, { channelId: ch._id, threadId: res.threadId, applicationId, token: String(body.token) });
+    return { json: { type: 5 } }; // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+  },
+});
+
+// deferred model turn: resolve agent → callForUser → edit the "thinking…" reply → log the outbound.
+export const dispatch = internalAction({
+  args: { channelId: v.id("channels"), threadId: v.id("threads"), applicationId: v.string(), token: v.string() },
+  handler: async (ctx, a): Promise<void> => {
+    const cx = await ctx.runQuery(internal.channelsIngest._getDispatchContext, { channelId: a.channelId, threadId: a.threadId });
+    if (!cx) { await editDeferred(a.applicationId, a.token, "(no context)").catch(() => {}); return; }
+    const { configured, reply } = await computeReply(ctx, cx, a.channelId);
+    try { await editDeferred(a.applicationId, a.token, reply); } catch (e: any) {
+      await ctx.runMutation(internal.channelsIngest._setChannelError, { channelId: a.channelId, error: String(e?.message ?? e) });
+      return; // couldn't deliver — don't log an out row that never arrived
+    }
+    if (configured) await ctx.runMutation(internal.channelsIngest._logOut, { channelId: a.channelId, threadId: a.threadId, text: reply });
   },
 });

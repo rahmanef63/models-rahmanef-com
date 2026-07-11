@@ -30,7 +30,10 @@ export async function computeReply(
       .filter(Boolean)
       .join("\n\n");
     const system = [cx.agent.instructions, skillText].filter(Boolean).join("\n\n") || undefined;
-    agentOpts = { system, tools: gatewayTools(ctx, cx.userId, cx.agent.tools, cx.workspaceId), maxSteps: cx.agent.maxSteps, temperature: cx.agent.temperature };
+    // await: gatewayTools is async — un-awaited, the Promise flowed into generateText({tools}) as a
+    // truthy non-record, so channel agents silently ran with NO tools. Same spend path (callForUser
+    // → spend-cap gate) and maxSteps stays bounded by the agent's own cap, so no new loop/cost risk.
+    agentOpts = { system, tools: await gatewayTools(ctx, cx.userId, cx.agent.tools, cx.workspaceId), maxSteps: cx.agent.maxSteps, temperature: cx.agent.temperature };
   }
   if (!modelRef) return { configured: false, reply: NOT_CONFIGURED };
   try {
