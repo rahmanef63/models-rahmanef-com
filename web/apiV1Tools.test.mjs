@@ -59,4 +59,17 @@ eq(antHist[1], { role: "assistant", content: [{ type: "text", text: "checking" }
 eq(antHist[2], { role: "tool", content: [{ type: "tool-result", toolCallId: "t1", toolName: "get_weather", output: { type: "text", value: "72F" } }] }, "ant inbound: tool_result → tool msg, name by id");
 eq(antHist[3], { role: "user", content: [{ type: "text", text: "thanks" }] }, "ant inbound: trailing text stays a user msg");
 
-console.log("OK — /v1 tool passthrough translation invariants hold");
+// --- VISION IN: image parts survive (not flattened to text) ---
+const oaiVis = toModelMessagesOpenAI([
+  { role: "user", content: [{ type: "text", text: "what is this?" }, { type: "image_url", image_url: { url: "https://x/i.png" } }] },
+]);
+eq(oaiVis[0], { role: "user", content: [{ type: "text", text: "what is this?" }, { type: "image", image: "https://x/i.png" }] }, "oai vision: image_url → AI-SDK image part");
+eq(toModelMessagesOpenAI([{ role: "user", content: [{ type: "image_url", image_url: "data:image/png;base64,AAA" }] }])[0].content[0], { type: "image", image: "data:image/png;base64,AAA" }, "oai vision: bare image_url string");
+eq(toModelMessagesOpenAI([{ role: "user", content: "hi" }])[0], { role: "user", content: "hi" }, "oai vision: plain string unchanged (no regression)");
+
+const antVis = toModelMessagesAnthropic([
+  { role: "user", content: [{ type: "text", text: "cap" }, { type: "image", source: { type: "url", url: "https://y/p.jpg" } }, { type: "image", source: { type: "base64", media_type: "image/jpeg", data: "ZZZ" } }] },
+]);
+eq(antVis[0], { role: "user", content: [{ type: "text", text: "cap" }, { type: "image", image: "https://y/p.jpg" }, { type: "image", image: "data:image/jpeg;base64,ZZZ" }] }, "ant vision: url + base64 image blocks → AI-SDK image parts");
+
+console.log("OK — /v1 tool passthrough + vision translation invariants hold");
