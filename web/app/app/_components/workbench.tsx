@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
@@ -8,7 +8,7 @@ import { splitModel, route, ModelInspector, ModelPicker, type AgentPickMeta } fr
 import { AgentMentionPicker, type MentionAgent } from "./agent-mention";
 import { SkillMentionPicker } from "./skill-mention";
 
-type Msg = { _id: string; role: string; content: string };
+type Msg = { _id: string; role: string; content: string; imageUrls?: string[] };
 type Thread = { _id: string; title: string; model: string; agentId?: string; agentName?: string };
 type AgentLite = { _id: string; name: string; model: string; tools: string[] };
 
@@ -28,12 +28,15 @@ export function WorkbenchCard({ models, providers, catalog, isAdmin, prefill, on
   const deleteThread = useMutation(api.threads.deleteThread);
   const rebindThreadAgent = useMutation(api.threads.rebindThreadAgent);
   const sendMessage = useAction(api.threads.sendMessage);
+  const generateUploadUrl = useMutation(api.threads.generateUploadUrl);
   const { workspaceId } = useWorkspace();
   const [active, setActive] = useState<string | null>(null);
   const [model, setModel] = useState(""); // model chosen for a NEW (not-yet-created) thread
   const [pendingAgentId, setPendingAgentId] = useState<string | null>(null); // agent chosen for a NEW thread (wins over `model`)
   const [input, setInput] = useState("");
   const [pendingSkillIds, setPendingSkillIds] = useState<string[]>([]); // skills armed for the NEXT send (client-only)
+  const [pendingImages, setPendingImages] = useState<{ id: string; preview: string }[]>([]); // images attached to the NEXT send
+  const fileRef = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
   const [rebinding, setRebinding] = useState(false);
   const [err, setErr] = useState<unknown>(null);
@@ -83,8 +86,24 @@ export function WorkbenchCard({ models, providers, catalog, isAdmin, prefill, on
     setPendingSkillIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
   }
 
+  // upload each picked image straight to Convex storage (one-shot URL → POST bytes → storageId),
+  // holding a local object-URL for the preview. The storageIds ride along with the next send.
+  async function onFiles(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []).filter((f) => f.type.startsWith("image/"));
+    e.target.value = "";
+    for (const file of files) {
+      try {
+        const url = await generateUploadUrl();
+        const res = await fetch(url, { method: "POST", headers: { "Content-Type": file.type }, body: file });
+        if (!res.ok) throw new Error(`upload failed (${res.status})`);
+        const { storageId } = await res.json();
+        setPendingImages((imgs) => [...imgs, { id: storageId, preview: URL.createObjectURL(file) }]);
+      } catch (err) { setErr(err); }
+    }
+  }
+
   async function send() {
-    if (!input.trim() || busy || rebinding) return;
+    if ((!input.trim() && pendingImages.length === 0) || busy || rebinding) return;
     setErr(null);
     setBusy(true);
     try {
@@ -98,9 +117,11 @@ export function WorkbenchCard({ models, providers, catalog, isAdmin, prefill, on
       // built AFTER createThread so the skill preamble never leaks into the thread title (raw input above)
       const preamble = pendingSkillIds.map((id) => skillDefs?.find((s) => s.id === id)?.instructions).filter(Boolean).join("\n\n");
       const content = preamble ? `${preamble}\n\n${input}` : input;
+      const imageIds = pendingImages.map((i) => i.id);
       setInput("");
       setPendingSkillIds([]);
-      await sendMessage({ threadId: tid as any, content, workspaceId: (workspaceId ?? undefined) as any });
+      setPendingImages([]);
+      await sendMessage({ threadId: tid as any, content, workspaceId: (workspaceId ?? undefined) as any, imageIds: imageIds.length ? (imageIds as any) : undefined });
     } catch (e) {
       setErr(e);
     } finally {
@@ -182,7 +203,10 @@ export function WorkbenchCard({ models, providers, catalog, isAdmin, prefill, on
                   msgs.map((m) => (
                     <div key={m._id} className={`msg ${m.role}`}>
                       <span className="who mono muted">{m.role}</span>
-                      <div>{m.content}</div>
+                      <div>
+                        {m.imageUrls?.length ? <div className="msg-imgs">{m.imageUrls.map((u, i) => <img key={i} src={u} alt="attached" className="msg-img" />)}</div> : null}
+                        {m.content}
+                      </div>
                     </div>
                   ))
                 )}
@@ -196,6 +220,16 @@ export function WorkbenchCard({ models, providers, catalog, isAdmin, prefill, on
                   })}
                 </div>
               )}
+              {pendingImages.length > 0 && (
+                <div className="wb-img-chips">
+                  {pendingImages.map((img, i) => (
+                    <span key={img.id} className="wb-img-chip">
+                      <img src={img.preview} alt="" />
+                      <button type="button" onClick={() => setPendingImages((imgs) => imgs.filter((_, j) => j !== i))} aria-label="remove image">×</button>
+                    </span>
+                  ))}
+                </div>
+              )}
               <div className="wb-composer" style={{ position: "relative" }}>
                 {mentionMatch && mentionAgents.length > 0 && (
                   <AgentMentionPicker agents={mentionAgents} query={mentionMatch[1]} onPick={(id) => void pickMention(id)} />
@@ -203,8 +237,10 @@ export function WorkbenchCard({ models, providers, catalog, isAdmin, prefill, on
                 {skillMatch && (skillDefs?.length ?? 0) > 0 && (
                   <SkillMentionPicker skills={skillDefs!} query={skillMatch[1]} onPick={pickSkill} />
                 )}
-                <textarea rows={2} placeholder="message  ·  @ agent  ·  / skill  ·  (⌘/Ctrl+Enter to send)" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void send(); }} />
-                <button className="btn accent" disabled={busy || rebinding || !input.trim()} onClick={() => void send()}>{busy ? "…" : rebinding ? "switching…" : "Send"}</button>
+                <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => void onFiles(e)} />
+                <button type="button" className="wb-attach" title="Attach image (vision models)" aria-label="Attach image" onClick={() => fileRef.current?.click()}>📎</button>
+                <textarea rows={2} placeholder="message  ·  @ agent  ·  / skill  ·  📎 image  ·  (⌘/Ctrl+Enter to send)" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void send(); }} />
+                <button className="btn accent" disabled={busy || rebinding || (!input.trim() && pendingImages.length === 0)} onClick={() => void send()}>{busy ? "…" : rebinding ? "switching…" : "Send"}</button>
               </div>
               {err != null && <ErrorLine e={err} isAdmin={isAdmin} />}
             </>

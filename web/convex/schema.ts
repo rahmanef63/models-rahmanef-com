@@ -10,6 +10,7 @@ import { channelTables } from "./features/channels/tables";
 import { scheduledAgentTables } from "./features/scheduledAgents/tables";
 import { usageRollupTables } from "./features/usageRollups/tables";
 import { auditLogTables } from "./features/auditLog/tables";
+import { pageviewTables } from "./features/pageviews/tables";
 
 // authTables = users, authAccounts, authSessions, ... (from @convex-dev/auth).
 // workspaceTables = workspaces/memberships/invites (the tenant boundary — see features/workspaces).
@@ -25,6 +26,7 @@ export default defineSchema({
   ...scheduledAgentTables,
   ...usageRollupTables,
   ...auditLogTables,
+  ...pageviewTables,
   // kind: "api_key" (ciphertext = the key) | "oauth" (ciphertext = JSON {access,refresh,expires,accountId})
   modelCreds: defineTable({
     userId: v.id("users"),
@@ -145,6 +147,7 @@ export default defineSchema({
     threadId: v.id("threads"),
     role: v.string(), // "user" | "assistant"
     content: v.string(),
+    images: v.optional(v.array(v.id("_storage"))), // vision input — Convex storage ids attached to a user message
     at: v.number(),
   }).index("by_thread", ["threadId", "at"]),
   // MCP access tokens — one per issued bearer. We store only sha256(token); raw shown once.

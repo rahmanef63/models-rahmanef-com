@@ -23,7 +23,9 @@ export const chat = action({
     workspaceId: v.optional(v.id("workspaces")),
     model: v.optional(v.string()),
     agentId: v.optional(v.id("agentDefs")),
-    messages: v.array(v.object({ role: v.string(), content: v.string() })),
+    // content is usually a string; a vision message is AI-SDK content PARTS (text + image). callForUser
+    // passes either straight to generateText (and flattens parts to text for the codex/claude paths).
+    messages: v.array(v.object({ role: v.string(), content: v.union(v.string(), v.array(v.any())) })),
   },
   handler: async (ctx, a): Promise<{ text: string }> => {
     const userId = await requireUser(ctx);

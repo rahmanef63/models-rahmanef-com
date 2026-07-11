@@ -64,6 +64,16 @@ export const rebindThreadAgent = mutation({
   },
 });
 
+// vision input: hand the client a one-shot upload URL; it POSTs the image bytes and gets back a
+// storageId to attach to sendMessage. Auth-gated so only signed-in users can spend storage.
+export const generateUploadUrl = mutation({
+  args: {},
+  handler: async (ctx) => {
+    await requireUser(ctx);
+    return await ctx.storage.generateUploadUrl();
+  },
+});
+
 export const listThreads = query({
   args: {},
   handler: async (ctx) => {
@@ -86,7 +96,10 @@ export const threadMessages = query({
     const t = await ctx.db.get(a.threadId);
     if (!t || t.userId !== userId) return []; // not the caller's thread
     const recent = await ctx.db.query("messages").withIndex("by_thread", (q) => q.eq("threadId", a.threadId)).order("desc").take(MESSAGE_WINDOW);
-    return recent.reverse();
+    return Promise.all(recent.reverse().map(async (m) => ({
+      ...m,
+      imageUrls: m.images?.length ? (await Promise.all(m.images.map((id) => ctx.storage.getUrl(id)))).filter((u): u is string => !!u) : undefined,
+    })));
   },
 });
 
@@ -118,11 +131,11 @@ export const _deleteMessages = internalMutation({
 // ownership against the userId the (authed) action passes in — internal fns are only reachable
 // from our own code.
 export const _append = internalMutation({
-  args: { userId: v.id("users"), threadId: v.id("threads"), role: v.string(), content: v.string() },
+  args: { userId: v.id("users"), threadId: v.id("threads"), role: v.string(), content: v.string(), images: v.optional(v.array(v.id("_storage"))) },
   handler: async (ctx, a) => {
     const t = await ctx.db.get(a.threadId);
     if (!t || t.userId !== a.userId) throw new Error("thread not found");
-    await ctx.db.insert("messages", { threadId: a.threadId, role: a.role, content: a.content, at: Date.now() });
+    await ctx.db.insert("messages", { threadId: a.threadId, role: a.role, content: a.content, images: a.images?.length ? a.images : undefined, at: Date.now() });
     return { model: t.model, agentId: t.agentId };
   },
 });
@@ -133,15 +146,22 @@ export const _history = internalQuery({
     const t = await ctx.db.get(a.threadId);
     if (!t || t.userId !== a.userId) throw new Error("thread not found");
     const recent = await ctx.db.query("messages").withIndex("by_thread", (q) => q.eq("threadId", a.threadId)).order("desc").take(MESSAGE_WINDOW);
-    return recent.reverse().map((m) => ({ role: m.role, content: m.content }));
+    // a message with attached images becomes AI-SDK content PARTS (text + image URLs) so vision
+    // models see them; a plain message stays a string. callForUser passes parts through to generateText.
+    return Promise.all(recent.reverse().map(async (m) => {
+      if (!m.images?.length) return { role: m.role, content: m.content };
+      const imgs = (await Promise.all(m.images.map(async (id) => { const url = await ctx.storage.getUrl(id); return url ? { type: "image" as const, image: url } : null; }))).filter((p): p is { type: "image"; image: string } => !!p);
+      const parts = [...(m.content ? [{ type: "text" as const, text: m.content }] : []), ...imgs];
+      return { role: m.role, content: parts.length ? parts : m.content };
+    }));
   },
 });
 
 export const sendMessage = action({
-  args: { threadId: v.id("threads"), content: v.string(), workspaceId: v.optional(v.id("workspaces")) },
+  args: { threadId: v.id("threads"), content: v.string(), workspaceId: v.optional(v.id("workspaces")), imageIds: v.optional(v.array(v.id("_storage"))) },
   handler: async (ctx, a): Promise<{ text: string }> => {
     const userId = await requireUser(ctx);
-    const { model, agentId } = await ctx.runMutation(internal.threads._append, { userId, threadId: a.threadId, role: "user", content: a.content });
+    const { model, agentId } = await ctx.runMutation(internal.threads._append, { userId, threadId: a.threadId, role: "user", content: a.content, images: a.imageIds });
     const history = await ctx.runQuery(internal.threads._history, { userId, threadId: a.threadId });
     let text: string;
     try {
