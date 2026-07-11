@@ -55,10 +55,17 @@ export function ModelPicker({ byProvider, providers, catalog, agents, onPick }: 
   agents: AgentPickMeta[];
   onPick: (pick: ModelPick) => void;
 }) {
-  const provs = Object.keys(byProvider).sort((a, b) => (PROVIDER_LABEL[a] ?? a).localeCompare(PROVIDER_LABEL[b] ?? b));
+  // catalog providers (models from models.dev) + connected CUSTOM providers with no catalog — a custom
+  // endpoint, or any connected provider models.dev doesn't cover. The latter had no chip at all before
+  // (byProvider is catalog-only), so they were invisible + unusable in the workbench; give them a
+  // type-the-model-id step instead of a list.
+  const catalogProvs = Object.keys(byProvider);
+  const customProvs = [...new Set((providers ?? []).map((p) => p.provider))].filter((p) => !byProvider[p]);
+  const provs = [...catalogProvs, ...customProvs].sort((a, b) => (PROVIDER_LABEL[a] ?? a).localeCompare(PROVIDER_LABEL[b] ?? b));
   const [prov, setProv] = useState<string | null>(provs.length === 1 ? provs[0] : null);
   const [q, setQ] = useState("");
   if (provs.length === 0) return <p className="sub">No models available — connect a provider in the <b>Providers</b> tab first.</p>;
+  const isCustom = !!prov && !byProvider[prov]; // selected provider has no catalog → manual model entry
   const list = prov ? byProvider[prov] ?? [] : []; // ?? [] — the live query can drop the selected provider mid-mount
   const ids = list.filter((id) => id.toLowerCase().includes(q.toLowerCase()));
   return (
@@ -87,12 +94,23 @@ export function ModelPicker({ byProvider, providers, catalog, agents, onPick }: 
             <button key={p} className={`prov-chip ${prov === p ? "on" : ""}`} onClick={() => { setProv(p); setQ(""); }}>
               <strong>{PROVIDER_LABEL[p] ?? p}</strong>
               <span className={`badge ${r.cls}`}>{r.label}</span>
-              <em>{byProvider[p].length}</em>
+              <em>{byProvider[p]?.length ?? "✎"}</em>
             </button>
           );
         })}
       </div>
-      {prov && (
+      {prov && isCustom && (
+        <>
+          <div className="picker-step mono muted">2 · model — type the id</div>
+          <div className="row" style={{ gap: ".4rem" }}>
+            <input placeholder="e.g. kimi-k2.7-code" value={q} onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) onPick({ kind: "model", ref: `${prov}/${q.trim()}` }); }} />
+            <button className="btn" disabled={!q.trim()} onClick={() => onPick({ kind: "model", ref: `${prov}/${q.trim()}` })}>use</button>
+          </div>
+          <p className="muted mono" style={{ fontSize: ".72rem", margin: ".35rem 0 0" }}>Custom provider — no model catalog, so type the model id exactly.</p>
+        </>
+      )}
+      {prov && !isCustom && (
         <>
           <div className="picker-step mono muted">2 · model · {list.length} available</div>
           <input placeholder={`search ${PROVIDER_LABEL[prov] ?? prov} models…`} value={q} onChange={(e) => setQ(e.target.value)} />
