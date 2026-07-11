@@ -42,6 +42,8 @@
   --accent-hi: #d9ff5e;
   --ok: #86d99a;
   --danger: #ff7a68;
+  --border: #33322a; /* alias of --line-2 — several inline styles referenced a phantom var(--border) */
+  --warn: #d9a441;   /* amber for the 80%-of-budget bar (was a phantom var(--warn) that fell back off-palette) */
   --font-display: Georgia, serif;
   --font-body: system-ui, sans-serif;
   --font-mono: ui-monospace, monospace;
@@ -64,6 +66,8 @@
   --accent-hi: #5f800f;
   --ok: #3f7d4e;
   --danger: #c0392b;
+  --border: #c7c3b9;
+  --warn: #b8791f;
 }
 :root[data-theme="light"] body::before { opacity: 0.5; }
 * { box-sizing: border-box; }
@@ -569,3 +573,35 @@ pre { background: var(--bg); border: 1px solid var(--line); padding: 0.9rem; bor
 .embed-item { border: 1px solid var(--line); border-radius: 8px; padding: 0.9rem 1rem; display: flex; flex-direction: column; gap: 0.45rem; }
 .embed-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
 .embed-snippet { margin: 0.2rem 0 0; font-size: 0.72rem; overflow-x: auto; white-space: pre; }
+
+/* ── ResponsiveDialog / ConfirmDialog — one overlay: centered modal desktop, bottom-sheet mobile ── */
+.rd { border: 0; padding: 0; margin: 0; width: 100vw; height: 100dvh; max-width: 100vw; max-height: 100dvh; background: transparent; overflow: hidden; display: grid; place-items: center; }
+.rd::backdrop { background: rgba(0, 0, 0, 0.5); animation: fadeIn 0.16s both; }
+.rd-panel { display: flex; flex-direction: column; overflow: hidden; background: var(--bg-2); border: 1px solid var(--line-2); border-radius: 12px; box-shadow: 0 20px 60px -18px rgba(0, 0, 0, 0.6); max-height: 88dvh; }
+.rd[data-size="sm"] .rd-panel { width: min(380px, 92vw); }
+.rd[data-size="md"] .rd-panel { width: min(560px, 92vw); }
+.rd-grab { display: none; }
+.rd-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0.9rem 1.2rem; border-bottom: 1px solid var(--line); }
+.rd-head strong { font-family: var(--font-display); font-weight: 500; font-size: 1.05rem; }
+.rd-body { padding: 1.2rem; overflow-y: auto; }
+.rd-foot { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0.9rem 1.2rem; border-top: 1px solid var(--line); }
+@media (max-width: 640px) {
+  .rd { place-items: end stretch; }
+  .rd[data-size="sm"] .rd-panel, .rd[data-size="md"] .rd-panel {
+    width: 100%; max-height: 90dvh; border-radius: 16px 16px 0 0; border-bottom: 0;
+    box-shadow: 0 -14px 40px -12px rgba(0, 0, 0, 0.6);
+    animation: sheetUp 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .rd-grab { display: block; width: 38px; height: 4px; border-radius: 3px; background: var(--line-2); margin: 0.55rem auto 0; }
+  .rd-foot { position: sticky; bottom: 0; background: var(--bg-2); }
+}
+
+/* danger button variant (ConfirmDialog + destructive footers) */
+.btn.danger { border-color: var(--danger); color: var(--danger); }
+.btn.danger:hover { background: var(--danger); border-color: var(--danger); color: #fff; }
+
+/* layout utilities — .col was referenced across cards but never defined (its gap was silently dropped) */
+.col { display: flex; flex-direction: column; }
+.stack { display: flex; flex-direction: column; gap: 0.6rem; }
+.hint { color: var(--muted); font-size: 0.78rem; }
