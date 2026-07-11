@@ -17,6 +17,7 @@ import type * as agentDefs from "../agentDefs.js";
 import type * as agents from "../agents.js";
 import type * as apiKeys from "../apiKeys.js";
 import type * as apiV1 from "../apiV1.js";
+import type * as apiV1Tools from "../apiV1Tools.js";
 import type * as audit from "../audit.js";
 import type * as auth from "../auth.js";
 import type * as callForUser from "../callForUser.js";
@@ -99,6 +100,7 @@ declare const fullApi: ApiFromModules<{
   agents: typeof agents;
   apiKeys: typeof apiKeys;
   apiV1: typeof apiV1;
+  apiV1Tools: typeof apiV1Tools;
   audit: typeof audit;
   auth: typeof auth;
   callForUser: typeof callForUser;
