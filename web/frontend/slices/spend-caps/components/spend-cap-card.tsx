@@ -52,7 +52,10 @@ export function SpendCapCard() {
       ) : (
         <>
           <p className="mono muted" style={{ fontSize: ".82rem", margin: ".8rem 0 .3rem" }}>
-            ~{usd(status.spentUsd)} spent{status.capUsd != null ? ` · ${usd(status.capUsd)} cap` : " · no cap set"}{status.over ? " · OVER" : ""}
+            ~{usd(status.spentUsd)} spent
+            {status.capUsd != null
+              ? <> · {usd(status.capUsd)} cap · <strong className={status.over ? "danger" : undefined}>{status.over ? `${usd(status.spentUsd - status.capUsd)} over` : `${usd(status.capUsd - status.spentUsd)} left`}</strong></>
+              : " · no cap set"}
           </p>
           {status.truncated && (
             <p className="mono danger" style={{ fontSize: ".72rem", margin: "0 0 .4rem" }}>

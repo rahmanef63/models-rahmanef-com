@@ -1,8 +1,8 @@
 "use client";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { fmt, type Catalog } from "./shared";
-import { splitModel } from "./chat-model-picker";
+import { fmt } from "./shared";
+import { estCostUsd } from "@/convex/features/usageRollups/rates";
 
 function ByDayBars({ byDay }: { byDay: Record<string, number> }) {
   const days: string[] = [];
@@ -18,27 +18,27 @@ function ByDayBars({ byDay }: { byDay: Record<string, number> }) {
   );
 }
 
-// ponytail: ESTIMATE only — prices each model's tokens by its models.dev $/M rate; skips OAuth /
-// uncatalogued models (no public rate). Not a bill — providers meter on their own accounting.
-function estCost(byModelTokens: Record<string, { prompt: number; completion: number }>, catalog: Catalog) {
+// ponytail: ESTIMATE only — prices tokens with the SAME rates.ts map the rollup cron + spend-cap
+// enforce on, so the "est. spend" shown here matches what the budget actually blocks. Uncatalogued
+// models (no rate) are skipped but counted, so the UI can flag partial coverage with "*".
+function estCost(byModelTokens: Record<string, { prompt: number; completion: number }>) {
   let usd = 0, priced = 0, total = 0;
   for (const [ref, t] of Object.entries(byModelTokens)) {
     total++;
-    const [prov, id] = splitModel(ref);
-    const cost = (catalog[prov]?.models as Record<string, any> | undefined)?.[id]?.cost;
-    if (!cost) continue;
-    usd += (t.prompt / 1e6) * (cost.input ?? 0) + (t.completion / 1e6) * (cost.output ?? 0);
+    const { cost, hasRate } = estCostUsd(ref, t.prompt, t.completion);
+    if (!hasRate) continue;
+    usd += cost;
     priced++;
   }
   return { usd, priced, total };
 }
 
-export function UsageCard({ catalog }: { catalog: Catalog }) {
+export function UsageCard() {
   const u = useQuery(api.usage.myUsage);
   if (u === undefined) return <section className="card"><h2>Usage</h2><p className="muted mono">…</p></section>;
   if (!u || u.requests === 0) return <section className="card"><h2>Usage</h2><p className="sub">Your model calls will show up here — run a chat above.</p></section>;
   const topModels = Object.entries(u.byModel).sort((a, b) => b[1] - a[1]).slice(0, 5);
-  const cost = estCost(u.byModelTokens, catalog);
+  const cost = estCost(u.byModelTokens);
   return (
     <section className="card">
       <h2>Usage</h2>

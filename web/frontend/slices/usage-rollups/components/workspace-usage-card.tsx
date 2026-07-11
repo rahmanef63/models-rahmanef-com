@@ -8,6 +8,7 @@ import { useWorkspace } from "@/features/workspaces";
 
 type Row = { day: string; provider: string; model: string; calls: number; promptTokens: number; completionTokens: number; estCostUsd: number; hasRate: boolean };
 type Day = { day: string; calls: number; tokens: number; cost: number; anyMissingRate: boolean };
+type ModelCost = { ref: string; calls: number; cost: number; hasRate: boolean };
 
 const usd = (n: number) => (n < 0.01 && n > 0 ? "<$0.01" : `$${n.toFixed(2)}`);
 const num = (n: number) => n.toLocaleString();
@@ -25,10 +26,26 @@ function foldByDay(rows: Row[]): Day[] {
   return [...m.values()].sort((a, b) => (a.day < b.day ? 1 : -1));
 }
 
+// the workspaceUsage query returns rows per (provider,model) — foldByDay discards that dimension,
+// so keep a second fold that ranks which models actually drive the spend. Top 5 by est. cost.
+function foldByModel(rows: Row[]): ModelCost[] {
+  const m = new Map<string, ModelCost>();
+  for (const r of rows) {
+    const ref = `${r.provider}/${r.model}`;
+    const e = m.get(ref) ?? { ref, calls: 0, cost: 0, hasRate: true };
+    e.calls += r.calls;
+    e.cost += r.estCostUsd;
+    if (!r.hasRate) e.hasRate = false;
+    m.set(ref, e);
+  }
+  return [...m.values()].sort((a, b) => b.cost - a.cost).slice(0, 5);
+}
+
 export function WorkspaceUsageCard() {
   const { workspaceId } = useWorkspace();
   const rows = useQuery(api.usageRollups.workspaceUsage, workspaceId ? { workspaceId: workspaceId as never, days: 30 } : "skip") as Row[] | undefined;
   const days = rows ? foldByDay(rows) : undefined;
+  const models = rows ? foldByModel(rows) : [];
   const maxTokens = days && days.length ? Math.max(1, ...days.map((d) => d.tokens)) : 1;
   const totalCost = days ? days.reduce((s, d) => s + d.cost, 0) : 0;
 
@@ -59,6 +76,16 @@ export function WorkspaceUsageCard() {
               </div>
             ))}
           </div>
+          {models.length > 0 && (
+            <div style={{ marginTop: "1.1rem" }}>
+              <p className="mono muted" style={{ fontSize: ".75rem", margin: "0 0 .4rem" }}>top models by est. cost</p>
+              <ul className="creds">
+                {models.map((mo) => (
+                  <li key={mo.ref}><span className="name mono" style={{ fontSize: ".8rem" }}>{mo.ref}</span><span className="mono muted">{num(mo.calls)} calls · {mo.hasRate ? "" : "~"}{usd(mo.cost)}</span></li>
+                ))}
+              </ul>
+            </div>
+          )}
         </>
       )}
     </section>

@@ -122,7 +122,7 @@ function Dashboard() {
       {section === "overview" && (
         <>
           <Overview providers={providers} models={myModels} go={setSection} />
-          <UsageCard catalog={catalog} />
+          <UsageCard />
         </>
       )}
       {section === "chat" && <WorkbenchCard models={myModels} providers={providers} catalog={catalog} isAdmin={isAdmin} />}
@@ -143,7 +143,7 @@ function Dashboard() {
           </section>
         </>
       )}
-      {section === "usage" && <UsageCard catalog={catalog} />}
+      {section === "usage" && <UsageCard />}
       {section === "settings" && <TokenSaverCard />}
       {section === "graph" && <MemoryGraphPanel />}
       {section === "notes" && <MemoryVault noteId={noteId} onOpen={setNoteId} onClosed={() => setNoteId(null)} />}
