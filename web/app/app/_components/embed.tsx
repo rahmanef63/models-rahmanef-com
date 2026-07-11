@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { errData } from "./shared";
+import { useConfirm } from "./responsive-dialog";
 
 type Embed = { id: string; title: string; model: string; token: string; allowedOrigins: string[]; enabled: boolean; greeting: string; systemPrompt: string; createdAt: number };
 
@@ -25,6 +26,7 @@ export function EmbedCard({ models }: { models: string[] }) {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState("");
+  const { ask, confirmDialog } = useConfirm();
 
   async function onCreate() {
     setBusy(true); setErr("");
@@ -64,7 +66,7 @@ export function EmbedCard({ models }: { models: string[] }) {
               <span className="cred-actions">
                 <span className={`badge ${e.enabled ? "ok" : ""}`}>{e.enabled ? "LIVE" : "OFF"}</span>
                 <button className="link" onClick={() => void setEnabled({ id: e.id as never, enabled: !e.enabled })}>{e.enabled ? "disable" : "enable"}</button>
-                <button className="link danger" onClick={() => void remove({ id: e.id as never })}>delete</button>
+                <button className="link danger" onClick={() => ask({ title: "Delete widget?", message: `Delete "${e.title}"? Any site embedding it stops working.`, run: () => remove({ id: e.id as never }) })}>delete</button>
               </span>
             </div>
             <div className="muted mono" style={{ fontSize: ".74rem" }}>{e.allowedOrigins.join(" · ")}</div>
@@ -73,6 +75,7 @@ export function EmbedCard({ models }: { models: string[] }) {
           </div>
         ))}
       </div>
+      {confirmDialog}
     </section>
   );
 }

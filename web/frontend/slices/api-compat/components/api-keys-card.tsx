@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
+import { useConfirm } from "@/app/app/_components/responsive-dialog";
 
 type Key = { id: string; prefix: string; label: string; createdAt: number; lastUsedAt: number | null };
 
@@ -15,6 +16,7 @@ export function ApiKeysCard() {
   const [label, setLabel] = useState("");
   const [fresh, setFresh] = useState("");
   const [busy, setBusy] = useState(false);
+  const { ask, confirmDialog } = useConfirm();
   const base = typeof window !== "undefined" ? window.location.origin : "";
 
   return (
@@ -42,7 +44,7 @@ export function ApiKeysCard() {
               <span className="name mono" style={{ fontSize: ".82rem" }}>{k.prefix} · {k.label}</span>
               <span className="cred-actions">
                 <span className="mono muted" style={{ fontSize: ".7rem" }}>{k.lastUsedAt ? "used " + new Date(k.lastUsedAt).toISOString().slice(0, 10) : "never used"}</span>
-                <button className="link danger" onClick={() => void revoke({ id: k.id as never })}>revoke</button>
+                <button className="link danger" onClick={() => ask({ title: "Revoke key?", message: `Revoke "${k.label}" (${k.prefix})? Any client using it stops working immediately.`, confirmLabel: "Revoke", run: () => revoke({ id: k.id as never }) })}>revoke</button>
               </span>
             </li>
           ))}
@@ -58,6 +60,7 @@ OPENAI_API_KEY=sk-rr-…
 ANTHROPIC_BASE_URL=${base}
 ANTHROPIC_AUTH_TOKEN=sk-rr-…`}</pre>
       </details>
+      {confirmDialog}
     </section>
   );
 }

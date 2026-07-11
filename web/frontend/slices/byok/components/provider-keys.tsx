@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { errData } from "@/app/app/_components/shared";
+import { useConfirm } from "@/app/app/_components/responsive-dialog";
 import { useWorkspace } from "@/features/workspaces";
 
 // Multi-key manager for ONE byok provider — lists the personal keys in the failover pool
@@ -17,6 +18,7 @@ export function ProviderKeys({ provider }: { provider: string }) {
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const { ask, confirmDialog } = useConfirm();
 
   async function onAdd() {
     if (!key) return;
@@ -48,7 +50,7 @@ export function ProviderKeys({ provider }: { provider: string }) {
               <li key={k.credId}>
                 <span className="mono muted" style={{ minWidth: "6rem" }}>{k.label || "key"}</span>
                 <span className={`badge ${badge}`}>{text}</span>
-                <button className="link danger" onClick={() => void del({ credId: k.credId })}>remove</button>
+                <button className="link danger" onClick={() => ask({ title: "Remove key?", message: `Remove "${k.label || "this key"}" from the pool?`, confirmLabel: "Remove", run: () => del({ credId: k.credId }) })}>remove</button>
               </li>
             );
           })}
@@ -60,6 +62,7 @@ export function ProviderKeys({ provider }: { provider: string }) {
         <button className="btn" disabled={busy || !key} onClick={() => void onAdd()}>{busy ? "…" : "+ key"}</button>
       </div>
       {err && <p className="mono" style={{ color: "var(--danger)", fontSize: ".82rem", marginTop: ".4rem" }}>{err}</p>}
+      {confirmDialog}
       <SharedKeys provider={provider} />
     </div>
   );
@@ -80,6 +83,7 @@ function SharedKeys({ provider }: { provider: string }) {
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const { ask, confirmDialog } = useConfirm();
 
   async function onAdd() {
     if (!key || !workspaceId) return;
@@ -113,7 +117,7 @@ function SharedKeys({ provider }: { provider: string }) {
               <li key={k.credId}>
                 <span className="mono muted" style={{ minWidth: "6rem" }}>{k.label || "shared key"}</span>
                 <span className={`badge ${badge}`}>{text}</span>
-                {isAdmin && <button className="link danger" onClick={() => void del({ credId: k.credId })}>remove</button>}
+                {isAdmin && <button className="link danger" onClick={() => ask({ title: "Remove shared key?", message: `Remove the shared "${k.label || "key"}"? Members lose failover onto it.`, confirmLabel: "Remove", run: () => del({ credId: k.credId }) })}>remove</button>}
               </li>
             );
           })}
@@ -127,6 +131,7 @@ function SharedKeys({ provider }: { provider: string }) {
         </div>
       )}
       {err && <p className="mono" style={{ color: "var(--danger)", fontSize: ".82rem", marginTop: ".4rem" }}>{err}</p>}
+      {confirmDialog}
     </div>
   );
 }

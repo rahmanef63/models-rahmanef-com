@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
+import { useConfirm } from "@/app/app/_components/responsive-dialog";
 
 type Srv = {
   id: string; name: string; url: string; transport: string; enabled: boolean; hasHeaders: boolean;
@@ -28,6 +29,7 @@ export function McpServersCard() {
   const [headers, setHeaders] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const { ask, confirmDialog } = useConfirm();
   const canWrite = role !== "viewer";
 
   function resetForm() { setEditId(null); setName(""); setUrl(""); setHeaders(""); }
@@ -76,7 +78,7 @@ export function McpServersCard() {
                   <button className="link" disabled={busy === s.id} onClick={async () => { setBusy(s.id); try { await probe({ serverId: s.id as never }); } finally { setBusy(null); } }}>{busy === s.id ? "probing…" : "probe"}</button>
                   <label className="mono muted" style={{ fontSize: ".78rem" }}><input type="checkbox" checked={s.enabled} onChange={(e) => void toggle({ id: s.id as never, enabled: e.target.checked })} /> on</label>
                   {canWrite && <button className="link" onClick={() => edit(s)}>edit</button>}
-                  {canWrite && <button className="link danger" onClick={() => void remove({ id: s.id as never })}>remove</button>}
+                  {canWrite && <button className="link danger" onClick={() => ask({ title: "Remove server?", message: `Remove "${s.name}"? Your agents lose its tools.`, confirmLabel: "Remove", run: () => remove({ id: s.id as never }) })}>remove</button>}
                 </span>
               </div>
               <p className="mono muted" style={{ fontSize: ".74rem", wordBreak: "break-all" }}>{s.url}{s.hasHeaders ? " · +headers" : ""}</p>
@@ -89,6 +91,7 @@ export function McpServersCard() {
           ))}
         </ul>
       ) : servers ? <p className="sub" style={{ marginTop: "1rem" }}>No MCP servers yet. Add one above, then probe to load its tools.</p> : <p className="muted mono" style={{ marginTop: "1rem" }}>…</p>}
+      {confirmDialog}
     </section>
   );
 }

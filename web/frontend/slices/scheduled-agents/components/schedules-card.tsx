@@ -7,6 +7,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
+import { useConfirm } from "@/app/app/_components/responsive-dialog";
 
 const MIN_INTERVAL = 15;
 type Sched = { id: string; agentId: string; prompt: string; everyMinutes: number; enabled: boolean; lastRunAt?: number; lastStatus?: string; lastResult?: string; createdAt: number };
@@ -29,6 +30,7 @@ export function SchedulesCard() {
   const [prompt, setPrompt] = useState("");
   const [every, setEvery] = useState(60);
   const [err, setErr] = useState<string | null>(null);
+  const { ask, confirmDialog } = useConfirm();
 
   const nameOf = (id: string) => agents?.find((x) => x._id === id)?.name ?? "(deleted agent)";
   const resetForm = () => { setEditId(null); setAgentId(""); setPrompt(""); setEvery(60); setErr(null); };
@@ -88,7 +90,7 @@ export function SchedulesCard() {
               <span className="row" style={{ gap: ".5rem" }}>
                 <button className="link" onClick={() => edit(s)}>edit</button>
                 <button className="link" onClick={() => workspaceId && void toggle({ workspaceId: workspaceId as never, scheduleId: s.id as never, enabled: !s.enabled })}>{s.enabled ? "pause" : "resume"}</button>
-                <button className="link danger" onClick={() => workspaceId && void remove({ workspaceId: workspaceId as never, scheduleId: s.id as never })}>delete</button>
+                <button className="link danger" onClick={() => ask({ title: "Delete schedule?", message: `Stop running "${nameOf(s.agentId)}" on its schedule? This can't be undone.`, run: () => workspaceId && remove({ workspaceId: workspaceId as never, scheduleId: s.id as never }) })}>delete</button>
               </span>
             </li>
           ))}
@@ -98,6 +100,7 @@ export function SchedulesCard() {
       ) : (
         <p className="muted mono" style={{ marginTop: "1rem" }}>…</p>
       )}
+      {confirmDialog}
     </section>
   );
 }

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { PROVIDER_LABEL, SUPPORTED, FRIENDLY, ErrorLine, type Cred, type Catalog } from "@/app/app/_components/shared";
+import { useConfirm } from "@/app/app/_components/responsive-dialog";
 import { ProviderKeys } from "./provider-keys";
 
 // lowest cost.input CHAT-capable model.dev knows for a provider — used as the throwaway 1-token
@@ -161,6 +162,7 @@ export function ConnectedCreds({ providers, catalog, isAdmin, deleteCredential, 
   const [results, setResults] = useState<Record<string, TestResult>>({});
   const [errs, setErrs] = useState<Record<string, unknown>>({});
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const { ask, confirmDialog } = useConfirm();
   function forget(provider: string) {
     setResults((rs) => { const { [provider]: _drop, ...rest } = rs; return rest; });
     setErrs((es) => { const { [provider]: _drop, ...rest } = es; return rest; });
@@ -178,6 +180,7 @@ export function ConnectedCreds({ providers, catalog, isAdmin, deleteCredential, 
     }
   }
   return (
+    <>
     <ul className="creds">
       {providers.map((p) => {
         const canTest = p.kind !== "oauth" && !!cheapestModel(catalog, p.provider);
@@ -197,7 +200,7 @@ export function ConnectedCreds({ providers, catalog, isAdmin, deleteCredential, 
                   {p.keyCount && p.keyCount > 1 ? `${p.keyCount} keys` : "+ key"}
                 </button>
               )}
-              <button className="link danger" onClick={() => { forget(p.provider); void deleteCredential({ provider: p.provider }); }}>remove</button>
+              <button className="link danger" onClick={() => ask({ title: "Remove provider?", message: `Disconnect ${PROVIDER_LABEL[p.provider] ?? p.provider}? This drops all of its keys.`, confirmLabel: "Remove", run: () => { forget(p.provider); void deleteCredential({ provider: p.provider }); } })}>remove</button>
             </span>
             {/* a test run THIS session wins; otherwise fall back to the persisted last-check so a
                 stale failure is still explained inline, not only via the badge's title= tooltip */}
@@ -211,6 +214,8 @@ export function ConnectedCreds({ providers, catalog, isAdmin, deleteCredential, 
         );
       })}
     </ul>
+    {confirmDialog}
+    </>
   );
 }
 

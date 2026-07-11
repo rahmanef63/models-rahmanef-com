@@ -6,6 +6,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
+import { useConfirm } from "@/app/app/_components/responsive-dialog";
 
 type Combo = { id: string; name: string; refs: string[]; strategy: string; stickyLimit: number; createdAt: number };
 
@@ -22,6 +23,7 @@ export function ComboBuilderCard() {
   const [strategy, setStrategy] = useState("fallback");
   const [refs, setRefs] = useState<string[]>([""]);
   const [err, setErr] = useState<string | null>(null);
+  const { ask, confirmDialog } = useConfirm();
 
   const setRef = (i: number, val: string) => setRefs((r) => r.map((x, j) => (j === i ? val : x)));
   const addRef = () => setRefs((r) => (r.length < 5 ? [...r, ""] : r));
@@ -82,12 +84,13 @@ export function ComboBuilderCard() {
               </span>
               <span className="row" style={{ gap: ".5rem" }}>
                 <button className="link" onClick={() => edit(c)}>edit</button>
-                <button className="link danger" onClick={() => workspaceId && void remove({ workspaceId: workspaceId as never, comboId: c.id as never })}>delete</button>
+                <button className="link danger" onClick={() => ask({ title: "Delete combo?", message: `Delete "combo/${c.name}"? Anything pointing at it stops resolving.`, run: () => workspaceId && remove({ workspaceId: workspaceId as never, comboId: c.id as never }) })}>delete</button>
               </span>
             </li>
           ))}
         </ul>
       ) : combos ? <p className="sub" style={{ marginTop: "1rem" }}>No combos yet — create one to alias several models behind a single name.</p> : <p className="muted mono" style={{ marginTop: "1rem" }}>…</p>}
+      {confirmDialog}
     </section>
   );
 }

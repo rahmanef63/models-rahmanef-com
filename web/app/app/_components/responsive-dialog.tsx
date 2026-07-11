@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 
 // The ONE overlay primitive for the whole app: a centered modal on desktop, a bottom-sheet drawer on
 // mobile (≤640px, via CSS). Built on the native <dialog> — showModal() gives the ::backdrop scrim,
@@ -47,6 +47,28 @@ export function ResponsiveDialog({ open, onClose, title, children, footer, size 
       </div>
     </dialog>
   );
+}
+
+// Hook so a card gets a confirm flow in 3 lines instead of hand-rolling state + a dialog each time:
+//   const { ask, confirmDialog } = useConfirm();
+//   <button onClick={() => ask({ title: "Delete?", message: "…", run: () => remove(id) })}>…</button>
+//   {confirmDialog}
+type ConfirmOpts = { title: ReactNode; message?: ReactNode; confirmLabel?: string; danger?: boolean; run: () => unknown };
+export function useConfirm() {
+  const [state, setState] = useState<ConfirmOpts | null>(null);
+  const ask = useCallback((opts: ConfirmOpts) => setState(opts), []);
+  const confirmDialog = (
+    <ConfirmDialog
+      open={!!state}
+      onClose={() => setState(null)}
+      onConfirm={() => { void state?.run(); }}
+      title={state?.title ?? ""}
+      message={state?.message}
+      confirmLabel={state?.confirmLabel}
+      danger={state?.danger}
+    />
+  );
+  return { ask, confirmDialog };
 }
 
 // Confirm variant — retires one-click no-undo deletes and the app's stray native confirm() calls.
