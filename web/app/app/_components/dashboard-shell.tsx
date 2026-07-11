@@ -1,5 +1,5 @@
 "use client";
-import { type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { type NavGroup, groupOfSection } from "./nav-config";
 import { NavigationRail, type RailAccount } from "./navigation-rail";
 import { BottomDock } from "./bottom-dock";
@@ -25,6 +25,9 @@ export function DashboardShell({ groups, section, go, isAdmin, account, theme, t
   children: ReactNode;
 }) {
   const activeGroup = groupOfSection(section, isAdmin);
+  // keep the active section tab visible in the horizontally-scrolling mobile tab strip
+  const activeRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => { activeRef.current?.scrollIntoView({ inline: "center", block: "nearest" }); }, [section]);
   return (
     <div className="dash-shell">
       <NavigationRail
@@ -42,7 +45,7 @@ export function DashboardShell({ groups, section, go, isAdmin, account, theme, t
           <div className="sec-group-label">{activeGroup.label}</div>
           <div className="sec-items">
             {activeGroup.sections.map((s) => (
-              <button key={s.id} className={`sec-item ${section === s.id ? "on" : ""}`} aria-current={section === s.id ? "page" : undefined} onClick={() => go(s.id)}>
+              <button key={s.id} ref={section === s.id ? activeRef : undefined} className={`sec-item ${section === s.id ? "on" : ""}`} aria-current={section === s.id ? "page" : undefined} onClick={() => go(s.id)}>
                 {s.label}
               </button>
             ))}

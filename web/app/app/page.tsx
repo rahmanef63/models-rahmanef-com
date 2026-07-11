@@ -34,6 +34,7 @@ import { SignIn } from "./_components/sign-in";
 import { DashboardShell } from "./_components/dashboard-shell";
 import { AiDock, AiComposer } from "./_components/ai-dock";
 import { ResponsiveDialog } from "./_components/responsive-dialog";
+import { SectionErrorBoundary } from "./_components/error-boundary";
 import { groupsFor } from "./_components/nav-config";
 import { useTheme } from "./_components/use-theme";
 
@@ -147,6 +148,7 @@ function Dashboard() {
         <AiComposer autoFocus modelCount={providers === undefined ? undefined : myModels.length} onSubmit={(t) => { startChat(t); setComposeOpen(false); }} />
       </ResponsiveDialog>
 
+      <SectionErrorBoundary section={section}>
       {section === "overview" && (
         <>
           <Overview providers={providers} models={myModels} go={go} />
@@ -192,6 +194,7 @@ function Dashboard() {
       {section === "analytics" && me?.isSuperAdmin && <AdminAnalyticsCard />}
       {section === "traffic" && me?.isSuperAdmin && <AdminTrafficCard />}
       {section === "seed" && me?.isSuperAdmin && <AdminSeedCard />}
+      </SectionErrorBoundary>
     </DashboardShell>
   );
 }

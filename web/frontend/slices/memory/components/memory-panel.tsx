@@ -33,11 +33,11 @@ export function MemoryPanel({ workspaceId }: { workspaceId?: string }) {
     <section className="card">
       <h2>Memory</h2>
       <p className="sub">Facts, preferences &amp; thread summaries your agents recall across sessions. Agents save user memories automatically when you correct them or state a lasting preference.</p>
-      <label className="row" style={{ alignItems: "center", gap: ".5rem", marginTop: ".4rem" }}>
+      <label className="chk" style={{ alignItems: "center", gap: ".5rem", marginTop: ".4rem" }}>
         <input type="checkbox" checked={enabled} onChange={(e) => void setEnabled({ enabled: e.target.checked })} />
         <span className="mono muted" style={{ fontSize: ".82rem" }}>inject recalled memory into chat</span>
       </label>
-      <label className="row" style={{ alignItems: "center", gap: ".5rem" }}>
+      <label className="chk" style={{ alignItems: "center", gap: ".5rem" }}>
         <input type="checkbox" checked={autoSum} onChange={(e) => void setSettings({ memoryAutoSummarize: e.target.checked })} />
         <span className="mono muted" style={{ fontSize: ".82rem" }}>auto-summarize long threads (off-turn, uses your model)</span>
       </label>
