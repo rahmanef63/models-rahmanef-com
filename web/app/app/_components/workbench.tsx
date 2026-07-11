@@ -6,6 +6,7 @@ import { useWorkspace } from "@/features/workspaces";
 import { PROVIDER_LABEL, ErrorLine, type Cred, type Catalog } from "./shared";
 import { splitModel, route, ModelInspector, ModelPicker, type AgentPickMeta } from "./chat-model-picker";
 import { AgentMentionPicker, type MentionAgent } from "./agent-mention";
+import { SkillMentionPicker } from "./skill-mention";
 
 type Msg = { _id: string; role: string; content: string };
 type Thread = { _id: string; title: string; model: string; agentId?: string; agentName?: string };
@@ -14,10 +15,15 @@ type AgentLite = { _id: string; name: string; model: string; tools: string[] };
 // typed at the very end of the message — the common Discord/Slack-style pattern. Not
 // cursor-position-aware (a mention anywhere but the end won't trigger) — a deliberate scope cut.
 const MENTION_RE = /@(\w*)$/;
+// same caret-end pattern for "/skill" — mutually exclusive with @ (the trailing trigger char is one
+// or the other, never both). Picking a skill prepends its instructions to the next message (client-
+// only, no backend): the text rides through the unchanged sendMessage path into the system prompt.
+const SKILL_RE = /\/(\w*)$/;
 
 export function WorkbenchCard({ models, providers, catalog, isAdmin }: { models: string[]; providers: Cred[] | undefined; catalog: Catalog; isAdmin: boolean }) {
   const threads = useQuery(api.threads.listThreads) as Thread[] | undefined;
   const agentDefs = useQuery(api.agentDefs.list) as AgentLite[] | undefined;
+  const skillDefs = useQuery(api.agentDefs.listSkillsRegistry) as { id: string; label: string; description: string; instructions: string }[] | undefined;
   const createThread = useMutation(api.threads.createThread);
   const deleteThread = useMutation(api.threads.deleteThread);
   const rebindThreadAgent = useMutation(api.threads.rebindThreadAgent);
@@ -27,6 +33,7 @@ export function WorkbenchCard({ models, providers, catalog, isAdmin }: { models:
   const [model, setModel] = useState(""); // model chosen for a NEW (not-yet-created) thread
   const [pendingAgentId, setPendingAgentId] = useState<string | null>(null); // agent chosen for a NEW thread (wins over `model`)
   const [input, setInput] = useState("");
+  const [pendingSkillIds, setPendingSkillIds] = useState<string[]>([]); // skills armed for the NEXT send (client-only)
   const [busy, setBusy] = useState(false);
   const [rebinding, setRebinding] = useState(false);
   const [err, setErr] = useState<unknown>(null);
@@ -49,6 +56,7 @@ export function WorkbenchCard({ models, providers, catalog, isAdmin }: { models:
   const currentProvider = currentModel ? splitModel(currentModel)[0] : null;
   const r = route(providers?.find((p) => p.provider === currentProvider)?.kind);
   const mentionMatch = input.match(MENTION_RE);
+  const skillMatch = input.match(SKILL_RE);
 
   function newChat() { setActive(null); setModel(""); setPendingAgentId(null); setInput(""); setErr(null); setShowInsp(false); }
 
@@ -66,6 +74,11 @@ export function WorkbenchCard({ models, providers, catalog, isAdmin }: { models:
     }
   }
 
+  function pickSkill(id: string) {
+    setInput((v) => v.replace(SKILL_RE, ""));
+    setPendingSkillIds((ids) => (ids.includes(id) ? ids : [...ids, id]));
+  }
+
   async function send() {
     if (!input.trim() || busy || rebinding) return;
     setErr(null);
@@ -78,8 +91,11 @@ export function WorkbenchCard({ models, providers, catalog, isAdmin }: { models:
         else { setErr("pick a model or agent first"); return; }
         setActive(tid);
       }
-      const content = input;
+      // built AFTER createThread so the skill preamble never leaks into the thread title (raw input above)
+      const preamble = pendingSkillIds.map((id) => skillDefs?.find((s) => s.id === id)?.instructions).filter(Boolean).join("\n\n");
+      const content = preamble ? `${preamble}\n\n${input}` : input;
       setInput("");
+      setPendingSkillIds([]);
       await sendMessage({ threadId: tid as any, content, workspaceId: (workspaceId ?? undefined) as any });
     } catch (e) {
       setErr(e);
@@ -168,11 +184,22 @@ export function WorkbenchCard({ models, providers, catalog, isAdmin }: { models:
                 )}
                 {busy && <div className="msg assistant"><span className="who mono muted">assistant</span><div className="wb-typing"><i /><i /><i /></div></div>}
               </div>
+              {pendingSkillIds.length > 0 && (
+                <div className="wb-skill-chips" style={{ display: "flex", gap: ".3rem", flexWrap: "wrap", marginBottom: ".4rem" }}>
+                  {pendingSkillIds.map((id) => {
+                    const s = skillDefs?.find((x) => x.id === id);
+                    return <button key={id} type="button" className="badge" onClick={() => setPendingSkillIds((ids) => ids.filter((x) => x !== id))}>/{s?.label ?? id} ×</button>;
+                  })}
+                </div>
+              )}
               <div className="wb-composer" style={{ position: "relative" }}>
                 {mentionMatch && mentionAgents.length > 0 && (
                   <AgentMentionPicker agents={mentionAgents} query={mentionMatch[1]} onPick={(id) => void pickMention(id)} />
                 )}
-                <textarea rows={2} placeholder="message  ·  @ to hand this to a saved agent  ·  (⌘/Ctrl+Enter to send)" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void send(); }} />
+                {skillMatch && (skillDefs?.length ?? 0) > 0 && (
+                  <SkillMentionPicker skills={skillDefs!} query={skillMatch[1]} onPick={pickSkill} />
+                )}
+                <textarea rows={2} placeholder="message  ·  @ agent  ·  / skill  ·  (⌘/Ctrl+Enter to send)" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void send(); }} />
                 <button className="btn accent" disabled={busy || rebinding || !input.trim()} onClick={() => void send()}>{busy ? "…" : rebinding ? "switching…" : "Send"}</button>
               </div>
               {err != null && <ErrorLine e={err} isAdmin={isAdmin} />}
