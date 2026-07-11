@@ -31,7 +31,7 @@ export const pickCredentials = internalQuery({
       : [];
     const live = [...personal, ...shared].filter((r) => isLive(r, now));
     live.sort((x, y) => (x.priority ?? DEFAULT_PRIORITY) - (y.priority ?? DEFAULT_PRIORITY) || (x.updatedAt ?? 0) - (y.updatedAt ?? 0));
-    return live.slice(0, 3).map((r) => ({ credId: r._id, ciphertext: r.ciphertext, endpoint: r.endpoint }));
+    return live.slice(0, 3).map((r) => ({ credId: r._id, ciphertext: r.ciphertext, endpoint: r.endpoint, protocol: r.protocol }));
   },
 });
 

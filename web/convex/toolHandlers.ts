@@ -92,8 +92,9 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
     try { assertSafeUrl(baseURL); } catch (e: any) { return `Invalid endpoint: ${e?.data?.detail ?? "bad URL"}.`; }
     const key = String(args?.apiKey ?? "");
     if (!key) return "apiKey required.";
-    await ctx.runMutation(internal.credentials._connectForUser, { userId, provider: name, ciphertext: await encryptSecret(key), endpoint: baseURL });
-    return `Connected custom provider "${name}" → ${baseURL}. Target models as ${name}/<model> (must speak OpenAI /chat/completions).`;
+    const protocol = String(args?.protocol ?? "") === "anthropic" ? "anthropic" : undefined;
+    await ctx.runMutation(internal.credentials._connectForUser, { userId, provider: name, ciphertext: await encryptSecret(key), endpoint: baseURL, protocol });
+    return `Connected custom provider "${name}" → ${baseURL} (${protocol ?? "openai"}). Target models as ${name}/<model>.`;
   },
   chat: async (ctx, userId, args, workspaceId) => {
     const r = await callForUser(ctx, userId, workspaceId, String(args.model), [{ role: "user", content: String(args.prompt) }]); // token-bound workspace creds

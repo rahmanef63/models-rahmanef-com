@@ -117,14 +117,19 @@ export function CustomProviderForm({ isAdmin }: { isAdmin: boolean }) {
   const [name, setName] = useState("");
   const [baseURL, setBaseURL] = useState("");
   const [key, setKey] = useState("");
+  const [protocol, setProtocol] = useState("openai");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
   const [ok, setOk] = useState<string | null>(null);
   return (
     <div className="apikey">
-      <div className="apikey-label mono muted">or add a custom OpenAI-compatible endpoint</div>
+      <div className="apikey-label mono muted">or add a custom endpoint — OpenAI-compatible or Anthropic Messages</div>
       <div className="row">
         <input disabled={busy} placeholder="name (e.g. my-llm)" value={name} onChange={(e) => { setName(e.target.value); setErr(null); setOk(null); }} style={{ width: "auto" }} />
+        <select disabled={busy} value={protocol} onChange={(e) => setProtocol(e.target.value)} style={{ width: "auto" }} title="wire protocol the endpoint speaks">
+          <option value="openai">OpenAI /chat/completions</option>
+          <option value="anthropic">Anthropic /v1/messages</option>
+        </select>
         <input disabled={busy} placeholder="https://host/v1" value={baseURL} onChange={(e) => setBaseURL(e.target.value)} />
         <input disabled={busy} type="password" placeholder="api key" value={key} onChange={(e) => setKey(e.target.value)} />
         <button
@@ -132,7 +137,7 @@ export function CustomProviderForm({ isAdmin }: { isAdmin: boolean }) {
           disabled={busy || !name || !baseURL || !key}
           onClick={async () => {
             setBusy(true); setErr(null); setOk(null);
-            try { const r = await connect({ name, baseURL, apiKey: key }); setName(""); setBaseURL(""); setKey(""); setOk(r.slug); }
+            try { const r = await connect({ name, baseURL, apiKey: key, protocol }); setName(""); setBaseURL(""); setKey(""); setOk(r.slug); }
             catch (e) { setErr(e); } finally { setBusy(false); }
           }}
         >

@@ -15,7 +15,9 @@ const BUILTIN = new Set(["openai", "anthropic", "google", "openrouter", "openai-
 const slugify = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32);
 
 export const connectCustomProvider = action({
-  args: { name: v.string(), baseURL: v.string(), apiKey: v.string() },
+  // protocol: "anthropic" = the endpoint speaks the Anthropic Messages API (POST {baseURL}/messages);
+  // anything else = OpenAI /chat/completions (the default).
+  args: { name: v.string(), baseURL: v.string(), apiKey: v.string(), protocol: v.optional(v.string()) },
   handler: async (ctx, a): Promise<{ slug: string }> => {
     const userId = await requireUser(ctx);
     const slug = slugify(a.name);
@@ -24,7 +26,8 @@ export const connectCustomProvider = action({
     if (!a.apiKey) throw new ConvexError({ code: "invalid_request", detail: "apiKey required." });
     const baseURL = a.baseURL.trim();
     try { assertSafeUrl(baseURL); } catch (e: any) { throw new ConvexError({ code: "invalid_request", detail: `Invalid endpoint: ${e?.data?.detail ?? "bad URL"}` }); }
-    await ctx.runMutation(internal.credentials._connectForUser, { userId, provider: slug, ciphertext: await encryptSecret(a.apiKey), endpoint: baseURL });
+    const protocol = a.protocol === "anthropic" ? "anthropic" : undefined; // only anthropic is a departure from the default
+    await ctx.runMutation(internal.credentials._connectForUser, { userId, provider: slug, ciphertext: await encryptSecret(a.apiKey), endpoint: baseURL, protocol });
     return { slug };
   },
 });

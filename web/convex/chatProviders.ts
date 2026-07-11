@@ -43,7 +43,7 @@ export const OPENAI_COMPAT: Record<string, string> = {
   zenmux: "https://zenmux.ai/api/v1",
 };
 
-export function modelFor(provider: string, model: string, apiKey: string, endpoint?: string) {
+export function modelFor(provider: string, model: string, apiKey: string, endpoint?: string, protocol?: string) {
   switch (provider) {
     case "openai": return createOpenAI({ apiKey })(model);
     case "anthropic": return createAnthropic({ apiKey })(model);
@@ -54,8 +54,11 @@ export function modelFor(provider: string, model: string, apiKey: string, endpoi
       // which third-party OpenAI-compatible hosts (Mistral, Groq, …) don't implement → 404. A built-in
       // OPENAI_COMPAT host wins; otherwise a stored custom `endpoint` (BYOK custom provider) is used.
       const baseURL = OPENAI_COMPAT[provider] ?? endpoint;
-      if (baseURL) return createOpenAI({ apiKey, baseURL }).chat(model);
-      return null;
+      if (!baseURL) return null;
+      // a custom endpoint may speak the Anthropic Messages API (POST {baseURL}/messages) instead of
+      // OpenAI /chat/completions — the anthropic SDK appends /messages, so baseURL ends at /v1.
+      if (protocol === "anthropic") return createAnthropic({ apiKey, baseURL })(model);
+      return createOpenAI({ apiKey, baseURL }).chat(model);
     }
   }
 }

@@ -167,11 +167,11 @@ export async function callForUser(
           ...(agentOpts?.temperature != null ? { temperature: agentOpts.temperature } : {}),
         };
         const pool = await ctx.runQuery(internal.providerPool.pickCredentials, { userId, workspaceId, provider });
-        const candidates = pool.length ? pool : [{ credId: row._id, ciphertext: row.ciphertext, endpoint: row.endpoint }];
+        const candidates = pool.length ? pool : [{ credId: row._id, ciphertext: row.ciphertext, endpoint: row.endpoint, protocol: row.protocol }];
         let lastErr: unknown, done = false;
         for (const cred of candidates) {
           const apiKey = await decryptSecret(cred.ciphertext);
-          const m = modelFor(provider, model, apiKey, cred.endpoint);
+          const m = modelFor(provider, model, apiKey, cred.endpoint, cred.protocol);
           if (!m) throw new ConvexError({ code: "internal", detail: `Unknown provider "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
           try {
             const result = await generateText({ model: m, ...genBase });
