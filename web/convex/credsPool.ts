@@ -10,7 +10,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUser, requireWorkspaceRole, requireWorkspaceRoleAction } from "./_shared/auth";
 import { encryptSecret } from "./crypto";
 
-const OAUTH_ONLY = new Set(["openai-codex", "anthropic-oauth"]);
+const OAUTH_ONLY = new Set(["openai-codex", "anthropic-oauth", "github-copilot"]);
 const clampPriority = (p: number | undefined) => (p == null ? undefined : Math.max(0, Math.min(999, Math.round(p))));
 
 // internal: pure INSERT of a personal api_key pool row (encryption happened in the action).

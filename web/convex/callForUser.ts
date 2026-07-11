@@ -8,6 +8,7 @@ import { internal } from "./_generated/api";
 import { encryptSecret, decryptSecret } from "./crypto";
 import { ensureFreshCodex, codexChat, type CodexBundle } from "./codexLib";
 import { ensureFreshClaude, claudeChat, type ClaudeBundle } from "./claudeLib";
+import { ensureFreshCopilot, copilotChat, type CopilotBundle } from "./copilotLib";
 import { modelFor } from "./chatProviders";
 import { gatewayTools } from "./chatTools";
 import { classifyError, type ChatErrorInfo } from "./chatErrors";
@@ -129,6 +130,26 @@ export async function callForUser(
           }
         }
         const res = await claudeChat(bundle, model, messages);
+        text = res.text;
+        promptTokens = res.promptTokens;
+        completionTokens = res.completionTokens;
+      } else if (provider === "github-copilot") {
+        // durable GitHub token → short-lived Copilot API token; refresh the short-lived half under the
+        // same single-flight lease the codex/claude paths use (expires = the Copilot token's expiry).
+        let bundle: CopilotBundle = JSON.parse(await decryptSecret(row.ciphertext));
+        const marginMs = 180_000;
+        if (!bundle.copilotToken || Date.now() >= bundle.expires - marginMs) {
+          const claim = await ctx.runMutation(internal.credentials.claimRefresh, { userId, provider, marginMs });
+          if (claim.win) {
+            bundle = (await ensureFreshCopilot(bundle)).bundle;
+            await ctx.runMutation(internal.credentials.store, { userId, provider, kind: "oauth", ciphertext: await encryptSecret(JSON.stringify(bundle)), expires: bundle.expires });
+          } else {
+            await new Promise((r) => setTimeout(r, 1500));
+            const r2 = await ctx.runQuery(internal.credentials.getCiphertext, { userId, provider });
+            if (r2) bundle = JSON.parse(await decryptSecret(r2.ciphertext));
+          }
+        }
+        const res = await copilotChat(bundle, model, messages);
         text = res.text;
         promptTokens = res.promptTokens;
         completionTokens = res.completionTokens;

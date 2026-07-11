@@ -52,7 +52,7 @@ async function runCredentialTest(
 
 // OAuth-only providers never appear in the manual paste-a-key dropdown — derived from
 // PROVIDER_LABEL so a new provider only needs adding in one place (shared.tsx).
-const OAUTH_ONLY = new Set(["openai-codex", "anthropic-oauth"]);
+const OAUTH_ONLY = new Set(["openai-codex", "anthropic-oauth", "github-copilot"]);
 const API_KEY_PROVIDERS = Object.keys(PROVIDER_LABEL).filter((p) => !OAUTH_ONLY.has(p));
 
 export function ApiKeyForm({ setCredential, testCredential, catalog, isAdmin }: {

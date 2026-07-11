@@ -35,7 +35,7 @@ export const chat = action({
       const i = def.model.indexOf("/");
       const provider = def.model.slice(0, i);
       const model = def.model.slice(i + 1);
-      if (provider === "openai-codex" || provider === "anthropic-oauth") {
+      if (provider === "openai-codex" || provider === "anthropic-oauth" || provider === "github-copilot") {
         throw new ConvexError({ code: "invalid_request", detail: "This agent's model doesn't support tools (OAuth subscription providers can't run tool-using agents) — pick an API-key model for it in the Agents tab.", provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
       }
       // skill instructions are reusable snippets selected on the agent — concatenated after the
@@ -95,7 +95,7 @@ export const runAgent = action({
     if (i < 1 || i === modelRef.length - 1) throw new ConvexError({ code: "invalid_request", detail: 'model must be "provider/model"' } satisfies ChatErrorInfo);
     const provider = modelRef.slice(0, i);
     const model = modelRef.slice(i + 1);
-    if (provider === "openai-codex" || provider === "anthropic-oauth") throw new ConvexError({ code: "invalid_request", detail: "Agents need a tool-capable API-key model (not an OAuth subscription provider).", provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
+    if (provider === "openai-codex" || provider === "anthropic-oauth" || provider === "github-copilot") throw new ConvexError({ code: "invalid_request", detail: "Agents need a tool-capable API-key model (not an OAuth subscription provider).", provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
 
     let row: any, m: any;
     try {

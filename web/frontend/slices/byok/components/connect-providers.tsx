@@ -5,10 +5,10 @@ import { api } from "@/convex/_generated/api";
 import { SUPPORTED, type Catalog } from "@/app/app/_components/shared";
 import { ApiKeyForm } from "./providers";
 
-// Owns the three OAuth connect flows (OpenAI Codex device-code, Claude PKCE manual-paste,
-// OpenRouter PKCE redirect) + the manual API-key form. `providers` itself stays a reactive
-// Convex query in Dashboard (drives hasCodex/hasClaude there) — this component only needs to
-// kick off a connect and report success/failure via onBanner.
+// Owns the four OAuth connect flows (OpenAI Codex + GitHub Copilot device-code, Claude PKCE
+// manual-paste, OpenRouter PKCE redirect) + the manual API-key form. `providers` itself stays a
+// reactive Convex query in Dashboard (drives hasCodex/hasClaude/hasCopilot there) — this component
+// only needs to kick off a connect and report success/failure via onBanner.
 export function ConnectProviders({ catalog, isAdmin, setCredential, testCredential, onBanner }: {
   catalog: Catalog;
   isAdmin: boolean;
@@ -21,17 +21,21 @@ export function ConnectProviders({ catalog, isAdmin, setCredential, testCredenti
   const startOpenRouter = useAction(api.oauth.startOpenRouterConnect);
   const startClaude = useAction(api.oauth.startClaudeConnect);
   const finishClaude = useAction(api.oauth.finishClaudeConnect);
+  const startCopilot = useAction(api.oauthCopilot.startCopilotLogin);
+  const pollCopilot = useAction(api.oauthCopilot.pollCopilotLogin);
 
   const [codexFlow, setCodexFlow] = useState<{ url: string; code: string } | null>(null);
+  const [copilotFlow, setCopilotFlow] = useState<{ url: string; code: string } | null>(null);
   const [claudeFlow, setClaudeFlow] = useState(false);
   const [claudeInput, setClaudeInput] = useState("");
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const copilotTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // This card only mounts while the Providers tab is active — navigating away unmounts it. Without
   // this, a device-code poll started here would keep ticking as an orphaned interval in the
   // background, and returning to the tab would show a fresh "not connecting" button that could
   // start a SECOND concurrent poll. Cancel on unmount so leaving the tab actually cancels the flow.
-  useEffect(() => () => { if (pollTimer.current) clearInterval(pollTimer.current); }, []);
+  useEffect(() => () => { if (pollTimer.current) clearInterval(pollTimer.current); if (copilotTimer.current) clearInterval(copilotTimer.current); }, []);
 
   async function connectCodex() {
     onBanner("");
@@ -49,6 +53,30 @@ export function ConnectProviders({ catalog, isAdmin, setCredential, testCredenti
         } catch (e) {
           if (pollTimer.current) clearInterval(pollTimer.current);
           setCodexFlow(null);
+          onBanner("⚠ " + (e instanceof Error ? e.message : String(e)));
+        }
+      }, intervalMs);
+    } catch (e) {
+      onBanner("⚠ " + (e instanceof Error ? e.message : String(e)));
+    }
+  }
+
+  async function connectCopilot() {
+    onBanner("");
+    try {
+      const { verificationUrl, userCode, intervalMs } = await startCopilot();
+      setCopilotFlow({ url: verificationUrl, code: userCode });
+      copilotTimer.current = setInterval(async () => {
+        try {
+          const { status } = await pollCopilot();
+          if (status !== "pending") {
+            if (copilotTimer.current) clearInterval(copilotTimer.current);
+            setCopilotFlow(null);
+            onBanner(status === "done" ? "✓ GitHub Copilot connected" : "⚠ login expired — try again");
+          }
+        } catch (e) {
+          if (copilotTimer.current) clearInterval(copilotTimer.current);
+          setCopilotFlow(null);
           onBanner("⚠ " + (e instanceof Error ? e.message : String(e)));
         }
       }, intervalMs);
@@ -101,12 +129,24 @@ export function ConnectProviders({ catalog, isAdmin, setCredential, testCredenti
           <strong>Connect OpenRouter</strong>
           <span>oauth · hundreds of models</span>
         </button>
+        <button className="provider-btn" onClick={connectCopilot} disabled={!!copilotFlow}>
+          <strong>Sign in with GitHub Copilot</strong>
+          <span>subscription · oauth</span>
+        </button>
       </div>
       {codexFlow && (
         <div className="device">
           <p><span className="mono muted">01</span> &nbsp;Open <a className="accent" href={codexFlow.url} target="_blank" rel="noreferrer">{codexFlow.url}</a></p>
           <p><span className="mono muted">02</span> &nbsp;Enter this code:</p>
           <div className="devicecode">{codexFlow.code}</div>
+          <p className="spin">◠ waiting for sign-in…</p>
+        </div>
+      )}
+      {copilotFlow && (
+        <div className="device">
+          <p><span className="mono muted">01</span> &nbsp;Open <a className="accent" href={copilotFlow.url} target="_blank" rel="noreferrer">{copilotFlow.url}</a></p>
+          <p><span className="mono muted">02</span> &nbsp;Enter this code:</p>
+          <div className="devicecode">{copilotFlow.code}</div>
           <p className="spin">◠ waiting for sign-in…</p>
         </div>
       )}

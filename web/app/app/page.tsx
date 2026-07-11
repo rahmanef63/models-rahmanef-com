@@ -66,10 +66,12 @@ function Dashboard() {
   const isAdmin = !!me?.isSuperAdmin;
   const codexModelList = useAction(api.oauth.codexModelList);
   const claudeModelList = useAction(api.oauth.claudeModelList);
+  const copilotModelList = useAction(api.oauthCopilot.copilotModelList);
 
   const [catalog, setCatalog] = useState<Catalog>({});
   const [codexModels, setCodexModels] = useState<string[]>([]);
   const [claudeModels, setClaudeModels] = useState<string[]>([]);
+  const [copilotModels, setCopilotModels] = useState<string[]>([]);
   const [banner, setBanner] = useState("");
   const [section, setSection] = useState("overview");
   const [noteId, setNoteId] = useState<string | null>(null); // selected vault note (or "new")
@@ -84,6 +86,7 @@ function Dashboard() {
 
   const hasCodex = !!providers?.some((p) => p.provider === "openai-codex");
   const hasClaude = !!providers?.some((p) => p.provider === "anthropic-oauth");
+  const hasCopilot = !!providers?.some((p) => p.provider === "github-copilot");
   useEffect(() => {
     if (hasCodex) codexModelList().then(setCodexModels).catch(() => {});
     else setCodexModels([]);
@@ -92,16 +95,20 @@ function Dashboard() {
     if (hasClaude) claudeModelList().then(setClaudeModels).catch(() => {});
     else setClaudeModels([]);
   }, [hasClaude]);
+  useEffect(() => {
+    if (hasCopilot) copilotModelList().then(setCopilotModels).catch(() => {});
+    else setCopilotModels([]);
+  }, [hasCopilot]);
 
   const myModels = useMemo(() => {
     const mine = new Set((providers ?? []).map((p) => p.provider));
-    const out: string[] = [...codexModels, ...claudeModels];
+    const out: string[] = [...codexModels, ...claudeModels, ...copilotModels];
     for (const [pid, p] of Object.entries(catalog)) {
       if (!mine.has(pid)) continue;
       for (const mid of Object.keys(p.models ?? {})) out.push(`${pid}/${mid}`);
     }
     return out.sort();
-  }, [catalog, providers, codexModels, claudeModels]);
+  }, [catalog, providers, codexModels, claudeModels, copilotModels]);
 
   return (
     <DashboardShell

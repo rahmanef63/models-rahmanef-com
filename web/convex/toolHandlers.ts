@@ -10,7 +10,7 @@ import { callForUser } from "./callForUser";
 import { encryptSecret } from "./crypto";
 import { assertSafeUrl } from "./_shared/ssrf";
 
-const OAUTH_ONLY = new Set(["openai-codex", "anthropic-oauth"]);
+const OAUTH_ONLY = new Set(["openai-codex", "anthropic-oauth", "github-copilot"]);
 const KNOWN_PROVIDERS = new Set(["openai", "anthropic", "google", "openrouter", ...Object.keys(OPENAI_COMPAT)]);
 const slugify = (s: string) => s.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32);
 

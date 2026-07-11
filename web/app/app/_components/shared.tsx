@@ -4,6 +4,7 @@
 export const PROVIDER_LABEL: Record<string, string> = {
   "openai-codex": "OpenAI · ChatGPT / Codex",
   "anthropic-oauth": "Claude · Pro / Max",
+  "github-copilot": "GitHub Copilot · subscription",
   openrouter: "OpenRouter",
   openai: "OpenAI API",
   anthropic: "Anthropic",
@@ -32,7 +33,7 @@ export type Cred = { provider: string; kind: string; keyCount?: number; lastChec
 export type Catalog = Record<string, { models?: Record<string, unknown> }>;
 
 export const fmt = (n: number) => (n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, "") + "k" : String(n));
-export const SUPPORTED = 23; // openai, anthropic, google, openrouter + 18 openai-compatible + openai-codex (oauth)
+export const SUPPORTED = 24; // openai, anthropic, google, openrouter + 18 openai-compatible + openai-codex + github-copilot (oauth)
 
 // relative "3m ago" — admin lists (users, activity) show elapsed time next to the absolute instant.
 export const ago = (t: number) => {

@@ -16,7 +16,7 @@ import { requireUser } from "./_shared/auth";
 function assertToolCapable(def: { model: string; name: string }) {
   const i = def.model.indexOf("/");
   const provider = i > 0 ? def.model.slice(0, i) : "";
-  if (provider === "openai-codex" || provider === "anthropic-oauth") {
+  if (provider === "openai-codex" || provider === "anthropic-oauth" || provider === "github-copilot") {
     throw new ConvexError({ code: "invalid_request", detail: `"${def.name}" is set to an OAuth subscription model (${def.model}), which doesn't support tools — edit the agent to use an API-key model first.` });
   }
 }
