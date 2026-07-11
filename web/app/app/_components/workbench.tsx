@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
@@ -20,7 +20,7 @@ const MENTION_RE = /@(\w*)$/;
 // only, no backend): the text rides through the unchanged sendMessage path into the system prompt.
 const SKILL_RE = /\/(\w*)$/;
 
-export function WorkbenchCard({ models, providers, catalog, isAdmin }: { models: string[]; providers: Cred[] | undefined; catalog: Catalog; isAdmin: boolean }) {
+export function WorkbenchCard({ models, providers, catalog, isAdmin, prefill, onPrefillConsumed }: { models: string[]; providers: Cred[] | undefined; catalog: Catalog; isAdmin: boolean; prefill?: string; onPrefillConsumed?: () => void }) {
   const threads = useQuery(api.threads.listThreads) as Thread[] | undefined;
   const agentDefs = useQuery(api.agentDefs.list) as AgentLite[] | undefined;
   const skillDefs = useQuery(api.agentDefs.listSkillsRegistry) as { id: string; label: string; description: string; instructions: string }[] | undefined;
@@ -39,6 +39,10 @@ export function WorkbenchCard({ models, providers, catalog, isAdmin }: { models:
   const [err, setErr] = useState<unknown>(null);
   const [showInsp, setShowInsp] = useState(false);
   const msgs = useQuery(api.threads.threadMessages, active ? { threadId: active as any } : "skip") as Msg[] | undefined;
+
+  // a prompt handed over from the AI dock / mobile compose sheet — drop it into the composer once,
+  // then tell the parent to clear it so it doesn't re-apply on every render.
+  useEffect(() => { if (prefill) { setInput(prefill); onPrefillConsumed?.(); } }, [prefill]);
 
   const byProvider = useMemo(() => {
     const g: Record<string, string[]> = {};

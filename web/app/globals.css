@@ -310,6 +310,9 @@ footer { border-top: 1px solid var(--line); padding: 2.5rem 0; margin-top: 3rem;
 .ai-dock-prompt:hover { border-color: var(--accent); color: var(--fg); }
 .ai-dock-cta { justify-content: center; }
 .ai-dock-disc { font-size: 0.68rem; color: var(--muted); margin: 0; }
+.ai-composer { display: flex; flex-direction: column; gap: 0.55rem; }
+.ai-composer-input { width: 100%; margin: 0; }
+.ai-composer-send { width: 100%; }
 
 /* ---- BottomDock (mobile bottom-nav dock, CareerPack-style) — display:none until the <640 query ---- */
 .bottom-dock { display: none; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; align-items: center; justify-content: space-around; gap: 0.1rem; padding: 0.35rem 0.5rem calc(0.35rem + env(safe-area-inset-bottom, 0px)); background: var(--bg-2); border-top: 1px solid var(--line); }

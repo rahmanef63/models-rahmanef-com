@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConvexAuth, useQuery, useMutation, useAction } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@/convex/_generated/api";
@@ -30,7 +30,8 @@ import { SpendCapCard } from "@/features/spend-caps";
 import { MemoryGraphPanel } from "@/features/memory-graph";
 import { SignIn } from "./_components/sign-in";
 import { DashboardShell } from "./_components/dashboard-shell";
-import { AiDock } from "./_components/ai-dock";
+import { AiDock, AiComposer } from "./_components/ai-dock";
+import { ResponsiveDialog } from "./_components/responsive-dialog";
 import { groupsFor } from "./_components/nav-config";
 import { useTheme } from "./_components/use-theme";
 
@@ -75,13 +76,27 @@ function Dashboard() {
   const [banner, setBanner] = useState("");
   const [section, setSection] = useState("overview");
   const [noteId, setNoteId] = useState<string | null>(null); // selected vault note (or "new")
+  const [chatPrefill, setChatPrefill] = useState(""); // prompt handed from the AI composer to the Workbench
+  const [composeOpen, setComposeOpen] = useState(false); // mobile FAB compose sheet
+
+  // URL-backed navigation: Back/forward + refresh + shareable links, no router refactor.
+  const go = useCallback((s: string) => {
+    setSection(s);
+    if (typeof window !== "undefined") window.history.pushState({ s }, "", "?s=" + s);
+  }, []);
+  const startChat = useCallback((text: string) => { setChatPrefill(text); go("chat"); }, [go]);
 
   useEffect(() => {
     fetch("https://models.dev/api.json").then((r) => r.json()).then(setCatalog).catch(() => {});
-    const q = new URLSearchParams(window.location.search).get("connect");
-    if (q === "openrouter") setBanner("✓ OpenRouter connected");
-    else if (q === "error") setBanner("⚠ connect failed — try again");
-    if (q) window.history.replaceState({}, "", "/app");
+    const params = new URLSearchParams(window.location.search);
+    const q = params.get("connect");
+    // after an OAuth return, LAND on Providers (where you verify the key) instead of dumping on Overview
+    if (q === "openrouter") { setBanner("✓ OpenRouter connected"); setSection("providers"); window.history.replaceState({ s: "providers" }, "", "?s=providers"); }
+    else if (q === "error") { setBanner("⚠ connect failed — try again"); window.history.replaceState({ s: "overview" }, "", "/app"); }
+    else { const s = params.get("s"); if (s) setSection(s); } // restore the section on refresh / deep link
+    const onPop = () => setSection(new URLSearchParams(window.location.search).get("s") || "overview"); // Back/forward
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
   }, []);
 
   const hasCodex = !!providers?.some((p) => p.provider === "openai-codex");
@@ -114,25 +129,29 @@ function Dashboard() {
     <DashboardShell
       groups={groupsFor(isAdmin)}
       section={section}
-      go={setSection}
+      go={go}
       isAdmin={isAdmin}
       account={{ email: me?.email ?? undefined, isSuperAdmin: me?.isSuperAdmin, onSignOut: () => void signOut() }}
       theme={theme}
       toggleTheme={toggleTheme}
       workspaceSwitcher={<WorkspaceSwitcher />}
-      aiDock={section === "overview" ? <AiDock modelCount={myModels.length} go={setSection} /> : undefined}
+      aiDock={section === "overview" ? <AiDock modelCount={providers === undefined ? undefined : myModels.length} onCompose={startChat} openWorkbench={() => go("chat")} /> : undefined}
+      onCompose={() => setComposeOpen(true)}
       bleed={section === "graph"}
       secondaryPanel={section === "notes" ? <NoteTree selectedId={noteId} onOpen={setNoteId} onNew={() => setNoteId("new")} /> : undefined}
     >
       {banner && <div className="banner">{banner}</div>}
+      <ResponsiveDialog open={composeOpen} onClose={() => setComposeOpen(false)} title="Asisten AI">
+        <AiComposer autoFocus modelCount={providers === undefined ? undefined : myModels.length} onSubmit={(t) => { startChat(t); setComposeOpen(false); }} />
+      </ResponsiveDialog>
 
       {section === "overview" && (
         <>
-          <Overview providers={providers} models={myModels} go={setSection} />
+          <Overview providers={providers} models={myModels} go={go} />
           <UsageCard />
         </>
       )}
-      {section === "chat" && <WorkbenchCard models={myModels} providers={providers} catalog={catalog} isAdmin={isAdmin} />}
+      {section === "chat" && <WorkbenchCard models={myModels} providers={providers} catalog={catalog} isAdmin={isAdmin} prefill={chatPrefill} onPrefillConsumed={() => setChatPrefill("")} />}
       {section === "agents" && <AgentsCard models={myModels} isAdmin={isAdmin} />}
       {section === "providers" && (
         <>

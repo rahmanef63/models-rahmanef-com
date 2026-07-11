@@ -11,9 +11,9 @@ import { MobileMoreSheet } from "./mobile-more-sheet";
 // through the same `go`/section state the rail uses — active state derived, no parallel tab state.
 const AI_SPARKLE = "M12 3l1.6 4.6L18 9l-4.4 1.4L12 15l-1.6-4.6L6 9l4.4-1.4z M18 14l.8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8z";
 
-export function BottomDock({ groups, section, go, isAdmin, account, theme, toggleTheme }: {
+export function BottomDock({ groups, section, go, isAdmin, account, theme, toggleTheme, onCompose }: {
   groups: NavGroup[]; section: string; go: (s: string) => void; isAdmin: boolean;
-  account: RailAccount; theme: Theme; toggleTheme: () => void;
+  account: RailAccount; theme: Theme; toggleTheme: () => void; onCompose: () => void;
 }) {
   const [moreOpen, setMoreOpen] = useState(false);
   const active = groupOfSection(section, isAdmin).id;
@@ -30,7 +30,7 @@ export function BottomDock({ groups, section, go, isAdmin, account, theme, toggl
     <>
       <nav className="bottom-dock" aria-label="Primary (mobile)">
         {primary.slice(0, 2).map((g) => <Tab key={g.id} g={g} />)}
-        <button className="bd-fab" aria-label="Asisten AI — chat" onClick={() => go("chat")}>
+        <button className="bd-fab" aria-label="Asisten AI — tulis prompt" onClick={onCompose}>
           <RailIcon d={AI_SPARKLE} />
         </button>
         {primary[2] && <Tab g={primary[2]} />}
