@@ -28,6 +28,19 @@ export const OPENAI_COMPAT: Record<string, string> = {
   glm: "https://api.z.ai/api/paas/v4",
   "github-models": "https://models.github.ai/inference",
   "vercel-gateway": "https://ai-gateway.vercel.sh/v1",
+  // latest additions (slug === models.dev provider id so the picker + connectivity test resolve).
+  // moonshotai (api.moonshot.ai) already serves kimi-k2.7-code/k2.6/k2.5/k2-thinking; this is the
+  // China endpoint. The rest broaden coverage of current models (Qwen, MiMo, NVIDIA NIM, HF router).
+  "moonshotai-cn": "https://api.moonshot.cn/v1",
+  nvidia: "https://integrate.api.nvidia.com/v1",
+  huggingface: "https://router.huggingface.co/v1",
+  alibaba: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+  siliconflow: "https://api.siliconflow.com/v1",
+  "ollama-cloud": "https://ollama.com/v1",
+  xiaomi: "https://api.xiaomimimo.com/v1",
+  baseten: "https://inference.baseten.co/v1",
+  "nano-gpt": "https://nano-gpt.com/api/v1",
+  zenmux: "https://zenmux.ai/api/v1",
 };
 
 export function modelFor(provider: string, model: string, apiKey: string, endpoint?: string) {

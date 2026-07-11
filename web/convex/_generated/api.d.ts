@@ -43,6 +43,7 @@ import type * as credentials from "../credentials.js";
 import type * as credsPool from "../credsPool.js";
 import type * as crons from "../crons.js";
 import type * as crypto from "../crypto.js";
+import type * as customProvider from "../customProvider.js";
 import type * as embedChat from "../embedChat.js";
 import type * as embeds from "../embeds.js";
 import type * as fallbackRules from "../fallbackRules.js";
@@ -128,6 +129,7 @@ declare const fullApi: ApiFromModules<{
   credsPool: typeof credsPool;
   crons: typeof crons;
   crypto: typeof crypto;
+  customProvider: typeof customProvider;
   embedChat: typeof embedChat;
   embeds: typeof embeds;
   fallbackRules: typeof fallbackRules;

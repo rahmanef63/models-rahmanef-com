@@ -27,13 +27,23 @@ export const PROVIDER_LABEL: Record<string, string> = {
   glm: "Zhipu GLM",
   "github-models": "GitHub Models",
   "vercel-gateway": "Vercel AI Gateway",
+  "moonshotai-cn": "Moonshot (China)",
+  nvidia: "NVIDIA NIM",
+  huggingface: "Hugging Face",
+  alibaba: "Alibaba Qwen",
+  siliconflow: "SiliconFlow",
+  "ollama-cloud": "Ollama Cloud",
+  xiaomi: "Xiaomi MiMo",
+  baseten: "Baseten",
+  "nano-gpt": "NanoGPT",
+  zenmux: "ZenMux",
 };
 
 export type Cred = { provider: string; kind: string; keyCount?: number; lastCheckedAt?: number; lastCheckedOk?: boolean; lastCheckedCode?: string; lastCheckedDetail?: string };
 export type Catalog = Record<string, { models?: Record<string, unknown> }>;
 
 export const fmt = (n: number) => (n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, "") + "k" : String(n));
-export const SUPPORTED = 24; // openai, anthropic, google, openrouter + 18 openai-compatible + openai-codex + github-copilot (oauth)
+export const SUPPORTED = 32; // key-paste providers (openai/anthropic/google/openrouter + 28 OpenAI-compatible); OAuth (codex/claude/copilot) + custom endpoints on top
 
 // relative "3m ago" — admin lists (users, activity) show elapsed time next to the absolute instant.
 export const ago = (t: number) => {

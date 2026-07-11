@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { SUPPORTED, type Catalog } from "@/app/app/_components/shared";
-import { ApiKeyForm } from "./providers";
+import { ApiKeyForm, CustomProviderForm } from "./providers";
 
 // Owns the four OAuth connect flows (OpenAI Codex + GitHub Copilot device-code, Claude PKCE
 // manual-paste, OpenRouter PKCE redirect) + the manual API-key form. `providers` itself stays a
@@ -162,6 +162,7 @@ export function ConnectProviders({ catalog, isAdmin, setCredential, testCredenti
         </div>
       )}
       <ApiKeyForm setCredential={setCredential} testCredential={testCredential} catalog={catalog} isAdmin={isAdmin} />
+      <CustomProviderForm isAdmin={isAdmin} />
     </section>
   );
 }
