@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
+import { ConfirmDialog } from "./responsive-dialog";
 
 type Tok = { id: string; label: string; createdAt: number; lastUsedAt: number | null; revoked: boolean };
 
@@ -15,6 +16,7 @@ export function McpCard() {
   const [label, setLabel] = useState("");
   const [fresh, setFresh] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirm, setConfirm] = useState<{ title: string; message: string; run: () => unknown } | null>(null);
   const endpoint = typeof window !== "undefined" ? `${window.location.origin}/mcp` : `${process.env.NEXT_PUBLIC_SITE_URL || ""}/mcp`;
   return (
     <section className="card">
@@ -37,7 +39,7 @@ export function McpCard() {
         <>
           {tokens.filter((t) => !t.revoked).length > 1 && (
             <div className="row" style={{ justifyContent: "flex-end", marginTop: "1rem", marginBottom: "-0.4rem" }}>
-              <button className="link danger" onClick={() => { if (confirm("Revoke ALL active MCP tokens? Every client using them stops working immediately.")) void revokeAll(); }}>revoke all</button>
+              <button className="link danger" onClick={() => setConfirm({ title: "Revoke all tokens?", message: "Revoke ALL active MCP tokens? Every client using them stops working immediately.", run: () => revokeAll() })}>revoke all</button>
             </div>
           )}
           <ul className="creds" style={{ marginTop: "1.2rem" }}>
@@ -45,7 +47,7 @@ export function McpCard() {
             <li key={t.id}>
               <span className="name mono" style={{ fontSize: ".85rem", textDecoration: t.revoked ? "line-through" : "none" }}>{t.label}</span>
               <span className="mono muted" style={{ fontSize: ".7rem" }}>{t.lastUsedAt ? "used " + new Date(t.lastUsedAt).toISOString().slice(0, 10) : "never used"}</span>
-              {t.revoked ? <span className="badge">revoked</span> : <button className="link danger" onClick={() => void revoke({ id: t.id as any })}>revoke</button>}
+              {t.revoked ? <span className="badge">revoked</span> : <button className="link danger" onClick={() => setConfirm({ title: "Revoke token?", message: `Revoke "${t.label}"? Any client using it stops working immediately.`, run: () => revoke({ id: t.id as any }) })}>revoke</button>}
             </li>
           ))}
           </ul>
@@ -62,6 +64,7 @@ export function McpCard() {
   }
 }`}</pre>
       </details>
+      <ConfirmDialog open={!!confirm} onClose={() => setConfirm(null)} onConfirm={() => { void confirm?.run(); }} title={confirm?.title ?? ""} message={confirm?.message} confirmLabel="Revoke" />
     </section>
   );
 }

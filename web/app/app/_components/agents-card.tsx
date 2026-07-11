@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { ErrorLine } from "./shared";
-import { Button } from "@/components/ui/button";
+import { ResponsiveDialog, ConfirmDialog } from "./responsive-dialog";
 import { useWorkspace } from "@/features/workspaces";
 import { AgentForm, type AgentDef, type AgentPatch, type AgentPrefill, type SkillMeta, type ToolMeta } from "./agent-form";
 import { ImportMenu } from "./agent-import";
@@ -29,8 +29,10 @@ export function AgentsCard({ models, isAdmin }: { models: string[]; isAdmin: boo
   const [task, setTask] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<unknown>(null);
+  const [confirmDelete, setConfirmDelete] = useState<AgentDef | null>(null);
 
   const selectedAgent = agentDefs?.find((a) => a._id === selectedAgentId);
+  const editingAgent = showForm && showForm !== "new" ? agentDefs?.find((a) => a._id === showForm) : null;
 
   function closeForm() {
     setShowForm(null);
@@ -66,61 +68,35 @@ export function AgentsCard({ models, isAdmin }: { models: string[]; isAdmin: boo
               onImport={(prefill) => { setImportPrefill(prefill); setShowForm("new"); }}
             />
           )}
-          {showForm !== "new" && <Button variant="outline" size="sm" onClick={() => { setImportPrefill(null); setShowForm("new"); }}>+ New agent</Button>}
+          <button className="btn" onClick={() => { setImportPrefill(null); setShowForm("new"); }}>+ New agent</button>
         </div>
       </div>
 
-      {showForm === "new" && (toolRegistry && skillRegistry ? (
-        <AgentForm
-          models={models}
-          toolRegistry={toolRegistry}
-          skillRegistry={skillRegistry}
-          prefill={importPrefill ?? undefined}
-          isAdmin={isAdmin}
-          onSave={async (a) => { await createAgent({ ...a, instructions: a.instructions ?? undefined, temperature: a.temperature ?? undefined }); closeForm(); }}
-          onCancel={closeForm}
-        />
-      ) : <p className="muted mono">…</p>)}
-
       {agentDefs === undefined ? (
         <p className="muted mono">…</p>
-      ) : agentDefs.length === 0 && showForm !== "new" ? (
+      ) : agentDefs.length === 0 ? (
         <p className="sub">No saved agents yet — create one, or just run ad-hoc below.</p>
       ) : (
         <ul className="creds" style={{ marginBottom: "1.2rem" }}>
           {agentDefs.map((a) => (
             <li key={a._id}>
-              {showForm === a._id && toolRegistry && skillRegistry ? (
-                <AgentForm
-                  models={models}
-                  toolRegistry={toolRegistry}
-                  skillRegistry={skillRegistry}
-                  initial={a}
-                  isAdmin={isAdmin}
-                  onSave={async (patch: AgentPatch) => { await updateAgent({ id: a._id as any, ...patch }); closeForm(); }}
-                  onCancel={closeForm}
-                />
-              ) : (
-                <>
-                  <span className="name">{a.name}</span>
-                  <span className="mono muted model-id" style={{ fontSize: ".72rem" }}>{a.model}</span>
-                  <span className="cred-actions">
-                    <span className="badge">{a.tools.length} tool{a.tools.length === 1 ? "" : "s"}</span>
-                    {(a.skills?.length ?? 0) > 0 && <span className="badge">{a.skills!.length} skill{a.skills!.length === 1 ? "" : "s"}</span>}
-                    <span className="badge">max {a.maxSteps}</span>
-                    {a.temperature != null && <span className="badge">temp {a.temperature}</span>}
-                    <details className="dropdown">
-                      <summary className="link">export ▾</summary>
-                      <div className="dropdown-menu dropdown-menu-left">
-                        <button className="link" onClick={(e) => { exportAgentFile(a, false); e.currentTarget.closest("details")?.removeAttribute("open"); }}>Export JSON</button>
-                        <button className="link" onClick={(e) => { exportAgentFile(a, true); e.currentTarget.closest("details")?.removeAttribute("open"); }}>Export as template</button>
-                      </div>
-                    </details>
-                    <button className="link" onClick={() => { setImportPrefill(null); setShowForm(a._id); }}>edit</button>
-                    <button className="link danger" onClick={() => { if (selectedAgentId === a._id) setSelectedAgentId(""); void removeAgent({ id: a._id as any }); }}>delete</button>
-                  </span>
-                </>
-              )}
+              <span className="name">{a.name}</span>
+              <span className="mono muted model-id" style={{ fontSize: ".72rem" }}>{a.model}</span>
+              <span className="cred-actions">
+                <span className="badge">{a.tools.length} tool{a.tools.length === 1 ? "" : "s"}</span>
+                {(a.skills?.length ?? 0) > 0 && <span className="badge">{a.skills!.length} skill{a.skills!.length === 1 ? "" : "s"}</span>}
+                <span className="badge">max {a.maxSteps}</span>
+                {a.temperature != null && <span className="badge">temp {a.temperature}</span>}
+                <details className="dropdown">
+                  <summary className="link">export ▾</summary>
+                  <div className="dropdown-menu dropdown-menu-left">
+                    <button className="link" onClick={(e) => { exportAgentFile(a, false); e.currentTarget.closest("details")?.removeAttribute("open"); }}>Export JSON</button>
+                    <button className="link" onClick={(e) => { exportAgentFile(a, true); e.currentTarget.closest("details")?.removeAttribute("open"); }}>Export as template</button>
+                  </div>
+                </details>
+                <button className="link" onClick={() => { setImportPrefill(null); setShowForm(a._id); }}>edit</button>
+                <button className="link danger" onClick={() => setConfirmDelete(a)}>delete</button>
+              </span>
             </li>
           ))}
         </ul>
@@ -176,6 +152,20 @@ export function AgentsCard({ models, isAdmin }: { models: string[]; isAdmin: boo
           ))}
         </ul>
       )}
+      <ResponsiveDialog open={showForm !== null} onClose={closeForm} title={showForm === "new" ? "New agent" : "Edit agent"} size="md">
+        {toolRegistry && skillRegistry ? (
+          showForm === "new" ? (
+            <AgentForm models={models} toolRegistry={toolRegistry} skillRegistry={skillRegistry} prefill={importPrefill ?? undefined} isAdmin={isAdmin}
+              onSave={async (a) => { await createAgent({ ...a, instructions: a.instructions ?? undefined, temperature: a.temperature ?? undefined }); closeForm(); }} onCancel={closeForm} />
+          ) : editingAgent ? (
+            <AgentForm models={models} toolRegistry={toolRegistry} skillRegistry={skillRegistry} initial={editingAgent} isAdmin={isAdmin}
+              onSave={async (patch: AgentPatch) => { await updateAgent({ id: editingAgent._id as any, ...patch }); closeForm(); }} onCancel={closeForm} />
+          ) : null
+        ) : <p className="muted mono">…</p>}
+      </ResponsiveDialog>
+      <ConfirmDialog open={!!confirmDelete} onClose={() => setConfirmDelete(null)}
+        onConfirm={() => { if (confirmDelete) { if (selectedAgentId === confirmDelete._id) setSelectedAgentId(""); void removeAgent({ id: confirmDelete._id as any }); } }}
+        title="Delete agent?" message={confirmDelete ? `Delete "${confirmDelete.name}"? This can't be undone.` : ""} />
     </section>
   );
 }

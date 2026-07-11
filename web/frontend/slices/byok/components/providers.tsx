@@ -78,7 +78,7 @@ export function ApiKeyForm({ setCredential, testCredential, catalog, isAdmin }: 
         </select>
         <input disabled={busy} type="password" placeholder="sk-…" value={key} onChange={(e) => setKey(e.target.value)} />
         <button
-          className="btn"
+          className="btn accent"
           disabled={busy || !key}
           onClick={async () => {
             const p = provider; // freeze — select+input are disabled while busy, but be explicit
@@ -133,7 +133,7 @@ export function CustomProviderForm({ isAdmin }: { isAdmin: boolean }) {
         <input disabled={busy} placeholder="https://host/v1" value={baseURL} onChange={(e) => setBaseURL(e.target.value)} />
         <input disabled={busy} type="password" placeholder="api key" value={key} onChange={(e) => setKey(e.target.value)} />
         <button
-          className="btn"
+          className="btn accent"
           disabled={busy || !name || !baseURL || !key}
           onClick={async () => {
             setBusy(true); setErr(null); setOk(null);

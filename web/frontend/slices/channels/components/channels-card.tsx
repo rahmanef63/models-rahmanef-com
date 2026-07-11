@@ -10,6 +10,7 @@ import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
 import { CHANNEL_KINDS } from "./channel-kinds";
 import { ChannelAccess } from "./channel-access";
+import { ConfirmDialog } from "@/app/app/_components/responsive-dialog";
 
 type Channel = { id: string; kind: string; name: string; slug: string; agentId: string | null; model: string | null; enabled: boolean; lastInboundAt: number | null; lastError: string | null; createdAt: number };
 type Agent = { _id: string; name: string; model: string };
@@ -32,6 +33,7 @@ export function ChannelsCard() {
   const [fresh, setFresh] = useState<Fresh | null>(null);
   const [busy, setBusy] = useState(false);
   const [hook, setHook] = useState("");
+  const [confirmDel, setConfirmDel] = useState<Channel | null>(null);
   const base = typeof window !== "undefined" ? window.location.origin : "";
   const webhookUrl = (k: string, slug: string) => `${base}/channels/${k}/${slug}`;
   const spec = CHANNEL_KINDS.find((k) => k.id === kind) ?? CHANNEL_KINDS[0];
@@ -105,7 +107,7 @@ export function ChannelsCard() {
                     onBlur={(e) => { const m = e.target.value.trim(); if (m !== (c.model ?? "")) void setModel({ id: c.id as never, model: m }); }} />
                 )}
                 <button className="link" onClick={() => void setEnabled({ id: c.id as never, enabled: !c.enabled })}>{c.enabled ? "disable" : "enable"}</button>
-                <button className="link danger" onClick={() => { if (confirm(`Delete channel "${c.name}"?`)) void del({ id: c.id as never }); }}>delete</button>
+                <button className="link danger" onClick={() => setConfirmDel(c)}>delete</button>
               </span>
               <ChannelAccess channelId={c.id} />
             </li>
@@ -113,6 +115,7 @@ export function ChannelsCard() {
         </ul>
       )}
       {channels && channels.length === 0 && <p className="sub" style={{ marginTop: "1rem" }}>No channels yet — add one above.</p>}
+      <ConfirmDialog open={!!confirmDel} onClose={() => setConfirmDel(null)} onConfirm={() => { if (confirmDel) void del({ id: confirmDel.id as never }); }} title="Delete channel?" message={confirmDel ? `Delete channel "${confirmDel.name}"? Its webhook stops working.` : ""} />
     </section>
   );
 }

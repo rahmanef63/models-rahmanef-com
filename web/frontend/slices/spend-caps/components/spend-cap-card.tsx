@@ -70,7 +70,7 @@ export function SpendCapCard() {
           {isAdmin ? (
             <div className="row" style={{ gap: ".5rem", marginTop: ".8rem", flexWrap: "wrap" }}>
               <input type="number" min="0" step="1" placeholder="monthly cap (USD)" value={val} onChange={(e) => setVal(e.target.value)} disabled={busy} />
-              <button className="link" onClick={() => save(false)} disabled={busy}>Set cap</button>
+              <button className="btn accent" onClick={() => save(false)} disabled={busy}>Set cap</button>
               {status.capUsd != null && <button className="link danger" onClick={() => save(true)} disabled={busy}>Clear</button>}
             </div>
           ) : (
