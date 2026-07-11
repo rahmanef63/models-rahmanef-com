@@ -10,7 +10,7 @@ import { v } from "convex/values";
 import { tool, jsonSchema } from "ai";
 import { callForUser } from "./callForUser";
 import { fetchModelsCatalog } from "./chatProviders";
-import { parseOpenAITools, parseAnthropicTools, toOpenAIToolCalls, toAnthropicToolUse, type ToolSpec } from "./apiV1Tools";
+import { parseOpenAITools, parseAnthropicTools, toOpenAIToolCalls, toAnthropicToolUse, toModelMessagesOpenAI, toModelMessagesAnthropic, type ToolSpec } from "./apiV1Tools";
 
 async function sha256hex(s: string): Promise<string> {
   const d = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
@@ -56,9 +56,9 @@ export const handle = action({
     if (a.method === "POST" && (p === "v1/chat/completions" || p === "chat/completions")) {
       const body = a.body ?? {};
       const model = String(body.model ?? "");
-      const messages = Array.isArray(body.messages)
-        ? body.messages.map((m: any) => ({ role: String(m.role), content: typeof m.content === "string" ? m.content : JSON.stringify(m.content ?? "") }))
-        : [];
+      // toModelMessagesOpenAI maps assistant tool_calls + role:'tool' results into AI-SDK parts so a
+      // multi-turn tool loop round-trips; a plain {role,content} chat maps to itself.
+      const messages = Array.isArray(body.messages) ? toModelMessagesOpenAI(body.messages) : [];
       if (!model || !messages.length) return err(400, "invalid_request", "'model' and non-empty 'messages' are required.");
       const { specs, toolChoice } = parseOpenAITools(body);
       const opts = specs.length ? { tools: passthroughTools(specs), toolChoice } : undefined;
@@ -79,9 +79,9 @@ export const handle = action({
       let model = String(body.model ?? "");
       if (model && !model.includes("/")) model = "anthropic/" + model; // Claude Code sends bare "claude-…" names
       const system = body.system ? (typeof body.system === "string" ? body.system : Array.isArray(body.system) ? body.system.map((b: any) => b?.text ?? "").join("\n") : undefined) : undefined;
-      const msgs = Array.isArray(body.messages)
-        ? body.messages.map((m: any) => ({ role: String(m.role), content: anthText(m.content) }))
-        : [];
+      // toModelMessagesAnthropic maps tool_use / tool_result content blocks into AI-SDK parts (a
+      // tool_result user turn splits into a leading role:'tool' message) for multi-turn tool loops.
+      const msgs = Array.isArray(body.messages) ? toModelMessagesAnthropic(body.messages) : [];
       if (!model || !msgs.length) return err(400, "invalid_request", "'model' and non-empty 'messages' are required.");
       const { specs, toolChoice } = parseAnthropicTools(body);
       const opts = specs.length ? { ...(system ? { system } : {}), tools: passthroughTools(specs), toolChoice } : system ? { system } : undefined;
@@ -99,10 +99,3 @@ export const handle = action({
     return err(404, "not_found", `No route for ${a.method} /${p}. Supported: POST /v1/chat/completions, POST /v1/messages, GET /v1/models.`);
   },
 });
-
-// Anthropic message content is a string OR an array of blocks ({type:'text',text}) — flatten to text.
-function anthText(content: any): string {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) return content.map((b) => (b?.type === "text" ? b.text : typeof b === "string" ? b : "")).join("");
-  return "";
-}

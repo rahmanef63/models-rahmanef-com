@@ -66,3 +66,62 @@ export function toOpenAIToolCalls(calls: SdkToolCall[]): any[] {
 export function toAnthropicToolUse(calls: SdkToolCall[]): any[] {
   return (calls ?? []).map((c, i) => ({ type: "tool_use", id: callId(c, i), name: callName(c), input: callArgs(c) }));
 }
+
+// ── INBOUND: client conversation history → AI-SDK ModelMessage[] ──────────────
+// So a multi-turn tool loop completes: the client sends back the assistant's prior tool-calls plus
+// the tool RESULTS it computed, and the model can continue. AI-SDK wants tool-calls as assistant
+// parts and tool-results in a role:'tool' message; both wire formats identify a result only by the
+// call id, so we first index id→toolName from the tool-calls (a result part requires the name).
+const asText = (c: any): string => (typeof c === "string" ? c : c == null ? "" : JSON.stringify(c));
+const parseArgs = (s: any): any => { if (s == null) return {}; if (typeof s !== "string") return s; try { return JSON.parse(s); } catch { return {}; } };
+
+// OpenAI: assistant.tool_calls[{id,function:{name,arguments}}] + {role:'tool',tool_call_id,content}
+export function toModelMessagesOpenAI(messages: any[]): any[] {
+  const nameById = new Map<string, string>();
+  for (const m of messages ?? []) for (const tc of m?.tool_calls ?? []) if (tc?.id && tc?.function?.name) nameById.set(String(tc.id), String(tc.function.name));
+  const out: any[] = [];
+  for (const m of messages ?? []) {
+    const role = String(m?.role ?? "user");
+    if (role === "tool") {
+      const id = String(m?.tool_call_id ?? "");
+      out.push({ role: "tool", content: [{ type: "tool-result", toolCallId: id, toolName: nameById.get(id) ?? "tool", output: { type: "text", value: asText(m?.content) } }] });
+    } else if (role === "assistant" && Array.isArray(m?.tool_calls) && m.tool_calls.length) {
+      const parts: any[] = [];
+      if (m.content) parts.push({ type: "text", text: asText(m.content) });
+      for (const tc of m.tool_calls) parts.push({ type: "tool-call", toolCallId: String(tc?.id ?? ""), toolName: String(tc?.function?.name ?? ""), input: parseArgs(tc?.function?.arguments) });
+      out.push({ role: "assistant", content: parts });
+    } else {
+      out.push({ role, content: asText(m?.content) });
+    }
+  }
+  return out;
+}
+
+// Anthropic: content blocks — assistant {type:'tool_use',id,name,input}; user {type:'tool_result',
+// tool_use_id,content}. A user turn's tool_result blocks split out into a leading role:'tool' message.
+export function toModelMessagesAnthropic(messages: any[]): any[] {
+  const nameById = new Map<string, string>();
+  for (const m of messages ?? []) if (Array.isArray(m?.content)) for (const b of m.content) if (b?.type === "tool_use" && b?.id && b?.name) nameById.set(String(b.id), String(b.name));
+  const out: any[] = [];
+  for (const m of messages ?? []) {
+    const role = String(m?.role ?? "user");
+    const content = m?.content;
+    if (typeof content === "string" || !Array.isArray(content)) { out.push({ role, content: asText(content) }); continue; }
+    if (role === "assistant") {
+      out.push({ role: "assistant", content: content.map((b: any) => (b?.type === "tool_use" ? { type: "tool-call", toolCallId: String(b.id), toolName: String(b.name), input: b.input ?? {} } : { type: "text", text: String(b?.text ?? "") })) });
+    } else {
+      const results = content.filter((b: any) => b?.type === "tool_result");
+      const texts = content.filter((b: any) => b?.type !== "tool_result");
+      if (results.length) out.push({ role: "tool", content: results.map((b: any) => ({ type: "tool-result", toolCallId: String(b.tool_use_id), toolName: nameById.get(String(b.tool_use_id)) ?? "tool", output: { type: "text", value: anthResultText(b.content) } })) });
+      if (texts.length) out.push({ role: "user", content: texts.map((b: any) => ({ type: "text", text: String(b?.text ?? "") })) });
+    }
+  }
+  return out;
+}
+
+// an Anthropic tool_result's content is a string OR an array of {type:'text',text} blocks.
+function anthResultText(content: any): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) return content.map((b) => (b?.type === "text" ? b.text : typeof b === "string" ? b : asText(b))).join("");
+  return asText(content);
+}

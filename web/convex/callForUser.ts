@@ -26,7 +26,9 @@ export async function callForUser(
   userId: any,
   workspaceId: any, // Id<"workspaces"> | undefined — undefined = personal creds only (MCP tool / cred test)
   modelRef: string,
-  inputMessages: { role: string; content: string }[],
+  // content is usually a plain string; the /v1 tool-passthrough path may pass AI-SDK content PARTS
+  // (tool-call / tool-result arrays) so a multi-turn tool conversation round-trips to generateText.
+  inputMessages: { role: string; content: any }[],
   agentOpts?: { system?: string; tools?: Record<string, any>; toolChoice?: any; maxSteps?: number; temperature?: number },
 ): Promise<{ text: string; promptTokens: number; completionTokens: number; toolCalls?: any[]; finishReason?: string }> {
     // resolveModelRef: reserved prefixes indirect to a concrete "provider/model" BEFORE the split.
@@ -85,7 +87,14 @@ export async function callForUser(
       const systemPrompt = sys.length ? sys.join("\n\n") : undefined;
       // codex/claude custom paths take the system prompt inline as a message; the AI SDK (ai@7)
       // REJECTS a {role:"system"} message inside `messages` — it must be passed via the `system` param.
-      const messages = systemPrompt ? [{ role: "system", content: systemPrompt }, ...inputMessages] : inputMessages;
+      // Those two paths speak string content only, so flatten any tool-passthrough content PARTS to
+      // text here (a plain-string message is unchanged — no regression for the common case).
+      const flatText = (c: any): string =>
+        typeof c === "string" ? c
+        : Array.isArray(c) ? c.map((p) => p?.text ?? (p?.type === "tool-result" ? (typeof p?.output?.value === "string" ? p.output.value : JSON.stringify(p?.output?.value ?? "")) : "")).join("")
+        : String(c ?? "");
+      const flat = inputMessages.map((m) => ({ role: m.role, content: flatText(m.content) }));
+      const messages = systemPrompt ? [{ role: "system", content: systemPrompt }, ...flat] : flat;
 
       if (provider === "openai-codex") {
         let bundle: CodexBundle = JSON.parse(await decryptSecret(row.ciphertext));
