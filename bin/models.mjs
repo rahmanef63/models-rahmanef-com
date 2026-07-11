@@ -6,9 +6,12 @@
 //   models ls                       list configured providers
 //   models rm <provider>            remove a provider
 //   models models [--all]           list models (yours, or --all from the catalog)
+//   models chat <provider/model> …  one-shot chat via the /v1 gateway (prompt: args or piped stdin)
 //   models init [convexDir]         copy the Convex multi-tenant adapter into a project
 //
 // MODELS_USER selects the local tenant (default "local"). MODELS_CREDS_DIR moves the store.
+// `chat` talks to the deployed OpenAI-compatible gateway: MODELS_SK = an sk-rr-… key (falls back to
+// MODELS_TOKEN), MODELS_V1_URL = the /v1 base (default https://models.rahmanef.com/v1).
 import { fileCredentialStore } from '../src/store.js'
 import { listModels } from '../src/catalog.js'
 
@@ -29,7 +32,7 @@ async function remote(method, path, body) {
 }
 
 function usage(code = 0) {
-  console.log('usage: models <add|ls|rm|models|init> ...\n  add <provider>   (key via MODELS_KEY env, piped stdin, or arg)\n  ls\n  rm <provider>\n  models [--all]\n  init [convexDir]')
+  console.log('usage: models <add|ls|rm|models|chat|init> ...\n  add <provider>   (key via MODELS_KEY env, piped stdin, or arg)\n  ls\n  rm <provider>\n  models [--all]\n  chat <provider/model> [prompt]   (sk-rr key via MODELS_SK; prompt via args or piped stdin)\n  init [convexDir]')
   process.exit(code)
 }
 
@@ -75,6 +78,28 @@ switch (cmd) {
     if (API) models = (await remote('GET', `/models${all ? '?all' : ''}`)).models
     else { const cat = await listModels().catch(() => []); const mine = new Set(await store.listProviders(USER)); models = all ? cat : cat.filter((m) => mine.has(m.provider)) }
     for (const m of models) console.log(m.ref); break
+  }
+  case 'chat': {
+    if (!a) { console.error('usage: models chat <provider/model> [prompt]   (key via MODELS_SK, prompt via args or piped stdin)'); process.exit(1) }
+    const prompt = argv.slice(2).join(' ').trim() || (await readStdin())
+    if (!prompt) { console.error('no prompt: pass it as args or pipe it in'); process.exit(1) }
+    const sk = process.env.MODELS_SK || process.env.MODELS_TOKEN
+    if (!sk) { console.error('no key: set MODELS_SK to an sk-rr-… gateway key (make one in the dashboard API/MCP tab)'); process.exit(1) }
+    const base = (process.env.MODELS_V1_URL || 'https://models.rahmanef.com/v1').replace(/\/$/, '')
+    let res
+    try {
+      res = await fetch(`${base}/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', authorization: `Bearer ${sk}` },
+        body: JSON.stringify({ model: a, messages: [{ role: 'user', content: prompt }] }),
+      })
+    } catch (e) { console.error(`couldn't reach gateway at ${base}: ${e?.cause?.code || e?.message || e}`); process.exit(1) }
+    if (!res.ok) { console.error(`gateway ${res.status}: ${(await res.text()).slice(0, 500)}`); process.exit(1) }
+    const data = await res.json()
+    const text = data?.choices?.[0]?.message?.content
+    if (typeof text === 'string' && text) console.log(text)
+    else console.error('gateway returned no text' + (data?.choices?.[0]?.finish_reason === 'tool_calls' ? ' (model requested a tool — this CLI does not execute tools)' : '') )
+    break
   }
   case 'init': await init(a); break
   default: usage(cmd ? 1 : 0)
