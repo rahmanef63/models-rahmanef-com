@@ -30,7 +30,7 @@ export function BottomDock({ groups, section, go, isAdmin, account, theme, toggl
     <>
       <nav className="bottom-dock" aria-label="Primary (mobile)">
         {primary.slice(0, 2).map((g) => <Tab key={g.id} g={g} />)}
-        <button className="bd-fab" aria-label="Asisten AI — tulis prompt" onClick={onCompose}>
+        <button className="bd-fab" aria-label="AI Assistant — write a prompt" onClick={onCompose}>
           <Sparkles size={22} strokeWidth={1.9} aria-hidden />
         </button>
         {primary[2] && <Tab g={primary[2]} />}

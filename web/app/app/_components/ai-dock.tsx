@@ -14,14 +14,14 @@ export function AiComposer({ onSubmit, modelCount, autoFocus }: { onSubmit: (tex
         className="ai-composer-input"
         rows={3}
         autoFocus={autoFocus}
-        placeholder="Tanya apa saja — Enter untuk mulai chat"
+        placeholder="Ask anything — Enter to start a chat"
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
       />
-      <button className="btn accent ai-composer-send" disabled={!text.trim()} onClick={send}>Mulai chat</button>
+      <button className="btn accent ai-composer-send" disabled={!text.trim()} onClick={send}>Start chat</button>
       <p className="ai-dock-disc mono">
-        {loading ? "Menyiapkan…" : modelCount! > 0 ? `${modelCount} model siap · AI bisa salah — periksa hasilnya.` : "Sambungkan provider dulu untuk mulai."}
+        {loading ? "Preparing…" : modelCount! > 0 ? `${modelCount} model${modelCount === 1 ? "" : "s"} ready · AI can make mistakes — check the output.` : "Connect a provider to get started."}
       </p>
     </div>
   );
@@ -33,8 +33,8 @@ export function AiDock({ modelCount, onCompose, openWorkbench }: { modelCount?: 
   return (
     <aside className="ai-dock" aria-label="AI assistant">
       <div className="ai-dock-head">
-        <span className="eyebrow">Asisten AI</span>
-        <button className="link" onClick={openWorkbench}>buka Workbench →</button>
+        <span className="eyebrow">AI Assistant</span>
+        <button className="link" onClick={openWorkbench}>open Workbench →</button>
       </div>
       <AiComposer onSubmit={onCompose} modelCount={modelCount} />
     </aside>

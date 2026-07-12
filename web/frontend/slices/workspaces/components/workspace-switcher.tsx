@@ -40,7 +40,7 @@ export function WorkspaceSwitcher() {
         title="New workspace"
         footer={
           <>
-            <button type="button" className="btn" onClick={() => setCreating(false)}>Batal</button>
+            <button type="button" className="btn" onClick={() => setCreating(false)}>Cancel</button>
             <button type="button" className="btn accent" disabled={busy || !name.trim()} onClick={() => void submit()}>{busy ? "…" : "Create"}</button>
           </>
         }

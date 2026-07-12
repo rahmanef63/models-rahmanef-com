@@ -76,6 +76,7 @@ export const FRIENDLY: Record<string, (provider: string) => string> = {
   rate_limited: (p) => `${p} is rate-limiting requests right now — try again shortly.`,
   quota_exceeded: (p) => `${p} says this key is out of credit or quota.`,
   not_found: (p) => `This model isn't available from ${p} — try a different one.`,
+  unreachable: (p) => `Couldn't reach ${p} — check the endpoint URL and that the host is online.`,
   invalid_request: (p) => `${p} couldn't process this request — try a different model.`,
   provider_error: (p) => `${p} had a problem handling this request. Try again.`,
   internal: () => `Something went wrong on our side. Try again, or ask an admin.`,

@@ -37,7 +37,7 @@ export function MobileMoreSheet({ groups, section, go, account, theme, toggleThe
         <span className="more-grab" aria-hidden />
         <div className="more-head">
           <strong>Semua menu</strong>
-          <button className="more-x" onClick={onClose} aria-label="Tutup"><X size={18} /></button>
+          <button className="more-x" onClick={onClose} aria-label="Close"><X size={18} /></button>
         </div>
         <div className="more-scroll">
           <section className="more-grp">

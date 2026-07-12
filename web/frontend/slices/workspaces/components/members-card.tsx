@@ -94,7 +94,7 @@ export function MembersCard() {
         title="Invite by link"
         footer={
           <>
-            <button type="button" className="btn" onClick={() => setInviteOpen(false)}>Batal</button>
+            <button type="button" className="btn" onClick={() => setInviteOpen(false)}>Cancel</button>
             <button type="button" className="btn accent" disabled={busy} onClick={() => void submitInvite()}>{busy ? "…" : "Create link"}</button>
           </>
         }

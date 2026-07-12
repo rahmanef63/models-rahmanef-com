@@ -18,13 +18,16 @@ export function classifyError(e: unknown, provider?: string): ChatErrorInfo {
   else if (e instanceof Error) { const m = e.message.match(/\b(4\d{2}|5\d{2})\b/); if (m) status = Number(m[1]); }
   // Google's Generative Language API returns HTTP 400 (not 401/403) for a bad/revoked key.
   const googleBadKey = provider === "google" && status === 400 && /api key not valid|INVALID_ARGUMENT/i.test(detail);
+  // a connection/DNS failure (no HTTP status) — usually a bad custom-provider base URL or a down host.
+  // Distinguish it from a true server-side "internal" so the user is told to check the endpoint.
+  const unreachable = !status && /getaddrinfo|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|fetch failed|network|socket hang|Cannot connect|ECONNRESET/i.test(detail);
   const code =
     status === 401 || status === 403 || googleBadKey ? "invalid_api_key" :
     status === 429 ? "rate_limited" :
     status === 402 ? "quota_exceeded" :
     status === 404 ? "not_found" :
     status === 400 ? "invalid_request" :
-    status ? "provider_error" : "internal";
+    status ? "provider_error" : unreachable ? "unreachable" : "internal";
   return { code, status, detail };
 }
 

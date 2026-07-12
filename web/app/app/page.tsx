@@ -146,7 +146,7 @@ function Dashboard() {
       secondaryPanel={section === "notes" ? <NoteTree selectedId={noteId} onOpen={setNoteId} onNew={() => setNoteId("new")} /> : undefined}
     >
       {banner && <div className="banner">{banner}</div>}
-      <ResponsiveDialog open={composeOpen} onClose={() => setComposeOpen(false)} title="Asisten AI">
+      <ResponsiveDialog open={composeOpen} onClose={() => setComposeOpen(false)} title="AI Assistant">
         <AiComposer autoFocus modelCount={providers === undefined ? undefined : myModels.length} onSubmit={(t) => { startChat(t); setComposeOpen(false); }} />
       </ResponsiveDialog>
 

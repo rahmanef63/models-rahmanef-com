@@ -63,7 +63,7 @@ export function KnowledgeCard() {
         size="md"
         footer={
           <>
-            <button type="button" className="btn" onClick={() => setOpen(false)}>Batal</button>
+            <button type="button" className="btn" onClick={() => setOpen(false)}>Cancel</button>
             <button type="button" className="btn accent" disabled={busy || !text.trim()} onClick={() => void submit()}>{busy ? "embedding…" : "Add"}</button>
           </>
         }

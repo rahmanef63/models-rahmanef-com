@@ -40,7 +40,7 @@ export function ResponsiveDialog({ open, onClose, title, children, footer, size 
         {title != null && (
           <div className="rd-head">
             <strong>{title}</strong>
-            <button type="button" className="more-x" onClick={onClose} aria-label="Tutup"><X size={18} /></button>
+            <button type="button" className="more-x" onClick={onClose} aria-label="Close"><X size={18} /></button>
           </div>
         )}
         <div className="rd-body">{children}</div>
@@ -73,7 +73,7 @@ export function useConfirm() {
 }
 
 // Confirm variant — retires one-click no-undo deletes and the app's stray native confirm() calls.
-export function ConfirmDialog({ open, onClose, onConfirm, title, message, confirmLabel = "Hapus", danger = true }: {
+export function ConfirmDialog({ open, onClose, onConfirm, title, message, confirmLabel = "Delete", danger = true }: {
   open: boolean;
   onClose: () => void;
   onConfirm: () => void;
@@ -90,7 +90,7 @@ export function ConfirmDialog({ open, onClose, onConfirm, title, message, confir
       size="sm"
       footer={
         <>
-          <button type="button" className="btn" onClick={onClose}>Batal</button>
+          <button type="button" className="btn" onClick={onClose}>Cancel</button>
           <button type="button" className={danger ? "btn danger" : "btn accent"} onClick={() => { onConfirm(); onClose(); }}>{confirmLabel}</button>
         </>
       }

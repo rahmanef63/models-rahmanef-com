@@ -68,7 +68,7 @@ export function AdminTrafficCard() {
           )}
           {(d7.capped || d30.capped) && (
             <p className="muted mono" style={{ fontSize: ".7rem", marginTop: ".75rem" }}>
-              ⚠ Hard cap {fmt(10000)} baris tercapai — angka under-count. Tambah agregasi harian kalau trafik tumbuh.
+              ⚠ Hard cap of {fmt(10000)} rows reached — numbers under-count. Add daily aggregation if traffic grows.
             </p>
           )}
         </>
