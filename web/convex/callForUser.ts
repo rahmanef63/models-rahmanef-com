@@ -172,7 +172,10 @@ export async function callForUser(
         for (const cred of candidates) {
           const apiKey = await decryptSecret(cred.ciphertext);
           const m = modelFor(provider, model, apiKey, cred.endpoint, cred.protocol);
-          if (!m) throw new ConvexError({ code: "internal", detail: `Unknown provider "${provider}"`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string });
+          // a null model = a custom-provider row with no endpoint (e.g. an old pooled key added before
+          // insertCred inherited the endpoint) OR a genuinely unknown provider. Don't abort the whole
+          // request — record it and try the next candidate; the good primary row still works.
+          if (!m) { lastErr = new ConvexError({ code: "not_connected", detail: `"${provider}" has no usable base URL — reconnect this custom provider with a valid endpoint.`, provider, model } satisfies ChatErrorInfo & { provider: string; model: string }); continue; }
           try {
             const result = await generateText({ model: m, ...genBase });
             toolCalls = (result as any).toolCalls ?? [];

@@ -13,12 +13,17 @@ import { encryptSecret } from "./crypto";
 const OAUTH_ONLY = new Set(["openai-codex", "anthropic-oauth", "github-copilot"]);
 const clampPriority = (p: number | undefined) => (p == null ? undefined : Math.max(0, Math.min(999, Math.round(p))));
 
-// internal: pure INSERT of a personal api_key pool row (encryption happened in the action).
+// internal: pure INSERT of a personal api_key pool row (encryption happened in the action). A custom
+// provider's routing lives on `endpoint`/`protocol` (set only by _connectForUser on the primary row);
+// inherit them here so a pooled 2nd key for a custom provider ISN'T endpoint-less → modelFor null →
+// "Unknown provider". Built-in providers have no endpoint, so this is a no-op for them.
 export const insertCred = internalMutation({
   args: { userId: v.id("users"), provider: v.string(), ciphertext: v.string(), label: v.optional(v.string()), priority: v.optional(v.number()) },
   handler: async (ctx, a) => {
+    const primary = await ctx.db.query("modelCreds").withIndex("by_user_provider", (q) => q.eq("userId", a.userId).eq("provider", a.provider)).filter((q) => q.eq(q.field("workspaceId"), undefined)).first();
     await ctx.db.insert("modelCreds", {
       userId: a.userId, provider: a.provider, kind: "api_key", ciphertext: a.ciphertext,
+      endpoint: primary?.endpoint, protocol: primary?.protocol,
       label: a.label, priority: a.priority, updatedAt: Date.now(),
     });
   },
@@ -81,9 +86,12 @@ export const deleteCredentialById = mutation({
 export const insertWorkspaceCred = internalMutation({
   args: { actorUserId: v.id("users"), workspaceId: v.id("workspaces"), provider: v.string(), ciphertext: v.string(), label: v.optional(v.string()), priority: v.optional(v.number()) },
   handler: async (ctx, a) => {
+    // inherit the custom endpoint/protocol from the actor's personal primary row (same reason as insertCred)
+    const primary = await ctx.db.query("modelCreds").withIndex("by_user_provider", (q) => q.eq("userId", a.actorUserId).eq("provider", a.provider)).filter((q) => q.eq(q.field("workspaceId"), undefined)).first();
     await ctx.db.insert("modelCreds", {
       userId: a.actorUserId, workspaceId: a.workspaceId, provider: a.provider, kind: "api_key",
-      ciphertext: a.ciphertext, label: a.label, priority: a.priority, updatedAt: Date.now(),
+      ciphertext: a.ciphertext, endpoint: primary?.endpoint, protocol: primary?.protocol,
+      label: a.label, priority: a.priority, updatedAt: Date.now(),
     });
     await ctx.db.insert("auditEvents", { workspaceId: a.workspaceId, actorUserId: a.actorUserId, action: "cred.shared", target: a.provider, meta: { label: a.label }, at: Date.now() });
   },

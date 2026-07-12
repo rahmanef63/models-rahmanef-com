@@ -125,7 +125,9 @@ function Dashboard() {
       if (!mine.has(pid)) continue;
       for (const mid of Object.keys(p.models ?? {})) out.push(`${pid}/${mid}`);
     }
-    return out.sort();
+    // manually-saved custom-provider models (no models.dev catalog) — makes them selectable in chat
+    for (const p of providers ?? []) for (const mid of p.models ?? []) out.push(`${p.provider}/${mid}`);
+    return [...new Set(out)].sort();
   }, [catalog, providers, codexModels, claudeModels, copilotModels]);
 
   return (

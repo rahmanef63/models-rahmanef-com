@@ -12,6 +12,7 @@ import { encryptSecret } from "./crypto";
 const mapCred = (r: any) => ({
   provider: r.provider,
   kind: r.kind ?? "api_key",
+  models: r.models, // manual custom-provider models — feeds the chat picker (undefined for built-ins)
   lastCheckedAt: r.lastCheckedAt,
   lastCheckedOk: r.lastCheckedOk,
   lastCheckedCode: r.lastCheckedCode,
@@ -95,15 +96,35 @@ export const store = internalMutation({
 // node handler). Upserts the personal api_key row like store(), + an optional custom `endpoint`
 // (BYOK custom OpenAI-compatible provider), and un-bricks the pool-health verdict on rewrite.
 export const _connectForUser = internalMutation({
-  args: { userId: v.id("users"), provider: v.string(), ciphertext: v.string(), endpoint: v.optional(v.string()), protocol: v.optional(v.string()) },
+  args: { userId: v.id("users"), provider: v.string(), ciphertext: v.string(), endpoint: v.optional(v.string()), protocol: v.optional(v.string()), models: v.optional(v.array(v.string())) },
   handler: async (ctx, a) => {
     const existing = await ctx.db
       .query("modelCreds")
       .withIndex("by_user_provider", (q) => q.eq("userId", a.userId).eq("provider", a.provider))
       .filter((q) => q.eq(q.field("workspaceId"), undefined))
       .first();
-    if (existing) { await ctx.db.patch(existing._id, { kind: "api_key", ciphertext: a.ciphertext, endpoint: a.endpoint, protocol: a.protocol, updatedAt: Date.now(), status: "ok", cooldownUntil: undefined, backoffLevel: 0, lastErrorCode: undefined, refreshLeaseUntil: undefined }); return; }
-    await ctx.db.insert("modelCreds", { userId: a.userId, provider: a.provider, kind: "api_key", ciphertext: a.ciphertext, endpoint: a.endpoint, protocol: a.protocol, updatedAt: Date.now() });
+    // only overwrite models when this call supplies them — a plain key-refresh must not wipe a saved list
+    const modelsPatch = a.models !== undefined ? { models: a.models } : {};
+    if (existing) { await ctx.db.patch(existing._id, { kind: "api_key", ciphertext: a.ciphertext, endpoint: a.endpoint, protocol: a.protocol, ...modelsPatch, updatedAt: Date.now(), status: "ok", cooldownUntil: undefined, backoffLevel: 0, lastErrorCode: undefined, refreshLeaseUntil: undefined }); return; }
+    await ctx.db.insert("modelCreds", { userId: a.userId, provider: a.provider, kind: "api_key", ciphertext: a.ciphertext, endpoint: a.endpoint, protocol: a.protocol, models: a.models, updatedAt: Date.now() });
+  },
+});
+
+// edit a custom provider's manual model list WITHOUT re-entering the key (patches the primary personal
+// row's `models` only — ciphertext/endpoint untouched). This is the "add models, don't re-paste the key"
+// path the chat picker + Providers editor use. Public + requireUser-gated.
+export const setProviderModels = mutation({
+  args: { provider: v.string(), models: v.array(v.string()) },
+  handler: async (ctx, a) => {
+    const userId = await requireUser(ctx);
+    const row = await ctx.db
+      .query("modelCreds")
+      .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", a.provider))
+      .filter((q) => q.eq(q.field("workspaceId"), undefined))
+      .first();
+    if (!row) throw new ConvexError({ code: "not_connected", detail: `"${a.provider}" isn't connected — add it first.` });
+    const models = [...new Set(a.models.map((s) => s.trim()).filter(Boolean))].slice(0, 100);
+    await ctx.db.patch(row._id, { models, updatedAt: Date.now() });
   },
 });
 

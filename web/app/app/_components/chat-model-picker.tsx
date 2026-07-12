@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { PROVIDER_LABEL, type Cred, type Catalog } from "./shared";
 
 export const splitModel = (m: string): [string, string] => { const i = m.indexOf("/"); return [m.slice(0, i), m.slice(i + 1)]; };
@@ -64,10 +66,18 @@ export function ModelPicker({ byProvider, providers, catalog, agents, onPick }: 
   const provs = [...catalogProvs, ...customProvs].sort((a, b) => (PROVIDER_LABEL[a] ?? a).localeCompare(PROVIDER_LABEL[b] ?? b));
   const [prov, setProv] = useState<string | null>(provs.length === 1 ? provs[0] : null);
   const [q, setQ] = useState("");
+  const saveModel = useMutation(api.credentials.setProviderModels);
   if (provs.length === 0) return <p className="sub">No models available — connect a provider in the <b>Providers</b> tab first.</p>;
-  const isCustom = !!prov && !byProvider[prov]; // selected provider has no catalog → manual model entry
+  const isCustom = !!prov && !catalog[prov]; // no models.dev catalog = a custom endpoint → allow typing/saving model ids
   const list = prov ? byProvider[prov] ?? [] : []; // ?? [] — the live query can drop the selected provider mid-mount
   const ids = list.filter((id) => id.toLowerCase().includes(q.toLowerCase()));
+  // pick a model; for a custom provider also PERSIST the id so it's a saved dropdown option next time
+  // (setProviderModels patches models[] without touching the key — no re-entry). Best-effort save.
+  const pickModel = (id: string) => {
+    if (prov && isCustom && !list.includes(id)) void saveModel({ provider: prov, models: [...list, id] }).catch(() => {});
+    onPick({ kind: "model", ref: `${prov}/${id}` });
+  };
+  const typed = q.trim();
   return (
     <div className="picker">
       {agents.length > 0 && (
@@ -99,37 +109,36 @@ export function ModelPicker({ byProvider, providers, catalog, agents, onPick }: 
           );
         })}
       </div>
-      {prov && isCustom && (
+      {prov && (
         <>
-          <div className="picker-step mono muted">2 · model — type the id</div>
-          <div className="row" style={{ gap: ".4rem" }}>
-            <input placeholder="e.g. kimi-k2.7-code" value={q} onChange={(e) => setQ(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter" && q.trim()) onPick({ kind: "model", ref: `${prov}/${q.trim()}` }); }} />
-            <button className="btn" disabled={!q.trim()} onClick={() => onPick({ kind: "model", ref: `${prov}/${q.trim()}` })}>use</button>
-          </div>
-          <p className="muted mono" style={{ fontSize: ".72rem", margin: ".35rem 0 0" }}>Custom provider — no model catalog, so type the model id exactly.</p>
-        </>
-      )}
-      {prov && !isCustom && (
-        <>
-          <div className="picker-step mono muted">2 · model · {list.length} available</div>
-          <input placeholder={`search ${PROVIDER_LABEL[prov] ?? prov} models…`} value={q} onChange={(e) => setQ(e.target.value)} />
-          <div className="model-list">
-            {ids.length === 0 ? (
-              <p className="muted mono" style={{ fontSize: ".78rem", padding: ".55rem .85rem", margin: 0 }}>no match</p>
-            ) : (
-              ids.slice(0, 200).map((id) => {
-                const ctx = (catalog[prov]?.models as Record<string, any> | undefined)?.[id]?.limit?.context as number | undefined;
-                return (
-                  <button key={id} className="model-row" onClick={() => onPick({ kind: "model", ref: `${prov}/${id}` })}>
-                    <span className="mono">{id}</span>
-                    {ctx != null && <span className="mono muted" style={{ fontSize: ".72rem" }}>{kfmt(ctx)} tok</span>}
-                  </button>
-                );
-              })
-            )}
-            {ids.length > 200 && <p className="muted mono" style={{ fontSize: ".72rem", padding: ".4rem .85rem", margin: 0 }}>+{ids.length - 200} more — refine search</p>}
-          </div>
+          <div className="picker-step mono muted">2 · model{isCustom ? "" : ` · ${list.length} available`}</div>
+          <input placeholder={isCustom ? "type a model id, or search saved ones…" : `search ${PROVIDER_LABEL[prov] ?? prov} models…`} value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => { if (isCustom && e.key === "Enter" && typed && !list.includes(typed)) pickModel(typed); }} />
+          {(list.length > 0 || !isCustom) && (
+            <div className="model-list">
+              {ids.length === 0 ? (
+                <p className="muted mono" style={{ fontSize: ".78rem", padding: ".55rem .85rem", margin: 0 }}>{isCustom ? "no saved model matches — type an id to add it" : "no match"}</p>
+              ) : (
+                ids.slice(0, 200).map((id) => {
+                  const ctx = (catalog[prov]?.models as Record<string, any> | undefined)?.[id]?.limit?.context as number | undefined;
+                  return (
+                    <button key={id} className="model-row" onClick={() => pickModel(id)}>
+                      <span className="mono">{id}</span>
+                      {ctx != null && <span className="mono muted" style={{ fontSize: ".72rem" }}>{kfmt(ctx)} tok</span>}
+                    </button>
+                  );
+                })
+              )}
+              {ids.length > 200 && <p className="muted mono" style={{ fontSize: ".72rem", padding: ".4rem .85rem", margin: 0 }}>+{ids.length - 200} more — refine search</p>}
+            </div>
+          )}
+          {isCustom && typed && !list.includes(typed) && (
+            <button className="btn accent" style={{ marginTop: ".4rem" }} onClick={() => pickModel(typed)}>use “{typed}” — saves to {PROVIDER_LABEL[prov] ?? prov}</button>
+          )}
+          {isCustom && list.length === 0 && !typed && (
+            <p className="muted mono" style={{ fontSize: ".72rem", margin: ".35rem 0 0" }}>Custom provider — type a model id to use it; it’s saved for next time.</p>
+          )}
         </>
       )}
     </div>

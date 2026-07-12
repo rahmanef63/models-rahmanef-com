@@ -39,7 +39,7 @@ export const PROVIDER_LABEL: Record<string, string> = {
   zenmux: "ZenMux",
 };
 
-export type Cred = { provider: string; kind: string; keyCount?: number; lastCheckedAt?: number; lastCheckedOk?: boolean; lastCheckedCode?: string; lastCheckedDetail?: string };
+export type Cred = { provider: string; kind: string; models?: string[]; keyCount?: number; lastCheckedAt?: number; lastCheckedOk?: boolean; lastCheckedCode?: string; lastCheckedDetail?: string };
 export type Catalog = Record<string, { models?: Record<string, unknown> }>;
 
 export const fmt = (n: number) => (n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, "") + "k" : String(n));
@@ -82,23 +82,37 @@ export const FRIENDLY: Record<string, (provider: string) => string> = {
 };
 export function ErrorLine({ e, isAdmin }: { e: unknown; isAdmin: boolean }) {
   const d = errData(e);
-  if (typeof d === "string") return <p className="err">{d}</p>;
-  // no `provider` means this ISN'T a provider/model-call failure — it's a validation error we
-  // wrote ourselves (e.g. agentDefs CRUD: "name required", "Agent not found") — that text is
-  // already safe + actionable for every user, so show it directly instead of running it through
-  // the provider-oriented FRIENDLY table (which would render something like "This provider
-  // couldn't process this request" — nonsensical here, and hides the real reason from non-admins).
-  if (!d.provider) return <p className="err">{d.detail}</p>;
-  const label = PROVIDER_LABEL[d.provider] ?? d.provider;
-  const friendly = (FRIENDLY[d.code] ?? FRIENDLY.internal)(label);
+  // the friendly headline: a plain-string error / our own validation error (no `provider`) is shown
+  // verbatim; a real provider/model-call failure runs through the FRIENDLY table so non-admins get
+  // something actionable instead of raw provider text.
+  const headline = typeof d === "string" ? d : !d.provider ? d.detail : (FRIENDLY[d.code] ?? FRIENDLY.internal)(PROVIDER_LABEL[d.provider] ?? d.provider);
+  // the FULL error, always available to copy (threads.ts confirms the isAdmin gate is UX-only, not
+  // access control — the whole payload is in the client's own response regardless).
+  const full = typeof d === "string" ? d : JSON.stringify(d, null, 2);
+  const adminLine = typeof d !== "string" && d.provider ? `${d.code}${d.status != null ? ` · ${d.status}` : ""}${d.model ? ` · ${d.model}` : ""} · ${d.detail}` : null;
   return (
-    <p className="err">
-      {friendly}
-      {isAdmin && (
-        <span className="mono muted" style={{ display: "block", fontSize: ".72rem", marginTop: ".3rem" }}>
-          {d.code}{d.status != null ? ` · ${d.status}` : ""}{d.model ? ` · ${d.model}` : ""} · {d.detail}
-        </span>
-      )}
-    </p>
+    <div className="err">
+      <span>{headline}</span>
+      {isAdmin && adminLine && <span className="mono muted" style={{ display: "block", fontSize: ".72rem", marginTop: ".3rem" }}>{adminLine}</span>}
+      <ErrCopy full={full} />
+    </div>
+  );
+}
+
+// copyable full-error panel — a collapsed <details> so it never shouts, with the raw payload
+// selectable inside and a one-click copy. No hooks (stays safe in any import graph); the button
+// swaps its own label on click. This is the "log I can copy to debug" ask.
+function ErrCopy({ full }: { full: string }) {
+  return (
+    <details style={{ marginTop: ".3rem" }}>
+      <summary className="link" style={{ fontSize: ".72rem", padding: 0, minHeight: 0, listStyle: "revert" }}>details / copy</summary>
+      <pre className="mono muted" style={{ whiteSpace: "pre-wrap", overflowX: "auto", fontSize: ".7rem", margin: ".3rem 0 0", maxHeight: "12rem" }}>{full}</pre>
+      <button
+        type="button"
+        className="link"
+        style={{ fontSize: ".72rem", padding: 0, minHeight: 0 }}
+        onClick={(ev) => { void navigator.clipboard?.writeText(full); const b = ev.currentTarget; const t = b.textContent; b.textContent = "copied ✓"; setTimeout(() => { b.textContent = t; }, 1500); }}
+      >copy error</button>
+    </details>
   );
 }

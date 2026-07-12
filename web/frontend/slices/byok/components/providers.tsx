@@ -1,10 +1,9 @@
 "use client";
 import { useState } from "react";
-import { useAction } from "convex/react";
-import { api } from "@/convex/_generated/api";
 import { PROVIDER_LABEL, SUPPORTED, FRIENDLY, ErrorLine, type Cred, type Catalog } from "@/app/app/_components/shared";
 import { useConfirm } from "@/app/app/_components/responsive-dialog";
 import { ProviderKeys } from "./provider-keys";
+export { CustomProviderForm } from "./custom-provider-form"; // moved to its own file (JSON config + models); re-exported so importers are unchanged
 
 // lowest cost.input CHAT-capable model.dev knows for a provider — used as the throwaway 1-token
 // connectivity test, and as the default when a provider has no catalog entry at all (5 of 22
@@ -105,47 +104,6 @@ export function ApiKeyForm({ setCredential, testCredential, catalog, isAdmin }: 
       </div>
       {result && <TestResultLine r={result} provider={provider} isAdmin={isAdmin} />}
       {skipped && <p className="muted" style={{ fontSize: ".85rem" }}>Saved — {PROVIDER_LABEL[provider] ?? provider} has no models.dev catalog entry to auto-verify with yet.</p>}
-      {err != null && <ErrorLine e={err} isAdmin={isAdmin} />}
-    </div>
-  );
-}
-
-// Add a custom OpenAI-compatible provider from the UI (name + baseURL + key) — the client sibling of
-// the connect_custom_provider AI tool. Target its models as `slug/<model>` (no models.dev catalog, so
-// they won't appear in the provider-first picker — reference them by ref in a thread/agent).
-export function CustomProviderForm({ isAdmin }: { isAdmin: boolean }) {
-  const connect = useAction(api.customProvider.connectCustomProvider);
-  const [name, setName] = useState("");
-  const [baseURL, setBaseURL] = useState("");
-  const [key, setKey] = useState("");
-  const [protocol, setProtocol] = useState("openai");
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<unknown>(null);
-  const [ok, setOk] = useState<string | null>(null);
-  return (
-    <div className="apikey">
-      <div className="apikey-label mono muted">or add a custom endpoint — OpenAI-compatible or Anthropic Messages</div>
-      <div className="row">
-        <input disabled={busy} placeholder="name (e.g. my-llm)" value={name} onChange={(e) => { setName(e.target.value); setErr(null); setOk(null); }} style={{ width: "auto" }} />
-        <select disabled={busy} value={protocol} onChange={(e) => setProtocol(e.target.value)} style={{ width: "auto" }} title="wire protocol the endpoint speaks">
-          <option value="openai">OpenAI /chat/completions</option>
-          <option value="anthropic">Anthropic /v1/messages</option>
-        </select>
-        <input disabled={busy} placeholder="https://host/v1" value={baseURL} onChange={(e) => setBaseURL(e.target.value)} />
-        <input disabled={busy} type="password" placeholder="api key" value={key} onChange={(e) => setKey(e.target.value)} />
-        <button
-          className="btn accent"
-          disabled={busy || !name || !baseURL || !key}
-          onClick={async () => {
-            setBusy(true); setErr(null); setOk(null);
-            try { const r = await connect({ name, baseURL, apiKey: key, protocol }); setName(""); setBaseURL(""); setKey(""); setOk(r.slug); }
-            catch (e) { setErr(e); } finally { setBusy(false); }
-          }}
-        >
-          {busy ? "…" : "Add"}
-        </button>
-      </div>
-      {ok && <p className="ok-line">✓ added <code>{ok}</code> — target models as <code>{ok}/&lt;model&gt;</code> (must speak OpenAI /chat/completions).</p>}
       {err != null && <ErrorLine e={err} isAdmin={isAdmin} />}
     </div>
   );

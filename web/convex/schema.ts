@@ -38,6 +38,7 @@ export default defineSchema({
     ciphertext: v.string(),
     endpoint: v.optional(v.string()), // custom baseURL (BYOK custom provider); unset = built-in host
     protocol: v.optional(v.string()), // custom-provider wire protocol: 'anthropic' (Messages API) | unset = OpenAI /chat/completions
+    models: v.optional(v.array(v.string())), // manually-entered model ids for a custom provider (no models.dev catalog) — feeds the chat picker
     updatedAt: v.number(),
     expires: v.optional(v.number()), // plaintext token expiry (oauth) — lets the lease check staleness without decrypting
     refreshLeaseUntil: v.optional(v.number()), // single-flight refresh lease
