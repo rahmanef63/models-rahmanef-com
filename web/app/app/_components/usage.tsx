@@ -1,7 +1,7 @@
 "use client";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { fmt } from "./shared";
+import { fmt } from "@/features/core";
 import { estCostUsd } from "@/convex/features/usageRollups/rates";
 
 function ByDayBars({ byDay }: { byDay: Record<string, number> }) {

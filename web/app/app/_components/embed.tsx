@@ -5,8 +5,8 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { errData } from "./shared";
-import { useConfirm } from "./responsive-dialog";
+import { errData } from "@/features/core";
+import { useConfirm } from "@/features/core";
 
 type Embed = { id: string; title: string; model: string; token: string; allowedOrigins: string[]; enabled: boolean; greeting: string; systemPrompt: string; createdAt: number };
 

@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Sparkles, Menu } from "lucide-react";
 import { type NavGroup, groupOfSection } from "./nav-config";
 import { type RailAccount } from "./navigation-rail";
-import { type Theme } from "./use-theme";
+import { type Theme } from "@/features/core";
 import { RailIcon } from "./rail-icon";
 import { MobileMoreSheet } from "./mobile-more-sheet";
 

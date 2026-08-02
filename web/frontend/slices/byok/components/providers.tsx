@@ -1,12 +1,10 @@
 "use client";
 import { useState } from "react";
 import { PROVIDER_LABEL, SUPPORTED, type Cred, type Catalog } from "../lib/provider-meta";
-import { FRIENDLY, ErrorLine as CoreErrorLine, useConfirm } from "@/features/core";
+import { FRIENDLY, useConfirm } from "@/features/core";
+import { ErrorLine } from "./error-line";
 import { ProviderKeys } from "./provider-keys";
 export { CustomProviderForm } from "./custom-provider-form"; // moved to its own file (JSON config + models); re-exported so importers are unchanged
-
-// ErrorLine pre-bound with the provider display names — byok always wants labeled provider errors.
-const ErrorLine = (p: { e: unknown; isAdmin: boolean }) => <CoreErrorLine {...p} labels={PROVIDER_LABEL} />;
 
 // lowest cost.input CHAT-capable model.dev knows for a provider — used as the throwaway 1-token
 // connectivity test, and as the default when a provider has no catalog entry at all (5 of 22

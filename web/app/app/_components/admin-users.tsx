@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { type Id } from "@/convex/_generated/dataModel";
-import { ago, dt, fmt } from "./shared";
+import { ago, dt, fmt } from "@/features/core";
 
 function Activity({ userId }: { userId: Id<"users"> }) {
   const a = useQuery(api.adminAnalytics.adminUserActivity, { userId });

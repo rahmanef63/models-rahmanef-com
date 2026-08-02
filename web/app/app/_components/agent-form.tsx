@@ -1,6 +1,6 @@
 "use client";
 import { useId, useState } from "react";
-import { ErrorLine } from "./shared";
+import { ErrorLine } from "@/features/byok";
 
 export type AgentDef = { _id: string; name: string; model: string; instructions?: string; tools: string[]; skills?: string[]; maxSteps: number; temperature?: number };
 export type ToolMeta = { id: string; label: string; description: string };

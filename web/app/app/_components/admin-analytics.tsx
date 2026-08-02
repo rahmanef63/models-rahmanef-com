@@ -3,7 +3,8 @@
 // provider breakdowns + agent-run status. One query (adminAnalytics), all charts pure SVG/CSS.
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { PROVIDER_LABEL, fmt } from "./shared";
+import { PROVIDER_LABEL } from "@/features/byok";
+import { fmt } from "@/features/core";
 import { Sparkline, MiniBars, HBarList } from "./charts";
 
 function Panel({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {

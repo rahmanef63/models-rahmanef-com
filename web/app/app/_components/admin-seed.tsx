@@ -6,7 +6,7 @@ import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { downloadJson, readJsonFile } from "./download-json";
-import { errData } from "./shared";
+import { errData } from "@/features/core";
 
 // Downloadable schema/example. `_note` lives only at envelope level — preset objects must carry
 // ONLY the fields the mutation's v.object accepts (extra keys are rejected server-side).

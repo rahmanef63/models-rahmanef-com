@@ -1,7 +1,7 @@
 "use client";
 // Pure-SVG/CSS chart primitives — no chart library (ponytail: a dependency for what ~80 lines of
 // inline SVG does). Theme-aware via currentColor / --accent tokens. All take plain number arrays.
-import { fmt } from "./shared";
+import { fmt } from "@/features/core";
 
 // Filled area + line over a series. Great for signups / requests over time.
 export function Sparkline({ values, labels, height = 44, unit = "" }: { values: number[]; labels?: string[]; height?: number; unit?: string }) {

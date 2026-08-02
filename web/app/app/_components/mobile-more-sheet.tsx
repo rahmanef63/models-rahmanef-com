@@ -2,7 +2,7 @@
 import { useEffect } from "react";
 import { type NavGroup } from "./nav-config";
 import { type RailAccount } from "./navigation-rail";
-import { type Theme } from "./use-theme";
+import { type Theme } from "@/features/core";
 import { X } from "lucide-react";
 import { RailIcon } from "./rail-icon";
 

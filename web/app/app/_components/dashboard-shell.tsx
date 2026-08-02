@@ -3,7 +3,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { type NavGroup, groupOfSection } from "./nav-config";
 import { NavigationRail, type RailAccount } from "./navigation-rail";
 import { BottomDock } from "./bottom-dock";
-import { type Theme } from "./use-theme";
+import { type Theme } from "@/features/core";
 
 // The single outer chrome (rr: exactly one shell). Ports the wireframe's AppShell — NavigationRail
 // (icon rail) + SecondarySidebar (sub-sections of the active group) + MainRegion + optional docked

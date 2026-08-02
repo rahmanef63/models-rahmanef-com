@@ -5,8 +5,8 @@ import { useState } from "react";
 import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
-import { ErrorLine } from "./shared";
-import { ResponsiveDialog, useConfirm } from "./responsive-dialog";
+import { ErrorLine } from "@/features/byok";
+import { ResponsiveDialog, useConfirm } from "@/features/core";
 
 type Doc = { _id: string; title: string; charCount: number; chunkCount: number; status: string; createdAt: number };
 

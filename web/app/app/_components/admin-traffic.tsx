@@ -4,7 +4,7 @@
 // off one query; charts are the shared pure-SVG/CSS primitives. SUPER-ADMIN only.
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { fmt } from "./shared";
+import { fmt } from "@/features/core";
 import { MiniBars, HBarList } from "./charts";
 
 function Panel({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {

@@ -4,7 +4,7 @@ import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
 import { Plus, Trash2, ChevronLeft } from "lucide-react";
-import { PROVIDER_LABEL, ErrorLine, type Cred, type Catalog } from "./shared";
+import { PROVIDER_LABEL, ErrorLine, type Cred, type Catalog } from "@/features/byok";
 import { splitModel, route, ModelInspector, ModelPicker, type AgentPickMeta } from "./chat-model-picker";
 import { type MentionAgent } from "./agent-mention";
 import { WbComposer } from "./wb-composer";

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Plus, Sun, Moon } from "lucide-react";
 import { type NavGroup } from "./nav-config";
-import { type Theme } from "./use-theme";
+import { type Theme } from "@/features/core";
 import { RailIcon } from "./rail-icon";
 
 export type RailAccount = { email?: string; isSuperAdmin?: boolean; onSignOut: () => void };

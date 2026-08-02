@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useConvexAuth, useQuery, useMutation, useAction } from "convex/react";
 import { useAuthActions } from "@convex-dev/auth/react";
 import { api } from "@/convex/_generated/api";
-import { type Cred, type Catalog } from "./_components/shared";
+import { type Cred, type Catalog } from "@/features/byok";
 import { Overview } from "./_components/overview";
 import { UsageCard } from "./_components/usage";
 import { TokenSaverCard } from "./_components/settings";
@@ -33,10 +33,10 @@ import { MemoryGraphPanel } from "@/features/memory-graph";
 import { SignIn } from "./_components/sign-in";
 import { DashboardShell } from "./_components/dashboard-shell";
 import { AiDock, AiComposer } from "./_components/ai-dock";
-import { ResponsiveDialog } from "./_components/responsive-dialog";
-import { SectionErrorBoundary } from "./_components/error-boundary";
+import { ResponsiveDialog } from "@/features/core";
+import { SectionErrorBoundary } from "@/features/core";
 import { groupsFor } from "./_components/nav-config";
-import { useTheme } from "./_components/use-theme";
+import { useTheme } from "@/features/core";
 
 export default function AppPage() {
   const { isLoading, isAuthenticated } = useConvexAuth();

@@ -1,7 +1,8 @@
 "use client";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { PROVIDER_LABEL, fmt } from "./shared";
+import { PROVIDER_LABEL } from "@/features/byok";
+import { fmt } from "@/features/core";
 import { HBarList } from "./charts";
 import { AdminUsers } from "./admin-users";
 

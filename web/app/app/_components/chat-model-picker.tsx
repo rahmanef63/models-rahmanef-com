@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { PROVIDER_LABEL, type Cred, type Catalog } from "./shared";
+import { PROVIDER_LABEL, type Cred, type Catalog } from "@/features/byok";
 
 export const splitModel = (m: string): [string, string] => { const i = m.indexOf("/"); return [m.slice(0, i), m.slice(i + 1)]; };
 export const route = (kind?: string) => (kind === "oauth" ? { label: "OAUTH", cls: "oauth" } : { label: "API KEY", cls: "key" });

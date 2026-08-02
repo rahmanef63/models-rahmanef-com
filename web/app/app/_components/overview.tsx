@@ -1,7 +1,8 @@
 "use client";
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { type Cred, fmt, SUPPORTED } from "./shared";
+import { type Cred, SUPPORTED } from "@/features/byok";
+import { fmt } from "@/features/core";
 
 export function Overview({ providers, models, go }: { providers: Cred[] | undefined; models: string[]; go: (s: string) => void }) {
   const u = useQuery(api.usage.myUsage);

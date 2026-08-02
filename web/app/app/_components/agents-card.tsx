@@ -2,8 +2,8 @@
 import { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { ErrorLine } from "./shared";
-import { ResponsiveDialog, ConfirmDialog } from "./responsive-dialog";
+import { ErrorLine } from "@/features/byok";
+import { ResponsiveDialog, ConfirmDialog } from "@/features/core";
 import { useWorkspace } from "@/features/workspaces";
 import { AgentForm, type AgentDef, type AgentPatch, type AgentPrefill, type SkillMeta, type ToolMeta } from "./agent-form";
 import { ImportMenu } from "./agent-import";

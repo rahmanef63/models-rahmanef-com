@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
-import { ConfirmDialog } from "./responsive-dialog";
+import { ConfirmDialog } from "@/features/core";
 
 type Tok = { id: string; label: string; createdAt: number; lastUsedAt: number | null; revoked: boolean };
 
