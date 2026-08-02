@@ -1,0 +1,21 @@
+{
+  "$schema": "https://resource.rahmanef.com/slice-schema.json",
+  "slug": "combos",
+  "version": "0.1.0",
+  "category": "feature",
+  "kind": "feature",
+  "title": "Model combos",
+  "description": "Model-ref indirection: a client targets one stable name (`combo/<name>`) that maps to several concrete `provider/model` refs. `strategy` (fallback|round_robin) picks the model per call. `resolveCombo` is resolved at the top of callForUser before the provider split.",
+  "namespace": "@/features/combos",
+  "convex": {
+    "tablesExport": "combos",
+    "schemaPath": "convex/schema.ts",
+    "rootPaths": ["convex/combos.ts", "convex/features/combos"]
+  },
+  "frontend": { "slicePath": "frontend/slices/combos", "configExport": "combosConfig" },
+  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth", "workspaces", "byok"] },
+  "registers": [],
+  "license": "MIT",
+  "tags": ["ai", "models", "routing", "gateway", "convex"],
+  "providers": []
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://resource.rahmanef.com/slice-schema.json",
+  "slug": "workspaces",
+  "version": "0.1.0",
+  "category": "feature",
+  "kind": "feature",
+  "title": "Workspaces & RBAC",
+  "description": "The tenant boundary for org / team / individual. Owns workspaces/memberships/invites, the requireWorkspaceRole authz core, WorkspaceProvider + switcher + Members UI + the /invite accept flow. An individual is a personal workspace of one; every scoped query filters by workspaceId.",
+  "namespace": "@/features/workspaces",
+  "convex": {
+    "tablesExport": "workspaces,memberships,invites",
+    "schemaPath": "convex/schema.ts",
+    "rootPaths": ["convex/workspaces.ts", "convex/workspaceInvites.ts", "convex/features/workspaces"]
+  },
+  "frontend": { "slicePath": "frontend/slices/workspaces", "configExport": "workspacesConfig" },
+  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth"] },
+  "registers": ["registry"],
+  "license": "MIT",
+  "tags": ["workspace", "multi-tenant", "rbac", "team", "org", "invites", "convex"],
+  "providers": []
+}

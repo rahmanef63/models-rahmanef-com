@@ -1,0 +1,21 @@
+{
+  "$schema": "https://resource.rahmanef.com/slice-schema.json",
+  "slug": "api-compat",
+  "version": "0.1.0",
+  "category": "feature",
+  "kind": "feature",
+  "title": "OpenAI/Anthropic-compatible /v1 gateway",
+  "description": "Workspace-bound `sk-rr-` API keys + a /v1/chat/completions + /v1/models endpoint so any OpenAI-compatible tool (Claude Code, Cursor, Codex) can point at a workspace. Thin proxy over callForUser. Non-streaming + pseudo-stream in v0.1 (real streaming + /v1/messages next).",
+  "namespace": "@/features/api-compat",
+  "convex": {
+    "tablesExport": "apiKeys",
+    "schemaPath": "convex/schema.ts",
+    "rootPaths": ["convex/apiKeys.ts", "convex/apiV1.ts", "convex/features/apiCompat"]
+  },
+  "frontend": { "slicePath": "frontend/slices/api-compat", "configExport": "apiCompatConfig" },
+  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth"] },
+  "registers": ["registry"],
+  "license": "MIT",
+  "tags": ["ai", "openai-compatible", "gateway", "api-key", "v1", "convex"],
+  "providers": []
+}

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://resource.rahmanef.com/slice-schema.json",
+  "slug": "scheduled-agents",
+  "version": "0.1.0",
+  "category": "feature",
+  "kind": "feature",
+  "title": "Scheduled agents",
+  "description": "Run a saved agent on a recurring interval. A minute-tick cron claims due enabled schedules (bounded, OCC-safe) and runs each through the SAME callForUser pipeline as a normal agent run (`agent/<id>` model ref). Schedules run AS their creator, spending that workspace's creds; interval floored at 15 min. CRUD is workspace-scoped ('member' to write, 'viewer' to read); only the creator or a ws admin can toggle/remove.",
+  "namespace": "@/features/scheduled-agents",
+  "convex": {
+    "tablesExport": "agentSchedules",
+    "schemaPath": "convex/schema.ts",
+    "rootPaths": ["convex/scheduledAgents.ts", "convex/scheduledAgentsRun.ts", "convex/features/scheduledAgents"]
+  },
+  "frontend": { "slicePath": "frontend/slices/scheduled-agents", "configExport": "scheduledAgentsConfig" },
+  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth", "workspaces", "byok"] },
+  "registers": [],
+  "license": "MIT",
+  "tags": ["ai", "agents", "cron", "scheduler", "convex"],
+  "providers": []
+}

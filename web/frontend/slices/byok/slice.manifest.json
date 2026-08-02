@@ -1,0 +1,26 @@
+{
+  "$schema": "../../../docs/slice.manifest.schema.json",
+  "name": "byok",
+  "version": "0.1.0",
+  "description": "Bring-your-own-key credential vault + provider-connection registry. Owns modelCreds (AES-256-GCM), per-user CRUD, the OpenAI-compatible provider map, and the Providers UI.",
+  "category": "feature",
+  "stability": "alpha",
+  "deps": {
+    "shared": ["app/_components/shared"],
+    "slices": [],
+    "convexFeatures": [],
+    "npm": {
+      "@ai-sdk/openai": "^4.0.5",
+      "@ai-sdk/anthropic": "^4.0.5",
+      "@ai-sdk/google": "^4.0.6",
+      "@openrouter/ai-sdk-provider": "^2.10.0"
+    },
+    "env": ["MODELS_ENC_KEY"]
+  },
+  "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
+  "permissions": ["authed-user"],
+  "schemaTables": ["modelCreds"],
+  "compatibility": { "next": ">=16 <17", "react": "^19", "convex": "^1.16", "tailwind": "any", "auth": "@convex-dev/auth" },
+  "tags": ["ai", "byok", "credentials", "providers", "encryption", "convex"],
+  "notes": "Extracted IN PLACE. Convex fns keep api.credentials.*/internal.credentials.* paths — slice.json rootPaths declares ownership without moving registered functions (avoids rewriting oauth.ts/chat.ts/callForUser.ts/chatTools.ts/page.tsx). crypto.ts helpers re-exported via convex/features/byok/index.ts (plain fns, safe). chatProviders.ts is 'use node' so it is declared, not re-exported. The Providers UI still depends on the app shared.tsx (PROVIDER_LABEL, ErrorLine) and oauth.ts actions — consumer-locked couplings to sanitize before an UP push."
+}

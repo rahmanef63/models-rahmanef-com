@@ -1,0 +1,21 @@
+{
+  "$schema": "https://resource.rahmanef.com/slice-schema.json",
+  "slug": "provider-pool",
+  "version": "0.1.0",
+  "category": "feature",
+  "kind": "feature",
+  "title": "BYOK Provider Pool (failover + cooldown)",
+  "description": "EXTENDS byok. Graceful multi-credential failover over the modelCreds rows that already exist (personal + workspace-shared). fallbackRules.ts is a pure, config-driven error→verdict table (429→exp backoff 1s·2^n cap 240s; 5xx→short cooldown; 401/invalid_grant/token_revoked→dead until re-auth). providerPool.pickCredentials returns up to 3 LIVE creds (priority-then-LRU); markCredResult cools/kills a cred. A ≤3-attempt loop in callForUser's BYOK generateText branch tries each live cred in turn. codex/claude OAuth creds are single-cred and NOT pooled.",
+  "namespace": "@/features/provider-pool",
+  "convex": {
+    "tablesExport": "modelCreds",
+    "schemaPath": "convex/schema.ts",
+    "rootPaths": ["convex/providerPool.ts", "convex/fallbackRules.ts"]
+  },
+  "frontend": { "slicePath": "frontend/slices/provider-pool", "configExport": "providerPoolConfig" },
+  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth"] },
+  "registers": [],
+  "license": "MIT",
+  "tags": ["ai", "byok", "credentials", "failover", "cooldown", "resilience", "convex"],
+  "providers": []
+}

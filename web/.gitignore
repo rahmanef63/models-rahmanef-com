@@ -1,0 +1,8 @@
+node_modules
+.next
+.env.local
+.vercel
+*.log
+*.tsbuildinfo
+.DS_Store
+# convex/_generated is committed so `next build` works on Vercel without a build-time codegen step

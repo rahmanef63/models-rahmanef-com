@@ -1,0 +1,15 @@
+{
+  "$schema": "../../../docs/slice.manifest.schema.json",
+  "name": "provider-pool",
+  "version": "0.1.0",
+  "description": "EXTENDS byok with graceful multi-credential failover + error-based cooldown. Pure fallbackRules.ts verdict table + providerPool.pickCredentials/markCredResult over the existing modelCreds rows; a ≤3-attempt loop in callForUser's BYOK branch. codex/claude OAuth creds stay single-cred (not pooled).",
+  "category": "feature",
+  "stability": "alpha",
+  "deps": { "shared": [], "slices": ["byok"], "convexFeatures": [], "npm": {}, "env": [] },
+  "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
+  "permissions": ["authed-user"],
+  "schemaTables": ["modelCreds"],
+  "compatibility": { "next": ">=16 <17", "react": "^19", "convex": "^1.16", "tailwind": "any", "auth": "@convex-dev/auth" },
+  "tags": ["ai", "byok", "credentials", "failover", "cooldown", "resilience", "convex"],
+  "notes": "EXTENDS byok — does NOT own modelCreds, only ADDS additive/optional pool fields (label, priority, status, cooldownUntil, backoffLevel, lastErrorCode) via a schema spread into the existing table (no new index; reuses by_user_provider + by_ws_provider). Consumer must: (1) add the pool fields to the modelCreds defineTable; (2) hand-integrate the ≤3-attempt loop into callForUser's BYOK 'else' generateText branch — the openai-codex/anthropic-oauth branches MUST stay single-cred (OAuth subscriptions can't fail over). fallbackRules.classifyProviderError is pure (no `ai`/node import) and self-checks via _selfCheck(). CredStatusBadge is optional UI: className-only styling ('pool-badge pool-<status>'), consumer owns the CSS."
+}

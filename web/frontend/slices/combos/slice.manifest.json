@@ -1,0 +1,15 @@
+{
+  "$schema": "../../../docs/slice.manifest.schema.json",
+  "name": "combos",
+  "version": "0.1.0",
+  "description": "Model-ref indirection: one `combo/<name>` maps to several `provider/model` refs, chosen per call by strategy (fallback|round_robin). resolveCombo runs at the top of callForUser.",
+  "category": "feature",
+  "stability": "alpha",
+  "deps": { "shared": [], "slices": ["workspaces", "byok"], "convexFeatures": [], "npm": {}, "env": [] },
+  "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
+  "permissions": ["authed-user", "workspace-member"],
+  "schemaTables": ["combos"],
+  "compatibility": { "next": ">=16 <17", "react": "^19", "convex": "^1.16", "tailwind": "any", "auth": "@convex-dev/auth" },
+  "tags": ["ai", "models", "routing", "gateway", "convex"],
+  "notes": "v0.1 = CRUD + resolveCombo (fallback picks refs[0]; round_robin reads rotationIndex, advanced by internal.combos.bumpRotation). Error-fallback across the remaining refs depends on provider-pool 2.3 — not wired yet. callForUser's resolveModelRef also handles `agent/<id>` (agent's fixed model)."
+}
