@@ -7,7 +7,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
-import { useConfirm } from "@/app/app/_components/responsive-dialog";
+import { useConfirm } from "@/features/core";
 
 const MIN_INTERVAL = 15;
 type Sched = { id: string; agentId: string; prompt: string; everyMinutes: number; enabled: boolean; lastRunAt?: number; lastStatus?: string; lastResult?: string; createdAt: number };

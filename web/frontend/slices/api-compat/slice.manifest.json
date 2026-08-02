@@ -5,7 +5,7 @@
   "description": "Workspace-bound sk-rr API keys + /v1/chat/completions + /v1/models over callForUser.",
   "category": "feature",
   "stability": "alpha",
-  "deps": { "shared": [], "slices": ["workspaces", "byok"], "convexFeatures": [], "npm": {}, "env": [] },
+  "deps": { "shared": [], "slices": ["core", "workspaces", "byok"], "convexFeatures": [], "npm": {}, "env": [] },
   "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
   "permissions": ["authed-user", "api-key"],
   "schemaTables": ["apiKeys"],

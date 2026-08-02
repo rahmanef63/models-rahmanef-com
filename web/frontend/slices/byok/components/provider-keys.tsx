@@ -2,8 +2,8 @@
 import { useState } from "react";
 import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { errData } from "@/app/app/_components/shared";
-import { useConfirm } from "@/app/app/_components/responsive-dialog";
+import { errData } from "@/features/core";
+import { useConfirm } from "@/features/core";
 import { useWorkspace } from "@/features/workspaces";
 
 // Multi-key manager for ONE byok provider — lists the personal keys in the failover pool

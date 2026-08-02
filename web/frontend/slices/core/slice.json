@@ -1,0 +1,17 @@
+{
+  "$schema": "https://resource.rahmanef.com/slice-schema.json",
+  "slug": "core",
+  "version": "0.1.0",
+  "category": "core",
+  "kind": "core",
+  "title": "Core kit",
+  "description": "Shared UI + helper substrate every feature slice sits on: the ResponsiveDialog/ConfirmDialog overlay primitive (+ useConfirm), the SectionErrorBoundary, the light/dark useTheme hook, generic display formatters (fmt/ago/dt), and the ConvexError renderer (errData/ErrorLine/FRIENDLY). React-only — no Convex, no app-root coupling — so any feature that depends on `core` stays copy-clean. ErrorLine is provider-agnostic; pass a `labels` map for display names.",
+  "namespace": "@/features/core",
+  "convex": { "tablesExport": null, "schemaPath": null, "rootPaths": [] },
+  "frontend": { "slicePath": "frontend/slices/core", "configExport": null },
+  "deps": { "npm": ["lucide-react"], "shadcn": [], "env": [], "peers": [] },
+  "registers": [],
+  "license": "MIT",
+  "tags": ["core", "ui", "dialog", "theme", "errors", "primitives"],
+  "providers": []
+}

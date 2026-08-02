@@ -6,8 +6,8 @@
   "category": "feature",
   "stability": "alpha",
   "deps": {
-    "shared": ["app/_components/shared"],
-    "slices": [],
+    "shared": [],
+    "slices": ["core"],
     "convexFeatures": [],
     "npm": {
       "@ai-sdk/openai": "^4.0.5",

@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { SUPPORTED, type Catalog } from "@/app/app/_components/shared";
+import { SUPPORTED, type Catalog } from "../lib/provider-meta";
 import { ApiKeyForm, CustomProviderForm } from "./providers";
 
 // Owns the four OAuth connect flows (OpenAI Codex + GitHub Copilot device-code, Claude PKCE

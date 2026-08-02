@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useWorkspace } from "../context";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { ResponsiveDialog } from "@/app/app/_components/responsive-dialog";
+import { ResponsiveDialog } from "@/features/core";
 
 export function WorkspaceSwitcher() {
   const { workspaceId, workspaces, switchTo, ready } = useWorkspace();

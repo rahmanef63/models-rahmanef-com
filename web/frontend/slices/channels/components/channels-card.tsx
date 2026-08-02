@@ -10,7 +10,7 @@ import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
 import { CHANNEL_KINDS } from "./channel-kinds";
 import { ChannelAccess } from "./channel-access";
-import { ConfirmDialog } from "@/app/app/_components/responsive-dialog";
+import { ConfirmDialog } from "@/features/core";
 
 type Channel = { id: string; kind: string; name: string; slug: string; agentId: string | null; model: string | null; enabled: boolean; lastInboundAt: number | null; lastError: string | null; createdAt: number };
 type Agent = { _id: string; name: string; model: string };

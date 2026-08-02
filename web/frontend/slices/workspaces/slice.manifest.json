@@ -5,7 +5,7 @@
   "description": "The tenant boundary (org/team/individual): workspaces/memberships/invites + RBAC + provider WorkspaceProvider/switcher/Members + /invite accept.",
   "category": "feature",
   "stability": "alpha",
-  "deps": { "shared": [], "slices": [], "convexFeatures": [], "npm": {}, "env": [] },
+  "deps": { "shared": [], "slices": ["core"], "convexFeatures": [], "npm": {}, "env": [] },
   "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
   "permissions": ["authed-user"],
   "schemaTables": ["workspaces", "memberships", "invites"],

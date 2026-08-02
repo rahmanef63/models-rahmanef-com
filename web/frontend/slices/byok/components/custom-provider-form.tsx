@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { ErrorLine } from "@/app/app/_components/shared";
+import { ErrorLine } from "@/features/core";
 import { parseCustomProviderConfig, parseModelList } from "./custom-provider-config";
 
 // Add a custom OpenAI-compatible / Anthropic-Messages provider. TWO input modes:

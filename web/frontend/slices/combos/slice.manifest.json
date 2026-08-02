@@ -5,7 +5,7 @@
   "description": "Model-ref indirection: one `combo/<name>` maps to several `provider/model` refs, chosen per call by strategy (fallback|round_robin). resolveCombo runs at the top of callForUser.",
   "category": "feature",
   "stability": "alpha",
-  "deps": { "shared": [], "slices": ["workspaces", "byok"], "convexFeatures": [], "npm": {}, "env": [] },
+  "deps": { "shared": [], "slices": ["core", "workspaces", "byok"], "convexFeatures": [], "npm": {}, "env": [] },
   "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
   "permissions": ["authed-user", "workspace-member"],
   "schemaTables": ["combos"],

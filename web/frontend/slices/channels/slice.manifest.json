@@ -5,7 +5,7 @@
   "description": "Inbound messaging channels (Telegram · Slack · WhatsApp · Discord): webhook ingress → per-platform signature verify → dedupe → thread upsert → callForUser → reply-to-origin.",
   "category": "feature",
   "stability": "alpha",
-  "deps": { "shared": [], "slices": ["workspaces", "byok"], "convexFeatures": [], "npm": {}, "env": ["MODELS_ENC_KEY"] },
+  "deps": { "shared": [], "slices": ["core", "workspaces", "byok"], "convexFeatures": [], "npm": {}, "env": ["MODELS_ENC_KEY"] },
   "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
   "permissions": ["authed-user", "workspace-admin", "webhook"],
   "schemaTables": ["channels", "channelIdentities", "channelEvents"],

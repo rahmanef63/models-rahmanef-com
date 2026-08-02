@@ -5,7 +5,7 @@
   "description": "Consume external MCP servers (HTTP/SSE) as agent tools via @modelcontextprotocol/sdk — CRUD + probe + mcp__<server>__<tool> merger into gatewayTools.",
   "category": "feature",
   "stability": "alpha",
-  "deps": { "shared": [], "slices": [], "convexFeatures": [], "npm": { "@modelcontextprotocol/sdk": "^1.29.0" }, "env": ["MODELS_ENC_KEY"] },
+  "deps": { "shared": [], "slices": ["core"], "convexFeatures": [], "npm": { "@modelcontextprotocol/sdk": "^1.29.0" }, "env": ["MODELS_ENC_KEY"] },
   "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
   "permissions": ["authed-user"],
   "schemaTables": ["mcpServers"],

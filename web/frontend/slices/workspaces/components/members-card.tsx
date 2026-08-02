@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "../context";
-import { ResponsiveDialog, ConfirmDialog } from "@/app/app/_components/responsive-dialog";
+import { ResponsiveDialog, ConfirmDialog } from "@/features/core";
 
 type Confirm = { title: string; message: string; run: () => unknown };
 

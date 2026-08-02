@@ -3,6 +3,6 @@
 // not moved) and is called by consumers through the generated api, not this barrel.
 export { ConnectProviders } from "./components/connect-providers";
 export { ApiKeyForm, ConnectedCreds, cheapestModel } from "./components/providers";
-// re-export the byok-relevant shared types so consumers don't reach into app/_components
-export type { Cred, Catalog } from "@/app/app/_components/shared";
-export { PROVIDER_LABEL, SUPPORTED } from "@/app/app/_components/shared";
+// provider-domain metadata now owned by the slice (was app/_components/shared) — fixes the leaky barrel.
+export type { Cred, Catalog } from "./lib/provider-meta";
+export { PROVIDER_LABEL, SUPPORTED } from "./lib/provider-meta";

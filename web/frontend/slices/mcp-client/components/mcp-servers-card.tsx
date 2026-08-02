@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
-import { useConfirm } from "@/app/app/_components/responsive-dialog";
+import { useConfirm } from "@/features/core";
 
 type Srv = {
   id: string; name: string; url: string; transport: string; enabled: boolean; hasHeaders: boolean;

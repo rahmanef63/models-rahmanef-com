@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { parseRefs, resolveRef } from "@/features/memory-graph";
-import { errData } from "@/app/app/_components/shared";
+import { errData } from "@/features/core";
 import { type VaultNote, nameOf } from "./note-tree";
 
 // outgoing links (this note's [[refs]] that resolve) + backlinks (notes whose body resolves to this).
