@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   try {
     const client = new ConvexHttpClient(CONVEX_URL);
     const r = await client.action(api.mcpOauthNode.exchangeCode, { code: p.code, clientId: p.client_id, redirectUri: p.redirect_uri, codeVerifier: p.code_verifier, ip: clientIp(req) });
-    return json({ access_token: r.access_token, token_type: "Bearer", scope: r.scope }, 200);
+    return json({ access_token: r.access_token, token_type: "Bearer", scope: r.scope, expires_in: r.expires_in }, 200);
   } catch (e: any) {
     if (e?.data?.code === "rate_limited") return Response.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(e.data.retryAfter ?? 60), "Cache-Control": "no-store" } });
     // never echo internals — every failure is an opaque invalid_grant

@@ -4,10 +4,14 @@ import { query, mutation, internalQuery, internalMutation } from "./_generated/s
 import { v } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUser } from "./_shared/auth";
+import { TOKEN_TTL_MS } from "./_shared/mcpToken";
 
 export const _storeToken = internalMutation({
   args: { userId: v.id("users"), workspaceId: v.optional(v.id("workspaces")), tokenHash: v.string(), label: v.string(), clientId: v.optional(v.string()), scope: v.optional(v.string()) },
-  handler: (ctx, a) => ctx.db.insert("mcpTokens", { ...a, createdAt: Date.now() }),
+  handler: (ctx, a) => {
+    const now = Date.now();
+    return ctx.db.insert("mcpTokens", { ...a, createdAt: now, expiresAt: now + TOKEN_TTL_MS });
+  },
 });
 
 export const _validateToken = internalQuery({
@@ -15,6 +19,7 @@ export const _validateToken = internalQuery({
   handler: async (ctx, a) => {
     const row = await ctx.db.query("mcpTokens").withIndex("by_hash", (q) => q.eq("tokenHash", a.tokenHash)).unique();
     if (!row || row.revoked) return null;
+    if ((row.expiresAt ?? Infinity) < Date.now()) return null; // tokens minted before expiry existed never expire
     return { _id: row._id, userId: row.userId, workspaceId: row.workspaceId };
   },
 });
@@ -30,7 +35,7 @@ export const listMcpTokens = query({
     const userId = await getAuthUserId(ctx);
     if (!userId) return [];
     const rows = await ctx.db.query("mcpTokens").withIndex("by_user", (q) => q.eq("userId", userId)).order("desc").collect();
-    return rows.map((r) => ({ id: r._id, label: r.label, createdAt: r.createdAt, lastUsedAt: r.lastUsedAt ?? null, revoked: !!r.revoked }));
+    return rows.map((r) => ({ id: r._id, label: r.label, createdAt: r.createdAt, expiresAt: r.expiresAt ?? null, lastUsedAt: r.lastUsedAt ?? null, revoked: !!r.revoked }));
   },
 });
 

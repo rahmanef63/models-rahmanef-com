@@ -26,6 +26,9 @@ export const _buildContext = internalQuery({
 export const _toolWrite = internalMutation({
   args: { userId: v.id("users"), op: v.string(), text: v.optional(v.string()), match: v.optional(v.string()) },
   handler: async (ctx, a) => {
+    // `op` is a free string off the wire and the only registry enum with a behavioral fork —
+    // anything that isn't "remove" would otherwise silently fall through to "add".
+    if (a.op !== "add" && a.op !== "remove") return `Unknown op "${a.op}" — use "add" or "remove".`;
     const rows = active(await ctx.db.query("memories").withIndex("by_user_scope", (q) => q.eq("userId", a.userId).eq("scope", "user")).take(200));
     if (a.op === "remove") {
       const needle = (a.match ?? "").toLowerCase();

@@ -1,11 +1,11 @@
 "use client";
 // Vault editor (main region) — edit one md/json doc, with Obsidian-style [[Title]] links + backlinks
-// resolved over the whole vault (shares parseRefs/resolveRef with the graph so both agree). Create =
+// resolved over the whole vault (owns parseRefs/resolveRef; memory-graph imports them from here so both agree). Create =
 // noteId "new". Saving a new note calls back with its real id so the tree + editor stay in sync.
 import { useEffect, useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { parseRefs, resolveRef } from "@/features/memory-graph";
+import { parseRefs, resolveRef } from "../lib/refs";
 import { errData } from "@/features/core";
 import { type VaultNote, nameOf } from "./note-tree";
 

@@ -30,7 +30,10 @@ export const issueMcpToken = action({
 
 // MCP-surface tools derived from the shared registry (wire name = mcpName ?? id).
 const MCP_TOOLS = TOOL_REGISTRY.filter((t) => t.surfaces.includes("mcp"));
-const MCP_TOOL_LIST = MCP_TOOLS.map((t) => ({ name: t.mcpName ?? t.id, description: t.description, inputSchema: t.inputSchema }));
+const MCP_TOOL_LIST = MCP_TOOLS.map((t) => ({
+  name: t.mcpName ?? t.id, description: t.description, inputSchema: t.inputSchema,
+  ...(t.readOnly ? { annotations: { readOnlyHint: true } } : {}),
+}));
 const MCP_BY_NAME = new Map(MCP_TOOLS.map((t) => [t.mcpName ?? t.id, t]));
 
 const asText = (text: string) => ({ content: [{ type: "text", text }] });
@@ -64,6 +67,10 @@ export const rpc = action({
 
     const rl = await ctx.runMutation(internal.rateLimit.hit, { key: `mcp:${row._id}`, max: 120, windowMs: 60_000 }); // 120 calls / min / token
     if (!rl.ok) return fail(-32029, `rate limited — retry in ${rl.retryAfter}s`);
+    // ponytail: per-minute alone lets a runaway agent bill 172k calls/day. 2000 is ~77x the heaviest
+    // real day on record (26); raise it if a legitimate workload ever trips this.
+    const dayRl = await ctx.runMutation(internal.rateLimit.hit, { key: `mcpday:${row._id}`, max: 2000, windowMs: 86_400_000 });
+    if (!dayRl.ok) return fail(-32029, `daily limit reached for this token — retry in ${dayRl.retryAfter}s`);
 
     switch (req.method) {
       case "initialize":

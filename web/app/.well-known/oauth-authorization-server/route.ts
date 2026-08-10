@@ -15,5 +15,5 @@ export async function GET(req: Request) {
     code_challenge_methods_supported: ["S256"],
     token_endpoint_auth_methods_supported: ["none"],
     scopes_supported: ["mcp"],
-  });
+  }, { headers: { "cache-control": "public, max-age=3600" } });
 }

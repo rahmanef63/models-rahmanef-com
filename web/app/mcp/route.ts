@@ -23,8 +23,19 @@ export async function POST(req: Request) {
   } catch {
     return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32700, message: "parse error" } }, { status: 400 });
   }
+  // A JSON-RPC notification has no id and expects no body — ack every one, not just
+  // notifications/initialized, or a client that sends notifications/cancelled hangs on a response.
+  const b = body as { id?: unknown; method?: unknown } | null;
+  if (b?.id == null && String(b?.method ?? "").startsWith("notifications/")) {
+    return new Response(null, { status: 202 });
+  }
   const client = new ConvexHttpClient(CONVEX_URL);
-  const result: any = await client.action(api.mcpNode.rpc, { token, request: body, ip: clientIp(req) });
+  let result: any;
+  try {
+    result = await client.action(api.mcpNode.rpc, { token, request: body, ip: clientIp(req) });
+  } catch {
+    return Response.json({ jsonrpc: "2.0", id: null, error: { code: -32603, message: "internal error" } }, { status: 500 });
+  }
   if (result?.error?.code === -32001) {
     return Response.json(result, { status: 401, headers: { "WWW-Authenticate": challenge } });
   }

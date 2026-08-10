@@ -33,10 +33,15 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   get_model_catalog: async (_ctx, _userId, args) => {
     const catalog = await fetchModelsCatalog();
     const models = (catalog[String(args?.provider ?? "")]?.models ?? {}) as Record<string, any>;
-    // capped at 30 — full per-provider catalogs run to hundreds; unbounded floods the model context
-    return Object.entries(models).slice(0, 30).map(([id, m]) => ({
-      id, contextTokens: m?.limit?.context, costInPerM: m?.cost?.input, toolCapable: !!m?.tool_call,
-    }));
+    // capped at 30 — full per-provider catalogs run to hundreds; unbounded floods the model context.
+    // `total` ships with it so the model knows it is looking at a slice, not the whole catalog.
+    const entries = Object.entries(models);
+    return {
+      total: entries.length,
+      models: entries.slice(0, 30).map(([id, m]) => ({
+        id, contextTokens: m?.limit?.context, costInPerM: m?.cost?.input, toolCapable: !!m?.tool_call,
+      })),
+    };
   },
   list_my_agents: async (ctx, userId) => {
     const defs = await ctx.runQuery(internal.agentDefs.listForUser, { userId });

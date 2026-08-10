@@ -12,10 +12,11 @@ import { usageRollupTables } from "./features/usageRollups/tables";
 import { auditLogTables } from "./features/auditLog/tables";
 import { pageviewTables } from "./features/pageviews/tables";
 import { ragTables } from "./features/rag/tables";
+import { byokTables } from "./features/byok/tables";
+import { mcpServerTables } from "./features/mcpServer/tables";
 
 // authTables = users, authAccounts, authSessions, ... (from @convex-dev/auth).
 // workspaceTables = workspaces/memberships/invites (the tenant boundary — see features/workspaces).
-// modelCreds = one row per (user, provider); ciphertext = AES-256-GCM(base64 iv||ct).
 export default defineSchema({
   ...authTables,
   ...workspaceTables,
@@ -29,37 +30,7 @@ export default defineSchema({
   ...auditLogTables,
   ...pageviewTables,
   ...ragTables,
-  // kind: "api_key" (ciphertext = the key) | "oauth" (ciphertext = JSON {access,refresh,expires,accountId})
-  modelCreds: defineTable({
-    userId: v.id("users"),
-    workspaceId: v.optional(v.id("workspaces")), // set = workspace-SHARED cred; unset = personal
-    provider: v.string(),
-    kind: v.optional(v.string()),
-    ciphertext: v.string(),
-    endpoint: v.optional(v.string()), // custom baseURL (BYOK custom provider); unset = built-in host
-    protocol: v.optional(v.string()), // custom-provider wire protocol: 'anthropic' (Messages API) | unset = OpenAI /chat/completions
-    models: v.optional(v.array(v.string())), // manually-entered model ids for a custom provider (no models.dev catalog) — feeds the chat picker
-    updatedAt: v.number(),
-    expires: v.optional(v.number()), // plaintext token expiry (oauth) — lets the lease check staleness without decrypting
-    refreshLeaseUntil: v.optional(v.number()), // single-flight refresh lease
-    // provider-pool (2.3) — graceful multi-credential failover. All additive/optional; existing rows
-    // read as a single-cred pool (undefined priority = default, undefined status = live).
-    label: v.optional(v.string()),          // human tag for this key in the multi-key UI
-    priority: v.optional(v.number()),       // pool order, asc (default 100); lower tried first
-    status: v.optional(v.string()),         // 'ok' | 'exhausted' (cooling) | 'dead' (excluded until re-auth)
-    cooldownUntil: v.optional(v.number()),  // epoch ms; while now < this the cred is skipped
-    backoffLevel: v.optional(v.number()),   // consecutive-failure count → exponential 429 cooldown
-    lastErrorCode: v.optional(v.string()),  // last classifyError() code (429 → rate_limited, etc.)
-    // last connectivity test result (a real 1-token call through the SAME path chat uses) —
-    // lets the Providers list show a health badge instead of only failing deep in a chat.
-    lastCheckedAt: v.optional(v.number()),
-    lastCheckedOk: v.optional(v.boolean()),
-    lastCheckedCode: v.optional(v.string()),
-    lastCheckedDetail: v.optional(v.string()),
-  })
-    .index("by_user", ["userId"])
-    .index("by_user_provider", ["userId", "provider"])
-    .index("by_ws_provider", ["workspaceId", "provider"]),
+  ...byokTables,
   // embeds — a public, origin-gated chat widget any website drops in. `token` is PUBLISHABLE (it
   // ships in the customer's client JS); security is the origin allowlist + rate limit + the owner's
   // spend cap, NOT token secrecy. Runs as the owner. See app/api/embed + convex/embedChat.
@@ -153,38 +124,7 @@ export default defineSchema({
     images: v.optional(v.array(v.id("_storage"))), // vision input — Convex storage ids attached to a user message
     at: v.number(),
   }).index("by_thread", ["threadId", "at"]),
-  // MCP access tokens — one per issued bearer. We store only sha256(token); raw shown once.
-  mcpTokens: defineTable({
-    userId: v.id("users"),
-    workspaceId: v.optional(v.id("workspaces")), // bearer acts in this workspace; unset legacy = issuer's personal ws
-    tokenHash: v.string(),
-    label: v.string(),
-    createdAt: v.number(),
-    lastUsedAt: v.optional(v.number()),
-    revoked: v.optional(v.boolean()),
-    clientId: v.optional(v.string()), // set when issued via the OAuth flow
-    scope: v.optional(v.string()),
-  })
-    .index("by_hash", ["tokenHash"])
-    .index("by_user", ["userId"]),
-  // OAuth 2.1 dynamically-registered clients (public clients — PKCE, no secret).
-  mcpClients: defineTable({
-    clientId: v.string(),
-    name: v.string(),
-    redirectUris: v.array(v.string()),
-    createdAt: v.number(),
-  }).index("by_clientId", ["clientId"]),
-  // Short-lived, single-use authorization codes (store only sha256(code)).
-  mcpAuthCodes: defineTable({
-    codeHash: v.string(),
-    userId: v.id("users"),
-    clientId: v.string(),
-    redirectUri: v.string(),
-    codeChallenge: v.string(), // S256
-    scope: v.string(),
-    expiresAt: v.number(),
-    used: v.optional(v.boolean()),
-  }).index("by_codeHash", ["codeHash"]),
+  ...mcpServerTables,
   // short-lived OAuth handshake state (PKCE verifier / device-code ids), keyed per user+provider
   oauthFlows: defineTable({
     userId: v.id("users"),

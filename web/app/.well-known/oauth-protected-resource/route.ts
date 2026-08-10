@@ -9,5 +9,5 @@ export async function GET(req: Request) {
     resource: `${origin}/mcp`,
     authorization_servers: [origin],
     bearer_methods_supported: ["header"],
-  });
+  }, { headers: { "cache-control": "public, max-age=3600" } });
 }

@@ -9,7 +9,7 @@
   "convex": {
     "tablesExport": "mcpTokens,mcpClients,mcpAuthCodes",
     "schemaPath": "convex/schema.ts",
-    "rootPaths": ["convex/mcp.ts", "convex/mcpNode.ts", "convex/mcpOauth.ts", "convex/mcpOauthNode.ts"]
+    "rootPaths": ["convex/mcp.ts", "convex/mcpNode.ts", "convex/mcpOauth.ts", "convex/mcpOauthNode.ts", "convex/_shared/mcpToken.ts", "convex/features/mcpServer"]
   },
   "frontend": { "slicePath": "frontend/slices/mcp-server", "configExport": "" },
   "deps": { "npm": [], "shadcn": [], "env": [] },

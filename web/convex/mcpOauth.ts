@@ -33,7 +33,10 @@ export const _consumeAuthCode = internalMutation({
   handler: async (ctx, a) => {
     const row = await ctx.db.query("mcpAuthCodes").withIndex("by_codeHash", (q) => q.eq("codeHash", a.codeHash)).unique();
     if (!row || row.used || Date.now() > row.expiresAt) return null;
-    await ctx.db.patch(row._id, { used: true });
-    return { userId: row.userId, clientId: row.clientId, redirectUri: row.redirectUri, codeChallenge: row.codeChallenge, scope: row.scope };
+    const rec = { userId: row.userId, clientId: row.clientId, redirectUri: row.redirectUri, codeChallenge: row.codeChallenge, scope: row.scope };
+    // delete rather than patch used:true — a replay still finds nothing and returns invalid_grant,
+    // and the table stops growing one dead row per successful login forever.
+    await ctx.db.delete(row._id);
+    return rec;
   },
 });

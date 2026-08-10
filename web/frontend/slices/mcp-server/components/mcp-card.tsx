@@ -5,7 +5,9 @@ import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
 import { ConfirmDialog } from "@/features/core";
 
-type Tok = { id: string; label: string; createdAt: number; lastUsedAt: number | null; revoked: boolean };
+type Tok = { id: string; label: string; createdAt: number; expiresAt: number | null; lastUsedAt: number | null; revoked: boolean };
+
+const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
 
 export function McpCard() {
   const issue = useAction(api.mcpNode.issueMcpToken);
@@ -46,7 +48,11 @@ export function McpCard() {
           {tokens.map((t) => (
             <li key={t.id}>
               <span className="name mono" style={{ fontSize: ".85rem", textDecoration: t.revoked ? "line-through" : "none" }}>{t.label}</span>
-              <span className="mono muted" style={{ fontSize: ".7rem" }}>{t.lastUsedAt ? "used " + new Date(t.lastUsedAt).toISOString().slice(0, 10) : "never used"}</span>
+              <span className="mono muted" style={{ fontSize: ".7rem" }}>
+                {"made " + day(t.createdAt)}
+                {t.lastUsedAt ? " · used " + day(t.lastUsedAt) : " · never used"}
+                {t.expiresAt ? " · expires " + day(t.expiresAt) : ""}
+              </span>
               {t.revoked ? <span className="badge">revoked</span> : <button className="link danger" onClick={() => setConfirm({ title: "Revoke token?", message: `Revoke "${t.label}"? Any client using it stops working immediately.`, run: () => revoke({ id: t.id as any }) })}>revoke</button>}
             </li>
           ))}
@@ -54,7 +60,11 @@ export function McpCard() {
         </>
       )}
       <details className="apikey">
-        <summary style={{ cursor: "pointer" }} className="mono muted">Claude Code / Cursor config</summary>
+        <summary style={{ cursor: "pointer" }} className="mono muted">Client setup</summary>
+        <p className="sub" style={{ marginTop: ".6rem" }}>
+          ChatGPT → Connectors → New app → paste the URL above, pick OAuth, leave Client ID/Secret blank.
+          Claude Code / Cursor use a token instead:
+        </p>
         <pre>{`{
   "mcpServers": {
     "models-rahmanef": {

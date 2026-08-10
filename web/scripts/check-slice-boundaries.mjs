@@ -51,6 +51,27 @@ for (const root of ["app", "frontend"]) {
   }
 }
 
+// 4) a slice may only import another slice it DECLARES in slice.manifest.json → deps.slices.
+// This is the check that was missing while byok/mcp-client/memory quietly grew undeclared edges:
+// the manifest is what `npx rr add` copies, so an undeclared edge ships as non-compiling code.
+const SLICES = join(WEB, "frontend/slices");
+const FEATURE_IMPORT = /from\s+["']@\/features\/([a-z0-9-]+)/g;
+if (existsSync(SLICES)) {
+  for (const slug of readdirSync(SLICES, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)) {
+    const manifestPath = join(SLICES, slug, "slice.manifest.json");
+    if (!existsSync(manifestPath)) { fails.push(`${slug}: no slice.manifest.json`); continue; }
+    const declared = new Set(JSON.parse(readFileSync(manifestPath, "utf8"))?.deps?.slices ?? []);
+    for (const file of walk(join(SLICES, slug))) {
+      const rel = relative(WEB, file).replaceAll("\\", "/");
+      const src = readFileSync(file, "utf8");
+      for (const [, target] of src.matchAll(FEATURE_IMPORT)) {
+        if (target === slug || declared.has(target)) continue;
+        fails.push(`${rel} imports @/features/${target} but ${slug}/slice.manifest.json does not declare it in deps.slices`);
+      }
+    }
+  }
+}
+
 if (fails.length) {
   console.error("✗ slice-boundary check FAILED:\n" + fails.map((f) => "  - " + f).join("\n"));
   process.exit(1);

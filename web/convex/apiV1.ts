@@ -44,6 +44,9 @@ export const handle = action({
     if (!auth) return err(401, "invalid_key", "Invalid or revoked API key.");
     const rl = await ctx.runMutation(internal.rateLimit.hit, { key: `v1key:${auth.apiKeyId}`, max: 120, windowMs: 60_000 });
     if (!rl.ok) return err(429, "rate_limited", "Rate limit exceeded for this key (120/min).");
+    // ponytail: same daily backstop as the MCP surface — without it abuse just moves one endpoint over.
+    const dayRl = await ctx.runMutation(internal.rateLimit.hit, { key: `v1day:${auth.apiKeyId}`, max: 2000, windowMs: 86_400_000 });
+    if (!dayRl.ok) return err(429, "rate_limited", "Daily limit reached for this key (2000/day).");
     await ctx.runMutation(internal.apiKeys._touch, { id: auth.apiKeyId });
     const { userId, workspaceId } = auth;
 

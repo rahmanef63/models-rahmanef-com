@@ -5,6 +5,7 @@ import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { v, ConvexError } from "convex/values";
 import { requireUser } from "./_shared/auth";
+import { TOKEN_TTL_MS } from "./_shared/mcpToken";
 
 const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 async function sha256hex(s: string): Promise<string> {
@@ -45,7 +46,9 @@ export const createAuthCode = action({
     const code = rand("mcpa_", 32);
     await ctx.runMutation(internal.mcpOauth._storeAuthCode, {
       codeHash: await sha256hex(code), userId, clientId: a.clientId, redirectUri: a.redirectUri,
-      codeChallenge: a.codeChallenge, scope: (a.scope || "mcp").slice(0, 200), expiresAt: Date.now() + 60_000,
+      // the AS advertises exactly one scope and it means everything — never echo back a narrower
+      // scope the client asked for, or it believes it holds read-only while holding full write.
+      codeChallenge: a.codeChallenge, scope: "mcp", expiresAt: Date.now() + 60_000,
     });
     return { code };
   },
@@ -54,15 +57,17 @@ export const createAuthCode = action({
 // Backing for /oauth/token. Validates the code + PKCE verifier, mints the bearer (sha256-stored).
 export const exchangeCode = action({
   args: { code: v.string(), clientId: v.string(), redirectUri: v.string(), codeVerifier: v.string(), ip: v.optional(v.string()) },
-  handler: async (ctx, a): Promise<{ access_token: string; token_type: string; scope: string }> => {
+  handler: async (ctx, a): Promise<{ access_token: string; token_type: string; scope: string; expires_in: number }> => {
     const rl = await ctx.runMutation(internal.rateLimit.hit, { key: `token:${a.ip ?? "?"}`, max: 30, windowMs: 60_000 }); // 30 exchanges / min / IP
     if (!rl.ok) throw new ConvexError({ code: "rate_limited", retryAfter: rl.retryAfter });
     const rec = await ctx.runMutation(internal.mcpOauth._consumeAuthCode, { codeHash: await sha256hex(a.code) });
     if (!rec) throw new Error("invalid_grant");
     if (rec.clientId !== a.clientId || rec.redirectUri !== a.redirectUri) throw new Error("invalid_grant");
+    // RFC 7636 §4.1 — a verifier outside 43..128 chars can never be the one that produced the challenge.
+    if (a.codeVerifier.length < 43 || a.codeVerifier.length > 128) throw new Error("invalid_grant");
     if ((await sha256b64url(a.codeVerifier)) !== rec.codeChallenge) throw new Error("invalid_grant");
     const token = rand("mcp_", 32);
     await ctx.runMutation(internal.mcp._storeToken, { userId: rec.userId, tokenHash: await sha256hex(token), label: `oauth · ${rec.clientId.slice(0, 14)}`, clientId: rec.clientId, scope: rec.scope });
-    return { access_token: token, token_type: "Bearer", scope: rec.scope };
+    return { access_token: token, token_type: "Bearer", scope: rec.scope, expires_in: Math.floor(TOKEN_TTL_MS / 1000) };
   },
 });
