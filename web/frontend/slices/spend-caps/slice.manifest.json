@@ -1,5 +1,4 @@
 {
-  "$schema": "../../../docs/slice.manifest.schema.json",
   "name": "spend-caps",
   "version": "0.1.0",
   "description": "Optional per-workspace monthly USD budget. checkSpendCap (internal) gates callForUser — once this month's estimated workspaceUsageDaily cost >= the workspace cap, new model calls throw quota_exceeded. setSpendCap (admin) / getSpendStatus (viewer) power a SpendCapCard bar.",

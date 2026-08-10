@@ -1,0 +1,20 @@
+{
+  "slug": "mcp-server",
+  "version": "0.1.0",
+  "category": "feature",
+  "kind": "feature",
+  "title": "Inbound MCP server",
+  "description": "Expose THIS gateway's tools over MCP so Claude Code, Cursor, ChatGPT or any MCP-aware agent can call them as you (your BYOK keys). JSON-RPC dispatch derived from TOOL_REGISTRY, per-user bearer tokens stored as sha256 (raw shown once), plus a full OAuth 2.1 authorization server — RFC 7591 dynamic client registration, PKCE S256, single-use 60s auth codes — and the two .well-known discovery documents. The mirror of mcp-client: this one SERVES tools, that one CONSUMES them.",
+  "namespace": "@/features/mcp-server",
+  "convex": {
+    "tablesExport": "mcpTokens,mcpClients,mcpAuthCodes",
+    "schemaPath": "convex/schema.ts",
+    "rootPaths": ["convex/mcp.ts", "convex/mcpNode.ts", "convex/mcpOauth.ts", "convex/mcpOauthNode.ts"]
+  },
+  "frontend": { "slicePath": "frontend/slices/mcp-server", "configExport": "" },
+  "deps": { "npm": [], "shadcn": [], "env": [] },
+  "registers": ["registry"],
+  "license": "MIT",
+  "tags": ["ai", "mcp", "oauth", "pkce", "bearer", "tools", "convex"],
+  "providers": []
+}

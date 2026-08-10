@@ -1,0 +1,14 @@
+{
+  "name": "mcp-server",
+  "version": "0.1.0",
+  "description": "Serve this gateway's tools over MCP — per-user sha256 bearer tokens, JSON-RPC dispatch derived from TOOL_REGISTRY, and an OAuth 2.1 AS (RFC 7591 DCR + PKCE S256) with both .well-known documents.",
+  "category": "feature",
+  "stability": "alpha",
+  "deps": { "shared": ["convex/_shared/auth", "convex/rateLimit.ts", "convex/toolRegistry.ts", "convex/toolHandlers.ts"], "slices": ["core", "workspaces"], "convexFeatures": [], "npm": {}, "env": [] },
+  "files": { "include": ["**/*"], "exclude": ["*.test.ts", "*.test.tsx", "*.spec.ts"] },
+  "permissions": ["authed-user", "bearer-token"],
+  "schemaTables": ["mcpTokens", "mcpClients", "mcpAuthCodes"],
+  "compatibility": { "next": ">=16 <17", "react": "^19", "convex": "^1.16", "tailwind": "any", "auth": "@convex-dev/auth" },
+  "tags": ["ai", "mcp", "oauth", "pkce", "bearer", "tools", "convex"],
+  "notes": "Declared IN PLACE: convex/mcp*.ts stay at the convex root because Convex derives api paths from file paths — moving them under convex/features/ would rename api.mcp.* repo-wide (the trap documented in convex/features/byok/index.ts). The three tables are inline in convex/schema.ts (the byok precedent), not a features/*/tables.ts. The tool catalog is the seam: dispatch is derived from convex/toolRegistry.ts + convex/toolHandlers.ts, declared in deps.shared — swap those two and the server exposes a different tool set with no change here. Next routes (/mcp, /oauth/*, /.well-known/*) are listed in slice.contract.ts provides.routes, following api-compat. Mirror of mcp-client: this slice SERVES tools, that one CONSUMES them (loop guard: derived mcp-client tools are never re-exported here)."
+}

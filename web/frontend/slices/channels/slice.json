@@ -1,5 +1,4 @@
 {
-  "$schema": "https://resource.rahmanef.com/slice-schema.json",
   "slug": "channels",
   "version": "0.1.0",
   "category": "feature",
@@ -10,10 +9,10 @@
   "convex": {
     "tablesExport": "channels",
     "schemaPath": "convex/schema.ts",
-    "rootPaths": ["convex/channelsCore.ts", "convex/channelsAccess.ts", "convex/channelsIngest.ts", "convex/channelsDispatch.ts", "convex/channelsCrypto.ts", "convex/channelTelegram.ts", "convex/channelSlack.ts", "convex/channelWhatsapp.ts", "convex/channelDiscord.ts", "convex/features/channels"]
+    "rootPaths": ["convex/channelsCore.ts", "convex/channelsAccess.ts", "convex/channelsIngest.ts", "convex/channelsDispatch.ts", "convex/channelsCrypto.ts", "convex/channelTelegram.ts", "convex/channelSlack.ts", "convex/channelWhatsapp.ts", "convex/channelDiscord.ts", "convex/agentDefs.ts", "convex/toolRegistry.ts", "convex/skillsRegistry.ts", "convex/features/channels"]
   },
-  "frontend": { "slicePath": "frontend/slices/channels", "configExport": "channelsConfig" },
-  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth"] },
+  "frontend": { "slicePath": "frontend/slices/channels", "configExport": "" },
+  "deps": { "npm": [], "shadcn": [], "env": [] },
   "registers": ["registry"],
   "license": "MIT",
   "tags": ["ai", "channels", "telegram", "slack", "whatsapp", "discord", "webhook", "messaging", "convex"],

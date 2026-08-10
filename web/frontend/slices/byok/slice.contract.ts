@@ -31,9 +31,8 @@ export const contract = defineSliceContract({
   bidir: {
     syncPolicy: "manual",
     generalization: {
-      // consumer-locked: UI still imports the app's shared PROVIDER_LABEL/ErrorLine and the
-      // app-owned oauth.ts actions. Generalize (labels + provider registry as props, drop the
-      // oauth coupling) before any UP push to rr.
+      // consumer-locked: the UI still calls the oauth.ts / oauthCopilot.ts actions directly.
+      // Generalize (provider registry as props, drop the oauth coupling) before any UP push to rr.
       level: "consumer-locked",
       forbiddenTerms: ["models-rahmanef", "rahmanef"],
       requiredProps: ["setCredential", "testCredential", "deleteCredential", "catalog"],

@@ -1,5 +1,4 @@
 {
-  "$schema": "https://resource.rahmanef.com/slice-schema.json",
   "slug": "spend-caps",
   "version": "0.1.0",
   "category": "feature",
@@ -12,8 +11,8 @@
     "schemaPath": "convex/schema.ts",
     "rootPaths": ["convex/spendCaps.ts"]
   },
-  "frontend": { "slicePath": "frontend/slices/spend-caps", "configExport": null },
-  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth"] },
+  "frontend": { "slicePath": "frontend/slices/spend-caps", "configExport": "" },
+  "deps": { "npm": [], "shadcn": [], "env": [] },
   "registers": [],
   "license": "MIT",
   "tags": ["ai", "billing", "cost", "budget", "quota", "workspace", "convex"],

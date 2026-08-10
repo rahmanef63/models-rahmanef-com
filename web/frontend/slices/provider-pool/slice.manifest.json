@@ -1,5 +1,4 @@
 {
-  "$schema": "../../../docs/slice.manifest.schema.json",
   "name": "provider-pool",
   "version": "0.1.0",
   "description": "EXTENDS byok with graceful multi-credential failover + error-based cooldown. Pure fallbackRules.ts verdict table + providerPool.pickCredentials/markCredResult over the existing modelCreds rows; a ≤3-attempt loop in callForUser's BYOK branch. codex/claude OAuth creds stay single-cred (not pooled).",

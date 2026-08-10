@@ -1,5 +1,4 @@
 {
-  "$schema": "https://resource.rahmanef.com/slice-schema.json",
   "slug": "workspaces",
   "version": "0.1.0",
   "category": "feature",
@@ -10,10 +9,10 @@
   "convex": {
     "tablesExport": "workspaces,memberships,invites",
     "schemaPath": "convex/schema.ts",
-    "rootPaths": ["convex/workspaces.ts", "convex/workspaceInvites.ts", "convex/features/workspaces"]
+    "rootPaths": ["convex/workspaces.ts", "convex/workspaceInvites.ts", "convex/settings.ts", "convex/features/workspaces"]
   },
-  "frontend": { "slicePath": "frontend/slices/workspaces", "configExport": "workspacesConfig" },
-  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth"] },
+  "frontend": { "slicePath": "frontend/slices/workspaces", "configExport": "" },
+  "deps": { "npm": [], "shadcn": [], "env": [] },
   "registers": ["registry"],
   "license": "MIT",
   "tags": ["workspace", "multi-tenant", "rbac", "team", "org", "invites", "convex"],

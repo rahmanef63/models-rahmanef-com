@@ -1,5 +1,4 @@
 {
-  "$schema": "../../../docs/slice.manifest.schema.json",
   "name": "combos",
   "version": "0.1.0",
   "description": "Model-ref indirection: one `combo/<name>` maps to several `provider/model` refs, chosen per call by strategy (fallback|round_robin). resolveCombo runs at the top of callForUser.",

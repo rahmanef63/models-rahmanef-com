@@ -1,5 +1,4 @@
 {
-  "$schema": "https://resource.rahmanef.com/slice-schema.json",
   "slug": "provider-pool",
   "version": "0.1.0",
   "category": "feature",
@@ -12,8 +11,8 @@
     "schemaPath": "convex/schema.ts",
     "rootPaths": ["convex/providerPool.ts", "convex/fallbackRules.ts"]
   },
-  "frontend": { "slicePath": "frontend/slices/provider-pool", "configExport": "providerPoolConfig" },
-  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth"] },
+  "frontend": { "slicePath": "frontend/slices/provider-pool", "configExport": "" },
+  "deps": { "npm": [], "shadcn": [], "env": [] },
   "registers": [],
   "license": "MIT",
   "tags": ["ai", "byok", "credentials", "failover", "cooldown", "resilience", "convex"],

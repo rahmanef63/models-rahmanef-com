@@ -1,5 +1,4 @@
 {
-  "$schema": "../../../docs/slice.manifest.schema.json",
   "name": "api-compat",
   "version": "0.1.0",
   "description": "Workspace-bound sk-rr API keys + /v1/chat/completions + /v1/models over callForUser.",

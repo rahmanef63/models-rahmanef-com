@@ -1,5 +1,4 @@
 {
-  "$schema": "https://resource.rahmanef.com/slice-schema.json",
   "slug": "memory",
   "version": "0.2.0",
   "category": "feature",
@@ -10,10 +9,10 @@
   "convex": {
     "tablesExport": "memories",
     "schemaPath": "convex/schema.ts",
-    "rootPaths": ["convex/memory.ts", "convex/memoryAutoSummary.ts", "convex/memorySummarize.ts", "convex/memoryCuration.ts", "convex/features/memory"]
+    "rootPaths": ["convex/memory.ts", "convex/memoryNotes.ts", "convex/memoryAutoSummary.ts", "convex/memorySummarize.ts", "convex/memoryCuration.ts", "convex/settings.ts", "convex/features/memory"]
   },
-  "frontend": { "slicePath": "frontend/slices/memory", "configExport": "memoryConfig" },
-  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth"] },
+  "frontend": { "slicePath": "frontend/slices/memory", "configExport": "" },
+  "deps": { "npm": [], "shadcn": [], "env": [] },
   "registers": ["registry", "cron"],
   "license": "MIT",
   "tags": ["ai", "memory", "recall", "agents", "convex"],

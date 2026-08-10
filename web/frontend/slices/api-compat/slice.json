@@ -1,5 +1,4 @@
 {
-  "$schema": "https://resource.rahmanef.com/slice-schema.json",
   "slug": "api-compat",
   "version": "0.1.0",
   "category": "feature",
@@ -12,8 +11,8 @@
     "schemaPath": "convex/schema.ts",
     "rootPaths": ["convex/apiKeys.ts", "convex/apiV1.ts", "convex/features/apiCompat"]
   },
-  "frontend": { "slicePath": "frontend/slices/api-compat", "configExport": "apiCompatConfig" },
-  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth"] },
+  "frontend": { "slicePath": "frontend/slices/api-compat", "configExport": "" },
+  "deps": { "npm": [], "shadcn": [], "env": [] },
   "registers": ["registry"],
   "license": "MIT",
   "tags": ["ai", "openai-compatible", "gateway", "api-key", "v1", "convex"],

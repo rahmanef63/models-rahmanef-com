@@ -1,5 +1,4 @@
 {
-  "$schema": "../../../docs/slice.manifest.schema.json",
   "name": "workspaces",
   "version": "0.1.0",
   "description": "The tenant boundary (org/team/individual): workspaces/memberships/invites + RBAC + provider WorkspaceProvider/switcher/Members + /invite accept.",

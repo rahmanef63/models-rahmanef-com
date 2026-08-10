@@ -1,5 +1,4 @@
 {
-  "$schema": "https://resource.rahmanef.com/slice-schema.json",
   "slug": "audit-log",
   "version": "0.1.0",
   "category": "feature",
@@ -12,8 +11,8 @@
     "schemaPath": "convex/schema.ts",
     "rootPaths": ["convex/audit.ts", "convex/features/auditLog"]
   },
-  "frontend": { "slicePath": "frontend/slices/audit-log", "configExport": "auditLogConfig" },
-  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth", "workspaces"] },
+  "frontend": { "slicePath": "frontend/slices/audit-log", "configExport": "" },
+  "deps": { "npm": [], "shadcn": [], "env": [] },
   "registers": ["cron"],
   "license": "MIT",
   "tags": ["ai", "audit", "compliance", "workspaces", "convex"],

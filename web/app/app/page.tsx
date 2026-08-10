@@ -9,7 +9,7 @@ import { type Cred, type Catalog } from "@/features/byok";
 import { Overview } from "./_components/overview";
 import { UsageCard } from "./_components/usage";
 import { TokenSaverCard } from "./_components/settings";
-import { McpCard } from "./_components/mcp";
+import { McpCard } from "@/features/mcp-server";
 import { EmbedCard } from "./_components/embed";
 import { AdminCard } from "./_components/admin";
 import { AdminAnalyticsCard } from "./_components/admin-analytics";

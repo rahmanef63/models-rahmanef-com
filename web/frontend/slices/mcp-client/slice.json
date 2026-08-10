@@ -1,5 +1,4 @@
 {
-  "$schema": "https://resource.rahmanef.com/slice-schema.json",
   "slug": "mcp-client",
   "version": "0.1.0",
   "category": "feature",
@@ -12,12 +11,11 @@
     "schemaPath": "convex/schema.ts",
     "rootPaths": ["convex/mcpServers.ts", "convex/mcpClientNode.ts", "convex/features/mcpClient"]
   },
-  "frontend": { "slicePath": "frontend/slices/mcp-client", "configExport": "mcpClientConfig" },
+  "frontend": { "slicePath": "frontend/slices/mcp-client", "configExport": "" },
   "deps": {
     "npm": ["@modelcontextprotocol/sdk"],
     "shadcn": [],
-    "env": ["MODELS_ENC_KEY"],
-    "peers": ["@convex-dev/auth"]
+    "env": ["MODELS_ENC_KEY"]
   },
   "registers": ["registry"],
   "license": "MIT",

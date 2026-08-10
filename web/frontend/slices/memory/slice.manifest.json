@@ -1,5 +1,4 @@
 {
-  "$schema": "../../../docs/slice.manifest.schema.json",
   "name": "memory",
   "version": "0.2.0",
   "description": "Curated cross-session agent memory + memory/recall_memory tools + <memory-context> injection + opt-in auto-summarize + daily archive-only curation cron. Scope tabs (user/workspace/summaries), pin/unpin, per-scope budget bars.",

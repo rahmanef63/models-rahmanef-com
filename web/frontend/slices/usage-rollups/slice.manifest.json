@@ -1,5 +1,4 @@
 {
-  "$schema": "../../../docs/slice.manifest.schema.json",
   "name": "usage-rollups",
   "version": "0.1.0",
   "description": "Per-workspace daily usage rollups (calls, tokens) + estimated cost from a static rate map. 6-hour rollupDay cron upserts workspaceUsageDaily; workspaceUsage query feeds a per-day WorkspaceUsageCard scoped to the active workspace.",

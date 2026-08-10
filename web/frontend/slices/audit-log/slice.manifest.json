@@ -1,5 +1,4 @@
 {
-  "$schema": "../../../docs/slice.manifest.schema.json",
   "name": "audit-log",
   "version": "0.1.0",
   "description": "Append-only workspace audit trail. audit.record inserts one bounded, immutable row; the highest-value hooks db.insert directly inside the acting mutation (member role change/remove, leave, invite accept, shared-credential delete) so the audit row commits in the SAME transaction — no action hop. Admin-only AuditLogCard lists recent events with actor + action + time + action-prefix filter pills; a daily cron prunes rows >90 days.",

@@ -85,7 +85,7 @@ function Inner(p: {
       </p>
       <div className="mcp-endpoint mono" style={{ marginBottom: "0.6rem" }}>access code will be sent to → {destHost || p.redirectUri}</div>
       <p className="sub">
-        If you approve, it can list your providers, view your usage, and chat using <b>your own BYOK keys</b> until you revoke it (Dashboard → MCP). It never sees your keys.
+        If you approve, it gets all 20 MCP tools until you revoke it (Dashboard → MCP): list your providers, view your usage, chat using <b>your own BYOK keys</b>, and create or change vault notes, memories, agents, combos, schedules, channels and provider connections (including adding new API keys). It never sees your existing keys.
         <b> Only approve if you recognise the destination above.</b>
       </p>
       <div className="row">

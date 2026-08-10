@@ -1,5 +1,4 @@
 {
-  "$schema": "https://resource.rahmanef.com/slice-schema.json",
   "slug": "combos",
   "version": "0.1.0",
   "category": "feature",
@@ -12,8 +11,8 @@
     "schemaPath": "convex/schema.ts",
     "rootPaths": ["convex/combos.ts", "convex/features/combos"]
   },
-  "frontend": { "slicePath": "frontend/slices/combos", "configExport": "combosConfig" },
-  "deps": { "npm": [], "shadcn": [], "env": [], "peers": ["@convex-dev/auth", "workspaces", "byok"] },
+  "frontend": { "slicePath": "frontend/slices/combos", "configExport": "" },
+  "deps": { "npm": [], "shadcn": [], "env": [] },
   "registers": [],
   "license": "MIT",
   "tags": ["ai", "models", "routing", "gateway", "convex"],

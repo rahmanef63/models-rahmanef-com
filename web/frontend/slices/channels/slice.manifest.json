@@ -1,5 +1,4 @@
 {
-  "$schema": "../../../docs/slice.manifest.schema.json",
   "name": "channels",
   "version": "0.1.0",
   "description": "Inbound messaging channels (Telegram · Slack · WhatsApp · Discord): webhook ingress → per-platform signature verify → dedupe → thread upsert → callForUser → reply-to-origin.",

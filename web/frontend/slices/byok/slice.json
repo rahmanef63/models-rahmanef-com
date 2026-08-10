@@ -1,5 +1,4 @@
 {
-  "$schema": "https://resource.rahmanef.com/slice-schema.json",
   "slug": "byok",
   "version": "0.1.0",
   "category": "feature",
@@ -10,14 +9,13 @@
   "convex": {
     "tablesExport": "modelCreds",
     "schemaPath": "convex/schema.ts",
-    "rootPaths": ["convex/credentials.ts", "convex/crypto.ts", "convex/chatProviders.ts", "convex/features/byok"]
+    "rootPaths": ["convex/credentials.ts", "convex/crypto.ts", "convex/chatProviders.ts", "convex/credsPool.ts", "convex/customProvider.ts", "convex/oauth.ts", "convex/oauthCopilot.ts", "convex/codexLib.ts", "convex/claudeLib.ts", "convex/copilotLib.ts", "convex/features/byok"]
   },
-  "frontend": { "slicePath": "frontend/slices/byok", "configExport": "byokConfig" },
+  "frontend": { "slicePath": "frontend/slices/byok", "configExport": "" },
   "deps": {
     "npm": ["@ai-sdk/openai@^4", "@ai-sdk/anthropic@^4", "@ai-sdk/google@^4", "@openrouter/ai-sdk-provider@^2"],
     "shadcn": [],
-    "env": ["MODELS_ENC_KEY"],
-    "peers": ["@convex-dev/auth"]
+    "env": ["MODELS_ENC_KEY"]
   },
   "registers": ["registry"],
   "license": "MIT",

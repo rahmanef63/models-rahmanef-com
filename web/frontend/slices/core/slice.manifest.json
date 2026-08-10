@@ -1,5 +1,4 @@
 {
-  "$schema": "../../../docs/slice.manifest.schema.json",
   "name": "core",
   "version": "0.1.0",
   "description": "Shared UI + helper substrate: ResponsiveDialog/ConfirmDialog (+useConfirm), SectionErrorBoundary, useTheme, fmt/ago/dt, errData/ErrorLine/FRIENDLY. React-only, no app-root coupling — the most portable slice in the catalog.",
@@ -17,5 +16,5 @@
   "schemaTables": [],
   "compatibility": { "next": ">=16 <17", "react": "^19", "convex": "any", "tailwind": "any", "auth": "any" },
   "tags": ["core", "ui", "primitives", "dialog", "theme", "errors"],
-  "notes": "Source of truth for the shared kit that used to live in app/app/_components/{shared,responsive-dialog,error-boundary,use-theme}. Those app paths are now thin re-export barrels pointing here, so app internals kept their stable imports with zero churn. Feature slices import from @/features/core instead of the app root — that is what makes them copy-clean. ErrorLine is provider-agnostic: pass a `labels` map (byok owns PROVIDER_LABEL) for display names."
+  "notes": "Source of truth for the shared kit that used to live in app/app/_components/{shared,responsive-dialog,error-boundary,use-theme}. Those app paths were briefly thin re-export barrels pointing here; c68a932 deleted them and repointed every app import at @/features/core — the boundary guard now fails the build if they come back. Feature slices import from @/features/core instead of the app root — that is what makes them copy-clean. ErrorLine is provider-agnostic: pass a `labels` map (byok owns PROVIDER_LABEL) for display names."
 }

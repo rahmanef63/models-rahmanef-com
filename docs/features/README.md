@@ -1,13 +1,15 @@
 # Feature Catalog — models-rahmanef-com
 
 Every feature here is a **vertical slice** under `web/frontend/slices/<slug>/` (UI + types)
-and, where it has a backend, `web/convex/features/<slug>/` (schema + queries + mutations).
+and, where it has a backend, `web/convex/features/<slug>/` (schema tables only — the queries,
+mutations and actions stay at the convex root and are listed in `slice.json → convex.rootPaths`).
 Slices are **mix-and-match**: you install only the ones you want, and each declares the
 other slices it needs in `slice.manifest.json → deps.slices`. Nothing reaches into the app
 root — a CI guard (`web/scripts/check-slice-boundaries.mjs`) enforces it.
 
 > Distribution = **file-copy** (the rr `npx rr add <slug>` model), not npm. Copying a slice
-> also copies its `convex/features/<slug>/`, and a `convex codegen` regenerates the API — so
+> also copies its `convex/features/<slug>/` **+ the files in its `slice.json → convex.rootPaths`**,
+> and a `convex codegen` regenerates the API — so
 > there's no per-deployment code to hand-edit.
 
 ## Submenu
@@ -19,7 +21,7 @@ root — a CI guard (`web/scripts/check-slice-boundaries.mjs`) enforces it.
   - [core](#core) · [workspaces](#workspaces) · [byok](#byok) · [provider-pool](#provider-pool)
   - [memory](#memory) · [memory-graph](#memory-graph)
   - [combos](#combos) · [scheduled-agents](#scheduled-agents) · [channels](#channels)
-  - [api-compat](#api-compat) · [mcp-client](#mcp-client)
+  - [api-compat](#api-compat) · [mcp-client](#mcp-client) · [mcp-server](#mcp-server)
   - [usage-rollups](#usage-rollups) · [spend-caps](#spend-caps) · [audit-log](#audit-log)
 - [Install & run — cd + commands](#install--run)
 
@@ -96,6 +98,7 @@ so the modular boundary can't rot.
 graph LR
   core --> workspaces
   core --> byok
+  workspaces --> byok
   core --> memory
   byok --> provider-pool
   memory --> memory-graph
@@ -115,6 +118,9 @@ graph LR
   workspaces --> api-compat
   byok --> api-compat
   core --> mcp-client
+  workspaces --> mcp-client
+  core --> mcp-server
+  workspaces --> mcp-server
 ```
 
 Every feature also has `@convex-dev/auth` as a peer.
@@ -146,9 +152,9 @@ membership. The authz base other features gate on via `requireWorkspaceRole`.
 credentials (AES-256-GCM), a provider registry (OpenAI/Anthropic/Google/OpenRouter + 28
 OpenAI-compatible + OAuth + custom endpoints), health checks, and the model catalog that feeds
 every picker.
-- **Requires:** slices `core` · npm `@ai-sdk/openai @ai-sdk/anthropic @ai-sdk/google @openrouter/ai-sdk-provider` · env **`MODELS_ENC_KEY`** · tables `modelCreds` · RBAC `authed-user`
+- **Requires:** slices `core, workspaces` · npm `@ai-sdk/openai @ai-sdk/anthropic @ai-sdk/google @openrouter/ai-sdk-provider` · env **`MODELS_ENC_KEY`** · tables `modelCreds` · RBAC `authed-user`
 - **Connects to:** **required by anything that runs a model** — combos, scheduled-agents, channels, api-compat, agents/chat (app-level).
-- **Install:** `npx rr add core byok` — then set `MODELS_ENC_KEY` and connect a provider in the UI.
+- **Install:** `npx rr add core workspaces byok` — then set `MODELS_ENC_KEY` and connect a provider in the UI.
 
 ### provider-pool
 Failover + cooldown across multiple keys for the same provider (picks up to 3 candidate creds,
@@ -198,9 +204,18 @@ external apps point their SDK at your URL.
 
 ### mcp-client
 Connect **external MCP servers** so their tools become available to your agents (encrypted creds).
-- **Requires:** slices `core` · npm `@modelcontextprotocol/sdk` · env **`MODELS_ENC_KEY`** · tables `mcpServers` · RBAC `authed-user`
+- **Requires:** slices `core, workspaces` · npm `@modelcontextprotocol/sdk` · env **`MODELS_ENC_KEY`** · tables `mcpServers` · RBAC `authed-user`
 - **Connects to:** **external** MCP servers; the imported tools attach to agent runs (which need byok).
-- **Install:** `npx rr add core mcp-client`
+- **Install:** `npx rr add core workspaces mcp-client`
+
+### mcp-server
+The mirror of mcp-client: expose **your** gateway tools over MCP so Claude Code, Cursor, ChatGPT or
+any MCP-aware agent calls them as you. Per-user bearer tokens (sha256 at rest, shown once) **plus** a
+full OAuth 2.1 AS — dynamic client registration, PKCE S256, single-use 60s codes, both `.well-known`
+documents. Tool set is whatever `convex/toolRegistry.ts` marks with the `mcp` surface.
+- **Requires:** slices `core, workspaces` · tables `mcpTokens, mcpClients, mcpAuthCodes` · routes `/mcp`, `/oauth/*`, `/.well-known/*` · RBAC `authed-user, bearer-token`
+- **Connects to:** **external** MCP clients inbound; the exposed tools run through the same handlers as agents (so most of them **need byok**).
+- **Install:** `npx rr add core workspaces mcp-server`
 
 ### usage-rollups
 Daily per-workspace usage aggregation (tokens / calls) for dashboards and caps.

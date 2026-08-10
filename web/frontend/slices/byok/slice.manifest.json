@@ -1,13 +1,12 @@
 {
-  "$schema": "../../../docs/slice.manifest.schema.json",
   "name": "byok",
   "version": "0.1.0",
   "description": "Bring-your-own-key credential vault + provider-connection registry. Owns modelCreds (AES-256-GCM), per-user CRUD, the OpenAI-compatible provider map, and the Providers UI.",
   "category": "feature",
   "stability": "alpha",
   "deps": {
-    "shared": [],
-    "slices": ["core"],
+    "shared": ["convex/_shared/auth", "convex/_shared/ssrf"],
+    "slices": ["core", "workspaces"],
     "convexFeatures": [],
     "npm": {
       "@ai-sdk/openai": "^4.0.5",

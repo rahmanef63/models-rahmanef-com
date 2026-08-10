@@ -1,5 +1,4 @@
 {
-  "$schema": "../../../docs/slice.manifest.schema.json",
   "name": "scheduled-agents",
   "version": "0.1.0",
   "description": "Run a saved agent on a recurring interval. A 5-min cron claims due enabled schedules (bounded 50, OCC-safe via lastRunAt claim-stamp) and runs each through the SAME callForUser pipeline as a normal agent run (`agent/<id>` model ref). Runs AS the creator, spending that workspace's creds; interval floored at 15 min.",
