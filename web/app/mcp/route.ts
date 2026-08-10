@@ -25,6 +25,9 @@ export async function POST(req: Request) {
   }
   // A JSON-RPC notification has no id and expects no body — ack every one, not just
   // notifications/initialized, or a client that sends notifications/cancelled hangs on a response.
+  // ponytail: acked BEFORE the token is validated, so this path skips the Convex-side IP rate
+  // limiter. It does no work and reveals nothing; if notification spam ever shows up in the logs,
+  // validate first and eat the extra round-trip.
   const b = body as { id?: unknown; method?: unknown } | null;
   if (b?.id == null && String(b?.method ?? "").startsWith("notifications/")) {
     return new Response(null, { status: 202 });
