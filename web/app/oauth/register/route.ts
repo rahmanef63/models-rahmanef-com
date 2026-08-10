@@ -23,6 +23,12 @@ export async function POST(req: Request) {
     );
   } catch (e: any) {
     if (e?.data?.code === "rate_limited") return Response.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(e.data.retryAfter ?? 60) } });
-    return Response.json({ error: "invalid_client_metadata", error_description: String(e?.message ?? e).slice(0, 160) }, { status: 400 });
+    // only our own structured detail is ever echoed — a raw Convex message is "Server Error" plus a
+    // request id, which tells the client nothing and leaks our internals into a public endpoint.
+    const d = e?.data && typeof e.data === "object" ? e.data : null;
+    return Response.json(
+      { error: d?.code ?? "invalid_client_metadata", error_description: d?.detail ?? "client metadata rejected" },
+      { status: 400, headers: { "Cache-Control": "no-store" } },
+    );
   }
 }

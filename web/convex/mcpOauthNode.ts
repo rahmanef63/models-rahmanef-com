@@ -26,8 +26,10 @@ export const registerClient = action({
     const rl = await ctx.runMutation(internal.rateLimit.hit, { key: `dcr:${a.ip ?? "?"}`, max: 10, windowMs: 3_600_000 }); // 10 registrations / hour / IP
     if (!rl.ok) throw new ConvexError({ code: "rate_limited", retryAfter: rl.retryAfter });
     const uris = [...new Set(a.redirectUris.filter(okRedirect))];
-    if (uris.length === 0) throw new Error("at least one https redirect_uri required");
-    if (uris.length > 8) throw new Error("too many redirect_uris");
+    // ConvexError, not Error: Convex redacts a plain throw to "Server Error" in prod, so a client
+    // that sent a bad redirect_uri would get no idea what it did wrong.
+    if (uris.length === 0) throw new ConvexError({ code: "invalid_redirect_uri", detail: "at least one https (or localhost) redirect_uri is required" });
+    if (uris.length > 8) throw new ConvexError({ code: "invalid_client_metadata", detail: "at most 8 redirect_uris" });
     const clientId = rand("mcpc_", 18);
     await ctx.runMutation(internal.mcpOauth._registerClient, { clientId, name: (a.name || "MCP Client").slice(0, 80), redirectUris: uris });
     return { client_id: clientId, redirect_uris: uris };
