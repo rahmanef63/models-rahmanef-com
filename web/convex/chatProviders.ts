@@ -25,6 +25,11 @@ export const OPENAI_COMPAT: Record<string, string> = {
   sambanova: "https://api.sambanova.ai/v1",
   novita: "https://api.novita.ai/v3/openai",
   cohere: "https://api.cohere.ai/compatibility/v1",
+  // models.dev calls this provider `zai`, not `glm`, and both the model list
+  // and the connectivity test join the catalog on the raw slug — so a key
+  // saved under `glm` chats fine but shows ZERO models and can never be
+  // tested. `zai` is the slug to pick; `glm` stays for existing rows.
+  zai: "https://api.z.ai/api/paas/v4",
   glm: "https://api.z.ai/api/paas/v4",
   "github-models": "https://models.github.ai/inference",
   "vercel-gateway": "https://ai-gateway.vercel.sh/v1",

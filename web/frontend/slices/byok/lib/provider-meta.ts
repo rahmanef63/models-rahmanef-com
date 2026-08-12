@@ -24,6 +24,7 @@ export const PROVIDER_LABEL: Record<string, string> = {
   sambanova: "SambaNova",
   novita: "Novita",
   cohere: "Cohere",
+  zai: "Z.AI (GLM)",
   glm: "Zhipu GLM",
   "github-models": "GitHub Models",
   "vercel-gateway": "Vercel AI Gateway",
