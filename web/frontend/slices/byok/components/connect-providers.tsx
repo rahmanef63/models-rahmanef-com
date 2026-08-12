@@ -1,4 +1,5 @@
 "use client";
+import { CopyField } from "@/features/core";
 import { useEffect, useRef, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
@@ -138,16 +139,22 @@ export function ConnectProviders({ catalog, isAdmin, setCredential, testCredenti
         <div className="device">
           <p><span className="mono muted">01</span> &nbsp;Open <a className="accent" href={codexFlow.url} target="_blank" rel="noreferrer">{codexFlow.url}</a></p>
           <p><span className="mono muted">02</span> &nbsp;Enter this code:</p>
-          <div className="devicecode">{codexFlow.code}</div>
-          <p className="spin">◠ waiting for sign-in…</p>
+          <CopyField value={codexFlow.code} label="device code" />
+          <div className="row" style={{ alignItems: "center", gap: ".8rem" }}>
+            <p className="spin" style={{ margin: 0 }}>◠ waiting for sign-in…</p>
+            <button className="link" onClick={() => setCodexFlow(null)}>cancel</button>
+          </div>
         </div>
       )}
       {copilotFlow && (
         <div className="device">
           <p><span className="mono muted">01</span> &nbsp;Open <a className="accent" href={copilotFlow.url} target="_blank" rel="noreferrer">{copilotFlow.url}</a></p>
           <p><span className="mono muted">02</span> &nbsp;Enter this code:</p>
-          <div className="devicecode">{copilotFlow.code}</div>
-          <p className="spin">◠ waiting for sign-in…</p>
+          <CopyField value={copilotFlow.code} label="device code" />
+          <div className="row" style={{ alignItems: "center", gap: ".8rem" }}>
+            <p className="spin" style={{ margin: 0 }}>◠ waiting for sign-in…</p>
+            <button className="link" onClick={() => setCopilotFlow(null)}>cancel</button>
+          </div>
         </div>
       )}
       {claudeFlow && (

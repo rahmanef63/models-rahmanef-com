@@ -10,7 +10,7 @@ import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
 import { CHANNEL_KINDS } from "./channel-kinds";
 import { ChannelAccess } from "./channel-access";
-import { ConfirmDialog } from "@/features/core";
+import { ConfirmDialog, CopyField } from "@/features/core";
 
 type Channel = { id: string; kind: string; name: string; slug: string; agentId: string | null; model: string | null; enabled: boolean; lastInboundAt: number | null; lastError: string | null; createdAt: number };
 type Agent = { _id: string; name: string; model: string };
@@ -71,11 +71,11 @@ export function ChannelsCard() {
       {fresh && (
         <div className="device" style={{ marginTop: "0.9rem" }}>
           <p className="mono muted" style={{ fontSize: ".78rem" }}>Webhook URL (register this on the platform):</p>
-          <div className="devicecode" style={{ fontSize: ".8rem", letterSpacing: "normal", wordBreak: "break-all" }}>{webhookUrl(fresh.kind, fresh.slug)}</div>
+          <CopyField value={webhookUrl(fresh.kind, fresh.slug)} label="webhook URL" style={{ marginTop: ".3rem" }} />
           {fresh.secretToken && (
             <>
               <p className="mono muted" style={{ fontSize: ".78rem", marginTop: ".6rem" }}>Secret token — shown once (set as <code>secret_token</code> on setWebhook):</p>
-              <div className="devicecode" style={{ fontSize: ".8rem", letterSpacing: "normal", wordBreak: "break-all" }}>{fresh.secretToken}</div>
+              <CopyField value={fresh.secretToken} label="secret token" style={{ marginTop: ".3rem" }} />
             </>
           )}
           {fresh.kind === "telegram" && (

@@ -6,7 +6,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "../context";
-import { ResponsiveDialog, ConfirmDialog } from "@/features/core";
+import { ResponsiveDialog, ConfirmDialog, CopyField } from "@/features/core";
 
 type Confirm = { title: string; message: string; run: () => unknown };
 
@@ -50,7 +50,7 @@ export function MembersCard() {
       {link && (
         <div className="device" style={{ marginTop: "0.8rem" }}>
           <p className="mono muted" style={{ fontSize: ".78rem" }}>Copy now — a bearer link, shown once. Don't share publicly:</p>
-          <div className="devicecode" style={{ fontSize: ".8rem", letterSpacing: "normal", wordBreak: "break-all" }}>{link}</div>
+          <CopyField value={link} label="invite link" style={{ marginTop: ".3rem" }} />
         </div>
       )}
       <ul className="creds" style={{ marginTop: "1rem" }}>

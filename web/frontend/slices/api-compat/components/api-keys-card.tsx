@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
-import { useConfirm } from "@/features/core";
+import { useConfirm, CopyField } from "@/features/core";
 
 type Key = { id: string; prefix: string; label: string; createdAt: number; lastUsedAt: number | null };
 
@@ -34,7 +34,7 @@ export function ApiKeysCard() {
       {fresh && (
         <div className="device" style={{ marginTop: "0.9rem" }}>
           <p className="mono muted" style={{ fontSize: ".78rem" }}>Copy now — shown once, then only its hash is stored:</p>
-          <div className="devicecode" style={{ fontSize: ".82rem", letterSpacing: "normal", wordBreak: "break-all" }}>{fresh}</div>
+          <CopyField value={fresh} label="API key" style={{ marginTop: ".3rem" }} />
         </div>
       )}
       {keys && keys.length > 0 && (

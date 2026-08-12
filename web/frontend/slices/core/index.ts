@@ -3,6 +3,7 @@
 // Consumers import ONLY from `@/features/core`.
 export { ResponsiveDialog, ConfirmDialog, useConfirm } from "./components/responsive-dialog";
 export { SectionErrorBoundary } from "./components/error-boundary";
+export { CopyField } from "./components/copy-field";
 export { useTheme, type Theme } from "./hooks/use-theme";
 export { fmt, ago, dt } from "./lib/format";
 export { errData, ErrorLine, FRIENDLY, type ChatErrData } from "./lib/errors";

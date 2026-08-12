@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useQuery, useMutation, useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useWorkspace } from "@/features/workspaces";
-import { ConfirmDialog } from "@/features/core";
+import { ConfirmDialog, CopyField } from "@/features/core";
 
 type Tok = { id: string; label: string; createdAt: number; expiresAt: number | null; lastUsedAt: number | null; revoked: boolean };
 
@@ -34,7 +34,7 @@ export function McpCard() {
       {fresh && (
         <div className="device" style={{ marginTop: "0.9rem" }}>
           <p className="mono muted" style={{ fontSize: ".78rem" }}>Copy now — shown once, then only its hash is stored:</p>
-          <div className="devicecode" style={{ fontSize: "0.82rem", letterSpacing: "normal", wordBreak: "break-all" }}>{fresh}</div>
+          <CopyField value={fresh} label="MCP token" style={{ marginTop: ".3rem" }} />
         </div>
       )}
       {tokens && tokens.length > 0 && (
