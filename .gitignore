@@ -4,3 +4,6 @@ node_modules
 *.log
 .DS_Store
 .models-rahmanef/
+
+# Local MSO runtime state — never commit
+.mso/
