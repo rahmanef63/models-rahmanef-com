@@ -8,9 +8,9 @@
 // @property {(tenantId:string|undefined, provider:string)=>Promise<void>} [deleteKey]
 // @property {(tenantId:string|undefined)=>Promise<string[]>} [listProviders]
 
-import { readFile, writeFile, mkdir, chmod, rename } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { join, dirname } from 'node:path'
+import { join } from 'node:path'
+import { createFileStore } from './file-store.js'
 import { PROVIDERS } from './registry.js'
 
 /**
@@ -23,7 +23,7 @@ export function envCredentialStore() {
     async getKey(_tenantId, provider) {
       const live = process.env[`MODELS_LIVE_${provider.toUpperCase()}_KEY`]
       if (live) return live
-      const vars = PROVIDERS[provider]?.envVars || [`${provider.toUpperCase()}_API_KEY`]
+      const vars = (Object.hasOwn(PROVIDERS, provider) ? PROVIDERS[provider].envVars : null) || [`${provider.toUpperCase()}_API_KEY`]
       for (const v of vars) if (process.env[v]) return process.env[v]
       return null
     },
@@ -62,19 +62,5 @@ const DEFAULT_CREDS_FILE = join(process.env.MODELS_CREDS_DIR || join(homedir(), 
  * @returns {CredentialStore}
  */
 export function fileCredentialStore(filePath = DEFAULT_CREDS_FILE) {
-  const k = (id) => id ?? ''
-  const load = async () => { try { return JSON.parse(await readFile(filePath, 'utf8')) } catch { return {} } }
-  const save = async (data) => {
-    await mkdir(dirname(filePath), { recursive: true })
-    const tmp = filePath + '.tmp'
-    await writeFile(tmp, JSON.stringify(data, null, 2), { mode: 0o600 })
-    await chmod(tmp, 0o600).catch(() => {}) // enforce perms even if the tmp pre-existed
-    await rename(tmp, filePath) // atomic swap on same fs — never leaves a truncated creds file
-  }
-  return {
-    async getKey(id, p) { return (await load())[k(id)]?.[p] ?? null },
-    async setKey(id, p, key) { const d = await load(); (d[k(id)] ||= {})[p] = key; await save(d) },
-    async deleteKey(id, p) { const d = await load(); if (d[k(id)]) { delete d[k(id)][p]; await save(d) } },
-    async listProviders(id) { return Object.keys((await load())[k(id)] || {}) },
-  }
+  return createFileStore(filePath)
 }
