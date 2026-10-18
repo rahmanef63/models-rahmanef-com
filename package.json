@@ -14,7 +14,11 @@
     "./convex/crypto": "./adapters/convex/crypto.ts"
   },
   "scripts": {
-    "test": "node test.mjs && node api.test.mjs && node --experimental-strip-types adapters/convex/crypto.test.ts && node --experimental-strip-types fallbackRules.test.ts && node --experimental-strip-types web/apiV1Tools.test.mjs && node --experimental-strip-types web/ragChunk.test.mjs && node --experimental-strip-types web/customProviderConfig.test.mjs && node --experimental-strip-types web/refs.test.mjs && node web/scripts/check-slice-boundaries.mjs"
+    "test": "node test.mjs && node api.test.mjs && node --experimental-strip-types adapters/convex/crypto.test.ts && node --experimental-strip-types fallbackRules.test.ts && node --experimental-strip-types web/apiV1Tools.test.mjs && node --experimental-strip-types web/ragChunk.test.mjs && node --experimental-strip-types web/customProviderConfig.test.mjs && node --experimental-strip-types web/refs.test.mjs && node web/scripts/check-slice-boundaries.mjs && npm run test:security:core && npm run test:security:ui",
+    "test:security:core": "node api.security.test.mjs && node store.security.test.mjs && node call.security.test.mjs",
+    "test:security:convex": "node --experimental-strip-types --loader ./adapters/convex/test-loader.mjs adapters/convex/credentials.test.mjs && node --experimental-strip-types --loader ./adapters/convex/test-loader.mjs web/convex/credentialBackend.test.mjs",
+    "test:security:ui": "node --experimental-strip-types --test web/frontend/slices/byok/lib/provider-ui.test.mjs",
+    "test:security": "npm run test:security:core && npm run test:security:convex && npm run test:security:ui"
   },
   "files": ["src", "adapters", "bin", "examples"]
 }

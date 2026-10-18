@@ -179,6 +179,8 @@ The Convex adapter is the reference multi-tenant backend. One `modelCreds` row p
 3. **Set the master key** — `npx convex env set MODELS_ENC_KEY "$(openssl rand -base64 32)"` (base64 of exactly 32 bytes; anything else is rejected).
 4. **Derive `tenantId` from *your* auth** — never trust it from the client. You keep your own auth provider (Clerk / `@convex-dev/auth` / custom).
 
+The copied adapter's public credential functions enforce `tenantId === identity.subject` before any database access. Hosts with workspace or organization tenant IDs must replace `requireTenant` with their own server-side membership policy before exposing those functions. Internal credential reads remain a server-only integration seam.
+
 ```ts
 // inside a Convex action
 import { convexCredentialStore } from './credentials'
@@ -286,7 +288,13 @@ The build is **decoupled**: Convex Cloud hosts the backend, Dokploy (self-hosted
 npm test
 ```
 
-Runs three offline self-checks — no network, no real keys:
+The core security regressions run with `npm test` and use only temporary credential files and mocked provider responses. Corrupt or unreadable local credential files now fail closed; writes leave the existing file untouched. Anonymous public catalog reads remain available with `?all`, while `?refresh` requires a valid authenticated tenant.
+
+After installing the web dependencies with `cd web && npx pnpm@10 install --frozen-lockfile --ignore-scripts`, run `npm run test:security:convex` from the repository root for synthetic adapter and web credential handler tests. These tests do not connect to Convex or a model provider.
+
+Provider keys saved in the dashboard are marked as untested. Connectivity tests require an explicit action and may incur provider usage. Catalog capability and pricing fields come from models.dev; missing metadata is shown as unknown rather than treated as a free price or an unsupported capability.
+
+The offline suite includes — no network, no real keys:
 
 - `test.mjs` — ref parsing, per-tenant isolation, host-gate (including a spoofed `baseUrl`), missing-key rejection, and custom-endpoint resolution.
 - `api.test.mjs` — HTTP API auth gating, CRUD upsert/delete, per-user isolation, read-only-store `405`, and *no key leak*.
