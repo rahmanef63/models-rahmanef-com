@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cheapestModel, credentialError } from "./credential-check.ts";
+import { cheapestModel, credentialError, feedbackForCredential } from "./credential-check.ts";
 import { catalogMetadata } from "./catalog-meta.ts";
 import { deviceLoginSession } from "./device-login.ts";
 import { parseCustomProviderConfig } from "../components/custom-provider-config.ts";
@@ -49,6 +49,30 @@ test("credential errors retain actionable codes while dropping raw exception dat
   assert.equal(e.data.code, "invalid_api_key");
   assert.equal(JSON.stringify(e).includes(marker), false);
   assert.equal(credentialError(new Error(marker)).data.code, "internal");
+});
+
+test("changed connections preserve the retry code without raw details", () => {
+  const marker = "synthetic-private-marker";
+  const error = credentialError({ data: { code: "credential_changed", detail: marker, apiKey: marker } }, "p");
+  assert.equal(error.data.code, "credential_changed");
+  assert.equal(error.data.provider, "p");
+  const unsaved = credentialError({ data: { code: "check_not_saved", detail: marker } }, "p");
+  assert.equal(unsaved.data.code, "check_not_saved");
+  assert.equal(JSON.stringify(unsaved).includes(marker), false);
+  assert.equal(JSON.stringify(error).includes(marker), false);
+});
+
+test("check overlays follow credential versions through check stamps and key replacement", () => {
+  const result = { ok: true };
+  const checked = { value: result, credentialVersion: "rowA:100", keyCount: 1 };
+  assert.equal(feedbackForCredential(checked, { credentialVersion: "rowA:100", keyCount: 1, lastCheckedAt: undefined }), result);
+  assert.equal(feedbackForCredential(checked, { credentialVersion: "rowA:100", keyCount: 1, lastCheckedAt: 200 }), result);
+  assert.equal(feedbackForCredential(checked, { credentialVersion: "rowA:300", keyCount: 1, lastCheckedAt: undefined }), undefined);
+  assert.equal(feedbackForCredential(checked, { credentialVersion: "rowA:100", keyCount: 2 }), undefined);
+  assert.equal(feedbackForCredential(checked, { credentialVersion: "rowB:100", keyCount: 1 }), undefined);
+  assert.equal(feedbackForCredential({ value: result, keyCount: 1 }, { keyCount: 1 }), undefined);
+  const error = { value: credentialError(new Error("synthetic")), credentialVersion: "rowA:100", keyCount: 1 };
+  assert.equal(feedbackForCredential(error, { credentialVersion: "rowA:300", keyCount: 1 }), undefined);
 });
 
 const deferred = () => { let resolve, reject; const promise = new Promise((res, rej) => { resolve = res; reject = rej; }); return { promise, resolve, reject }; };

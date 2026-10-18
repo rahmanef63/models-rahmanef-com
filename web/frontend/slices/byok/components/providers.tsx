@@ -5,7 +5,7 @@ import { FRIENDLY, useConfirm } from "@/features/core";
 import { ErrorLine } from "./error-line";
 import { ProviderKeys } from "./provider-keys";
 export { CustomProviderForm } from "./custom-provider-form";
-import { cheapestModel, credentialError, type TestResult } from "../lib/credential-check";
+import { cheapestModel, credentialError, feedbackForCredential, type CredentialFeedback, type TestResult } from "../lib/credential-check";
 export { cheapestModel } from "../lib/credential-check";
 
 function TestResultLine({ r, provider, isAdmin }: { r: TestResult; provider: string; isAdmin: boolean }) {
@@ -84,11 +84,13 @@ export function ConnectedCreds({ providers, catalog, isAdmin, deleteCredential, 
   testCredential: (a: { provider: string; model: string }) => Promise<TestResult>;
 }) {
   const [testing, setTesting] = useState<Record<string, boolean>>({});
-  const [results, setResults] = useState<Record<string, { result: TestResult; checkedAt?: number; keyCount?: number }>>({});
-  const [errs, setErrs] = useState<Record<string, unknown>>({});
+  const [results, setResults] = useState<Record<string, CredentialFeedback<TestResult>>>({});
+  const [errs, setErrs] = useState<Record<string, CredentialFeedback<unknown>>>({});
+  const [retryChecks, setRetryChecks] = useState<Record<string, boolean>>({});
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const { ask, confirmDialog } = useConfirm();
   function forget(provider: string) {
+    setRetryChecks((checks) => ({ ...checks, [provider]: false }));
     setResults((rs) => { const { [provider]: _drop, ...rest } = rs; return rest; });
     setErrs((es) => { const { [provider]: _drop, ...rest } = es; return rest; });
   }
@@ -96,21 +98,23 @@ export function ConnectedCreds({ providers, catalog, isAdmin, deleteCredential, 
     if (testing[provider]) return;
     forget(provider);
     setTesting((t) => ({ ...t, [provider]: true }));
-    setErrs((es) => ({ ...es, [provider]: null }));
+    const cred = providers.find((p) => p.provider === provider);
     try {
       const r = await runCredentialTest(testCredential, catalog, provider);
-      const cred = providers.find((p) => p.provider === provider);
-      if (r) setResults((rs) => ({ ...rs, [provider]: { result: r, checkedAt: cred?.lastCheckedAt, keyCount: cred?.keyCount } }));
+      if (r?.code === "credential_changed") setRetryChecks((checks) => ({ ...checks, [provider]: true }));
+      else if (r) setResults((rs) => ({ ...rs, [provider]: { value: r, credentialVersion: cred?.credentialVersion, keyCount: cred?.keyCount } }));
     } catch (e) {
-      setErrs((es) => ({ ...es, [provider]: credentialError(e, provider) }));
+      setErrs((es) => ({ ...es, [provider]: { value: credentialError(e, provider), credentialVersion: cred?.credentialVersion, keyCount: cred?.keyCount } }));
     } finally {
       setTesting((t) => ({ ...t, [provider]: false }));
     }
   }
   async function remove(provider: string) {
+    forget(provider);
+    const cred = providers.find((p) => p.provider === provider);
     setTesting((t) => ({ ...t, [provider]: true }));
     try { await deleteCredential({ provider }); forget(provider); }
-    catch (e) { setErrs((es) => ({ ...es, [provider]: credentialError(e, provider) })); }
+    catch (e) { setErrs((es) => ({ ...es, [provider]: { value: credentialError(e, provider), credentialVersion: cred?.credentialVersion, keyCount: cred?.keyCount } })); }
     finally { setTesting((t) => ({ ...t, [provider]: false })); }
   }
   return (
@@ -119,14 +123,14 @@ export function ConnectedCreds({ providers, catalog, isAdmin, deleteCredential, 
     <ul className="creds">
       {providers.map((p) => {
         const canTest = p.kind !== "oauth" && !!cheapestModel(catalog, p.provider);
-        const saved = results[p.provider];
-        const result = saved?.checkedAt === p.lastCheckedAt && saved?.keyCount === p.keyCount ? saved?.result : undefined;
-        const live = errs[p.provider] != null ? { e: errs[p.provider] } : result ? { r: result } : null;
+        const result = feedbackForCredential(results[p.provider], p);
+        const error = retryChecks[p.provider] ? credentialError({ data: { code: "credential_changed" } }, p.provider) : feedbackForCredential(errs[p.provider], p);
+        const live = error != null ? { e: error } : result ? { r: result } : null;
         return (
           <li key={p.provider}>
             <span className="name">{PROVIDER_LABEL[p.provider] ?? p.provider}</span>
             <span className="cred-actions">
-              {testing[p.provider] ? <span className="badge">PENDING</span> : <CredBadge p={errs[p.provider] != null ? { ...p, lastCheckedOk: undefined } : result ? { ...p, lastCheckedOk: result.ok } : p} canTest={canTest} />}
+              {testing[p.provider] ? <span className="badge">PENDING</span> : <CredBadge p={error != null ? { ...p, lastCheckedOk: undefined } : result ? { ...p, lastCheckedOk: result.ok } : p} canTest={canTest} />}
               {canTest && (
                 <button className="link" disabled={testing[p.provider]} onClick={() => void runTest(p.provider)}>
                   {testing[p.provider] ? "testing…" : "test"}

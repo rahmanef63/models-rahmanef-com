@@ -25,6 +25,8 @@ export const FRIENDLY: Record<string, (provider: string) => string> = {
   unreachable: (p) => `Couldn't reach ${p} — check the endpoint URL and that the host is online.`,
   invalid_request: (p) => `${p} couldn't process this request — try a different model.`,
   provider_error: (p) => `${p} had a problem handling this request. Try again.`,
+  credential_changed: () => "This connection changed during the check. Test the saved connection again.",
+  check_not_saved: () => "The check result could not be saved. Test the saved connection again.",
   internal: () => `Something went wrong on our side. Try again, or ask an admin.`,
 };
 

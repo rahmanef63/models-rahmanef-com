@@ -20,9 +20,16 @@ export function cheapestModel(catalog: Catalog, provider: string): string | unde
 }
 
 // Credential actions may include submitted secrets in exception text. Only retain a known code.
-const CODES = new Set(["not_connected", "invalid_api_key", "rate_limited", "quota_exceeded", "not_found", "unreachable", "invalid_request", "provider_error"]);
+const CODES = new Set(["not_connected", "invalid_api_key", "credential_changed", "check_not_saved", "rate_limited", "quota_exceeded", "not_found", "unreachable", "invalid_request", "provider_error"]);
 export function credentialError(error: unknown, provider?: string) {
   const code = (error as { data?: { code?: unknown } })?.data?.code;
   return { data: { code: typeof code === "string" && CODES.has(code) ? code : "internal", provider,
     detail: "The credential request failed. Re-enter the key and try again." } };
+}
+
+
+export type CredentialFeedback<T> = { value: T; credentialVersion?: string; keyCount?: number };
+export function feedbackForCredential<T>(feedback: CredentialFeedback<T> | undefined, credential: { credentialVersion?: string; keyCount?: number }): T | undefined {
+  if (feedback?.credentialVersion === undefined || feedback.credentialVersion !== credential.credentialVersion || feedback.keyCount !== credential.keyCount) return undefined;
+  return feedback.value;
 }
