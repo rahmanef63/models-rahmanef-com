@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, readFile, writeFile, stat, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { fileCredentialStore } from './src/store.js'
+import { envCredentialStore, fileCredentialStore, memoryCredentialStore } from './src/store.js'
 import { parseRef, resolveModel } from './src/resolve.js'
 
 const temp = await mkdtemp(join(tmpdir(), 'models-store-security-'))
@@ -48,7 +48,38 @@ try {
     tenantId: 'u1', store: { getKey: async () => { keyReads++; return 'synthetic' } },
   }), /unknown provider/)
   assert.equal(keyReads, 0, 'inherited registry entry was trusted')
-  console.log('ok — file-store tenant isolation, prototype keys, permissions, corrupt-store preservation, registry ownership')
+  // Set only synthetic overrides; never inspect existing provider environment values.
+  process.env.MODELS_LIVE_OPENAI_KEY = 'synthetic-openai-alias-key'
+  process.env.MODELS_LIVE_ANTHROPIC_KEY = 'synthetic-anthropic-alias-key'
+  const envStore = envCredentialStore()
+  let aliasKeyReads = 0
+  const guarded = { getKey: (...args) => { aliasKeyReads++; return envStore.getKey(...args) } }
+  const untrusted = 'https://untrusted.synthetic.invalid/v1'
+  for (const alias of ['OpenAI', 'OPENAI', 'Anthropic']) {
+    await assert.rejects(resolveModel(alias + '/model', {
+      tenantId: 'synthetic', store: guarded, baseUrl: untrusted,
+    }), /invalid model ref/)
+  }
+  assert.equal(aliasKeyReads, 0, 'mixed-case alias reached credential lookup')
+  for (const provider of ['openai', 'anthropic']) {
+    const resolved = await resolveModel(provider + '/model', {
+      tenantId: 'synthetic', store: envStore, baseUrl: untrusted,
+    })
+    assert.equal(resolved.provider, provider)
+    assert.notEqual(resolved.baseUrl, untrusted)
+    assert.equal(resolved.apiKey, 'synthetic-' + provider + '-alias-key')
+  }
+  delete process.env.MODELS_LIVE_OPENAI_KEY
+  delete process.env.MODELS_LIVE_ANTHROPIC_KEY
+
+  const customStore = memoryCredentialStore()
+  await customStore.setKey('synthetic', 'custom-provider', 'synthetic-custom-key')
+  const custom = await resolveModel('custom-provider/model', {
+    tenantId: 'synthetic', store: customStore, baseUrl: untrusted,
+  })
+  assert.equal(custom.baseUrl, untrusted, 'unknown lowercase provider lost custom endpoint support')
+  assert.equal(custom.apiKey, 'synthetic-custom-key')
+  console.log('ok — file-store isolation, corrupt-store preservation, lowercase registry/credential host gate')
 } finally {
   await rm(temp, { recursive: true, force: true })
 }

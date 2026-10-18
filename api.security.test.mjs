@@ -46,7 +46,7 @@ try {
     assert.equal(res.status, 400, raw)
     assert.equal(res.headers.get('access-control-allow-origin'), '*')
   }
-  for (const provider of ['%', '%2F', '%00', '%20', '__proto__'])
+  for (const provider of ['%', '%2F', '%00', '%20', '__proto__', 'OpenAI', 'OPENAI', 'Anthropic'])
     assert.equal((await api(request('/providers/' + provider, 'PUT', '{"apiKey":"synthetic"}'))).status, 400)
   assert.equal(await store.getKey('u1', 'openai'), 'synthetic-secret')
 
