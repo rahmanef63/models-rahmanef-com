@@ -53,7 +53,9 @@ assert(!JSON.stringify(await check()).includes(secretA));
 // Both key and endpoint rewrites remove every old verdict, including successful checks.
 for (const fn of [store, _connectForUser]) {
   row = initial(); writes = [];
-  await fn._handler(mutationCtx, { userId: "owner", provider: "custom", kind: "api_key", ciphertext: blobB, endpoint: "https://replacement.example/v1" });
+  const clock = mock.method(Date, "now", () => 1);
+  try { await fn._handler(mutationCtx, { userId: "owner", provider: "custom", kind: "api_key", ciphertext: blobB, endpoint: "https://replacement.example/v1" }); } finally { clock.mock.restore(); }
+  assert.equal(row.updatedAt, 2);
   for (const key of ["lastCheckedAt", "lastCheckedOk", "lastCheckedCode", "lastCheckedDetail"]) {
     assert(Object.hasOwn(writes[0], key)); assert.equal(row[key], undefined);
   }

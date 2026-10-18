@@ -14,6 +14,7 @@ export function canDeletePersonalCredential(row: { userId: string; workspaceId?:
 
 export function publicCredential(row: any) {
   return {
+    credentialVersion: `${row._id}:${row.updatedAt}`,
     provider: row.provider, kind: row.kind ?? "api_key", models: row.models,
     lastCheckedAt: row.lastCheckedAt, lastCheckedOk: row.lastCheckedOk,
     lastCheckedCode: row.lastCheckedCode,

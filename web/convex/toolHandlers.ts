@@ -9,6 +9,7 @@ import { fetchModelsCatalog, OPENAI_COMPAT } from "./chatProviders";
 import { callForUser } from "./callForUser";
 import { encryptSecret } from "./crypto";
 import { assertSafeUrl } from "./_shared/ssrf";
+import { credentialInputError, credentialEndpointError } from "./credentialPolicy";
 
 const OAUTH_ONLY = new Set(["openai-codex", "anthropic-oauth", "github-copilot"]);
 const KNOWN_PROVIDERS = new Set(["openai", "anthropic", "google", "openrouter", ...Object.keys(OPENAI_COMPAT)]);
@@ -83,9 +84,11 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
   connect_provider: async (ctx, userId, args) => {
     const provider = String(args?.provider ?? "").trim().toLowerCase();
     if (OAUTH_ONLY.has(provider)) return "That provider uses OAuth sign-in — connect it in the UI, not with an API key.";
-    if (!KNOWN_PROVIDERS.has(provider)) return `Unknown provider "${provider}". For a custom OpenAI-compatible endpoint use connect_custom_provider.`;
-    const key = String(args?.apiKey ?? "");
-    if (!key) return "apiKey required.";
+    if (typeof args?.apiKey !== "string") return "apiKey must be a string.";
+    const key = args.apiKey;
+    const invalid = credentialInputError({ provider, apiKey: key });
+    if (invalid) return invalid;
+    if (!KNOWN_PROVIDERS.has(provider)) return "Unknown provider. For a custom OpenAI-compatible endpoint use connect_custom_provider.";
     await ctx.runMutation(internal.credentials._connectForUser, { userId, provider, ciphertext: await encryptSecret(key) });
     return `Connected "${provider}". Target models as ${provider}/<model>.`;
   },
@@ -93,13 +96,19 @@ export const TOOL_HANDLERS: Record<string, ToolHandler> = {
     const name = slugify(String(args?.name ?? ""));
     if (!name) return "A name is required (letters/numbers).";
     if (KNOWN_PROVIDERS.has(name) || OAUTH_ONLY.has(name)) return `"${name}" is a built-in provider — use connect_provider.`;
-    const baseURL = String(args?.baseURL ?? "").trim();
-    try { assertSafeUrl(baseURL); } catch (e: any) { return `Invalid endpoint: ${e?.data?.detail ?? "bad URL"}.`; }
-    const key = String(args?.apiKey ?? "");
-    if (!key) return "apiKey required.";
-    const protocol = String(args?.protocol ?? "") === "anthropic" ? "anthropic" : undefined;
+    if (typeof args?.apiKey !== "string") return "apiKey must be a string.";
+    if (args?.protocol !== undefined && typeof args.protocol !== "string") return "Unsupported protocol.";
+    const key = args.apiKey;
+    const invalid = credentialInputError({ provider: name, apiKey: key, protocol: args?.protocol });
+    if (invalid) return invalid;
+    if (typeof args?.baseURL !== "string") return "Endpoint must be a string.";
+    const baseURL = args.baseURL.trim();
+    const endpointError = credentialEndpointError(baseURL);
+    if (endpointError) return endpointError;
+    try { assertSafeUrl(baseURL); } catch { return "Invalid endpoint."; }
+    const protocol = args?.protocol === "anthropic" ? "anthropic" : undefined;
     await ctx.runMutation(internal.credentials._connectForUser, { userId, provider: name, ciphertext: await encryptSecret(key), endpoint: baseURL, protocol });
-    return `Connected custom provider "${name}" → ${baseURL} (${protocol ?? "openai"}). Target models as ${name}/<model>.`;
+    return `Connected custom provider "${name}" (${protocol ?? "openai"}). Target models as ${name}/<model>.`;
   },
   chat: async (ctx, userId, args, workspaceId) => {
     const r = await callForUser(ctx, userId, workspaceId, String(args.model), [{ role: "user", content: String(args.prompt) }]); // token-bound workspace creds

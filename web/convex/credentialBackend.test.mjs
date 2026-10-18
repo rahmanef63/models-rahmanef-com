@@ -58,6 +58,8 @@ assert.equal(connected.slug, "custom");
 assert(!JSON.stringify(writes).includes(canary));
 const listed = await listConfiguredProviders._handler(ctx(), {});
 assert.equal(listed.length, 1); assert.equal(listed[0].keyCount, 1);
+assert.equal(listed[0].credentialVersion, "personal:1");
+assert.notEqual(publicCredential({ ...personal, _id: "recreated" }).credentialVersion, listed[0].credentialVersion);
 const internalListed = await providersForUser._handler(ctx(), { userId: "owner" });
 assert.equal(internalListed.length, 1);
 for (const result of [listed, internalListed, publicCredential(personal)]) assert(!JSON.stringify(result).includes(canary));

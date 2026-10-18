@@ -78,7 +78,7 @@ export const store = internalMutation({
       .first(); // .first not .unique: a provider may now hold multiple personal pool keys — upsert the primary
     // a fresh key write un-bricks the row: reset the pool-health verdict so re-pasting a valid key
     // into a cred that pickCredentials had benched (dead/exhausted) brings it back into rotation.
-    if (existing) await ctx.db.patch(existing._id, { ...resetCredentialCheck, kind: a.kind, ciphertext: a.ciphertext, expires: a.expires, updatedAt: Date.now(), refreshLeaseUntil: undefined, status: "ok", cooldownUntil: undefined, backoffLevel: 0, lastErrorCode: undefined });
+    if (existing) await ctx.db.patch(existing._id, { ...resetCredentialCheck, kind: a.kind, ciphertext: a.ciphertext, expires: a.expires, updatedAt: Math.max(Date.now(), existing.updatedAt + 1), refreshLeaseUntil: undefined, status: "ok", cooldownUntil: undefined, backoffLevel: 0, lastErrorCode: undefined });
     else await ctx.db.insert("modelCreds", { userId: a.userId, provider: a.provider, kind: a.kind, ciphertext: a.ciphertext, expires: a.expires, updatedAt: Date.now() });
   },
 });
@@ -100,7 +100,7 @@ export const _connectForUser = internalMutation({
       .first();
     // only overwrite models when this call supplies them — a plain key-refresh must not wipe a saved list
     const modelsPatch = a.models !== undefined ? { models: a.models } : {};
-    if (existing) { await ctx.db.patch(existing._id, { ...resetCredentialCheck, kind: "api_key", ciphertext: a.ciphertext, endpoint: a.endpoint, protocol: a.protocol, ...modelsPatch, updatedAt: Date.now(), status: "ok", cooldownUntil: undefined, backoffLevel: 0, lastErrorCode: undefined, refreshLeaseUntil: undefined }); return; }
+    if (existing) { await ctx.db.patch(existing._id, { ...resetCredentialCheck, kind: "api_key", ciphertext: a.ciphertext, endpoint: a.endpoint, protocol: a.protocol, ...modelsPatch, updatedAt: Math.max(Date.now(), existing.updatedAt + 1), status: "ok", cooldownUntil: undefined, backoffLevel: 0, lastErrorCode: undefined, refreshLeaseUntil: undefined }); return; }
     await ctx.db.insert("modelCreds", { userId: a.userId, provider: a.provider, kind: "api_key", ciphertext: a.ciphertext, endpoint: a.endpoint, protocol: a.protocol, models: a.models, updatedAt: Date.now() });
   },
 });
@@ -121,7 +121,7 @@ export const setProviderModels = mutation({
       .first();
     if (!row) throw new ConvexError({ code: "not_connected", detail: `"${a.provider}" isn't connected — add it first.` });
     const models = [...new Set(a.models.map((s) => s.trim()).filter(Boolean))].slice(0, 100);
-    await ctx.db.patch(row._id, { models, updatedAt: Date.now() });
+    await ctx.db.patch(row._id, { models, updatedAt: Math.max(Date.now(), row.updatedAt + 1) });
   },
 });
 
