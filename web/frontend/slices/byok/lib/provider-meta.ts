@@ -40,7 +40,7 @@ export const PROVIDER_LABEL: Record<string, string> = {
   zenmux: "ZenMux",
 };
 
-export type Cred = { provider: string; kind: string; models?: string[]; keyCount?: number; lastCheckedAt?: number; lastCheckedOk?: boolean; lastCheckedCode?: string; lastCheckedDetail?: string };
+export type Cred = { provider: string; kind: string; models?: string[]; keyCount?: number; credentialVersion?: string; lastCheckedAt?: number; lastCheckedOk?: boolean; lastCheckedCode?: string; lastCheckedDetail?: string };
 export type Catalog = Record<string, { models?: Record<string, unknown> }>;
 
 export const SUPPORTED = 32; // key-paste providers (openai/anthropic/google/openrouter + 28 OpenAI-compatible); OAuth (codex/claude/copilot) + custom endpoints on top

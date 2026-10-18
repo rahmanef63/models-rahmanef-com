@@ -9,6 +9,7 @@ import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUser, requireWorkspaceRole, requireWorkspaceRoleAction } from "./_shared/auth";
 import { encryptSecret } from "./crypto";
+import { credentialInputError, canDeletePersonalCredential } from "./credentialPolicy";
 
 const OAUTH_ONLY = new Set(["openai-codex", "anthropic-oauth", "github-copilot"]);
 const clampPriority = (p: number | undefined) => (p == null ? undefined : Math.max(0, Math.min(999, Math.round(p))));
@@ -37,7 +38,8 @@ export const addCredential = action({
   args: { provider: v.string(), apiKey: v.string(), label: v.optional(v.string()), priority: v.optional(v.number()) },
   handler: async (ctx, a): Promise<void> => {
     const userId = await requireUser(ctx);
-    if (!a.apiKey) throw new ConvexError({ code: "invalid_request", detail: "apiKey required" });
+    const invalid = credentialInputError(a);
+    if (invalid) throw new ConvexError({ code: "invalid_request", detail: invalid });
     if (OAUTH_ONLY.has(a.provider)) throw new ConvexError({ code: "invalid_request", detail: "OAuth providers are single-credential — no key pool" });
     const priority = a.priority == null ? undefined : Math.max(0, Math.min(999, Math.round(a.priority)));
     const label = a.label?.trim().slice(0, 40) || undefined;
@@ -71,9 +73,8 @@ export const deleteCredentialById = mutation({
   handler: async (ctx, a) => {
     const userId = await requireUser(ctx);
     const row = await ctx.db.get(a.credId);
-    if (!row || row.userId !== userId) return; // idempotent + ownership gate
+    if (!canDeletePersonalCredential(row, userId)) return; // shared rows require workspace admin authorization
     await ctx.db.delete(a.credId);
-    if (row.workspaceId) await ctx.db.insert("auditEvents", { workspaceId: row.workspaceId, actorUserId: userId, action: "cred.deleted", target: row.provider, meta: { kind: row.kind }, at: Date.now() });
   },
 });
 
@@ -103,7 +104,8 @@ export const addWorkspaceCredential = action({
   args: { workspaceId: v.id("workspaces"), provider: v.string(), apiKey: v.string(), label: v.optional(v.string()), priority: v.optional(v.number()) },
   handler: async (ctx, a): Promise<void> => {
     const { userId } = await requireWorkspaceRoleAction(ctx, a.workspaceId, "admin");
-    if (!a.apiKey) throw new ConvexError({ code: "invalid_request", detail: "apiKey required" });
+    const invalid = credentialInputError(a);
+    if (invalid) throw new ConvexError({ code: "invalid_request", detail: invalid });
     if (OAUTH_ONLY.has(a.provider)) throw new ConvexError({ code: "invalid_request", detail: "OAuth providers are single-credential — no key pool" });
     const ciphertext = await encryptSecret(a.apiKey);
     await ctx.runMutation(internal.credsPool.insertWorkspaceCred, { actorUserId: userId, workspaceId: a.workspaceId, provider: a.provider, ciphertext, label: a.label?.trim().slice(0, 40) || undefined, priority: clampPriority(a.priority) });

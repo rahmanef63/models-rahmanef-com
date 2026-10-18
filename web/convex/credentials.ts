@@ -7,17 +7,10 @@ import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUser } from "./_shared/auth";
 import { encryptSecret } from "./crypto";
+import { credentialInputError, credentialEndpointError, publicCredential, resetCredentialCheck, safeProviderErrorDetail } from "./credentialPolicy";
+import { assertSafeUrl } from "./_shared/ssrf";
 
-// never the ciphertext — last-check fields drive the health badge in the Providers list
-const mapCred = (r: any) => ({
-  provider: r.provider,
-  kind: r.kind ?? "api_key",
-  models: r.models, // manual custom-provider models — feeds the chat picker (undefined for built-ins)
-  lastCheckedAt: r.lastCheckedAt,
-  lastCheckedOk: r.lastCheckedOk,
-  lastCheckedCode: r.lastCheckedCode,
-  lastCheckedDetail: r.lastCheckedDetail,
-});
+const mapCred = publicCredential;
 
 export const listConfiguredProviders = query({
   args: {},
@@ -31,7 +24,7 @@ export const listConfiguredProviders = query({
     // NOT-TESTED the moment a 2nd key is added, while the badge write lands on the old row — they'd
     // never agree. Per-key status lives in the ProviderKeys expander instead.
     const byProvider = new Map<string, { row: any; count: number }>();
-    for (const r of rows) {
+    for (const r of rows.filter((row) => row.workspaceId === undefined)) {
       const cur = byProvider.get(r.provider);
       if (!cur) byProvider.set(r.provider, { row: r, count: 1 });
       else { cur.count++; if (r._creationTime < cur.row._creationTime) cur.row = r; }
@@ -46,7 +39,7 @@ export const providersForUser = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, a) => {
     const rows = await ctx.db.query("modelCreds").withIndex("by_user", (q) => q.eq("userId", a.userId)).collect();
-    return rows.map(mapCred);
+    return rows.filter((row) => row.workspaceId === undefined).map(mapCred);
   },
 });
 
@@ -54,24 +47,22 @@ export const setCredential = action({
   args: { provider: v.string(), apiKey: v.string() },
   handler: async (ctx, a): Promise<void> => {
     const userId = await requireUser(ctx);
-    if (!a.apiKey) throw new ConvexError({ code: "invalid_request", detail: "apiKey required" });
+    const invalid = credentialInputError(a);
+    if (invalid) throw new ConvexError({ code: "invalid_request", detail: invalid });
     const ciphertext = await encryptSecret(a.apiKey);
     await ctx.runMutation(internal.credentials.store, { userId, provider: a.provider, kind: "api_key", ciphertext });
   },
 });
 
-// internal: record the result of a connectivity test (chat.ts testCredential) against this
-// credential — never touches the ciphertext itself.
+// Internal compare-and-set: a check can only stamp the exact personal credential snapshot it tested.
 export const _recordCheck = internalMutation({
-  args: { userId: v.id("users"), provider: v.string(), ok: v.boolean(), code: v.optional(v.string()), detail: v.optional(v.string()) },
+  args: { userId: v.id("users"), provider: v.string(), credId: v.id("modelCreds"), ciphertext: v.string(), updatedAt: v.number(), endpoint: v.optional(v.string()), protocol: v.optional(v.string()), ok: v.boolean(), code: v.optional(v.string()), detail: v.optional(v.string()) },
+  returns: v.boolean(),
   handler: async (ctx, a) => {
-    const row = await ctx.db
-      .query("modelCreds")
-      .withIndex("by_user_provider", (q) => q.eq("userId", a.userId).eq("provider", a.provider))
-      .filter((q) => q.eq(q.field("workspaceId"), undefined))
-      .first(); // personal primary — never .unique: a provider may hold multiple pool keys now
-    if (!row) return; // credential was deleted mid-check — nothing to record
-    await ctx.db.patch(row._id, { lastCheckedAt: Date.now(), lastCheckedOk: a.ok, lastCheckedCode: a.code, lastCheckedDetail: a.detail });
+    const row = await ctx.db.get(a.credId);
+    if (!row || row.userId !== a.userId || row.provider !== a.provider || row.workspaceId !== undefined || row.ciphertext !== a.ciphertext || row.updatedAt !== a.updatedAt || row.endpoint !== a.endpoint || row.protocol !== a.protocol) return false;
+    await ctx.db.patch(row._id, { lastCheckedAt: Date.now(), lastCheckedOk: a.ok, lastCheckedCode: a.code, lastCheckedDetail: a.detail === undefined ? undefined : safeProviderErrorDetail(a.code) });
+    return true;
   },
 });
 
@@ -87,7 +78,7 @@ export const store = internalMutation({
       .first(); // .first not .unique: a provider may now hold multiple personal pool keys — upsert the primary
     // a fresh key write un-bricks the row: reset the pool-health verdict so re-pasting a valid key
     // into a cred that pickCredentials had benched (dead/exhausted) brings it back into rotation.
-    if (existing) await ctx.db.patch(existing._id, { kind: a.kind, ciphertext: a.ciphertext, expires: a.expires, updatedAt: Date.now(), refreshLeaseUntil: undefined, status: "ok", cooldownUntil: undefined, backoffLevel: 0, lastErrorCode: undefined });
+    if (existing) await ctx.db.patch(existing._id, { ...resetCredentialCheck, kind: a.kind, ciphertext: a.ciphertext, expires: a.expires, updatedAt: Math.max(Date.now(), existing.updatedAt + 1), refreshLeaseUntil: undefined, status: "ok", cooldownUntil: undefined, backoffLevel: 0, lastErrorCode: undefined });
     else await ctx.db.insert("modelCreds", { userId: a.userId, provider: a.provider, kind: a.kind, ciphertext: a.ciphertext, expires: a.expires, updatedAt: Date.now() });
   },
 });
@@ -98,6 +89,10 @@ export const store = internalMutation({
 export const _connectForUser = internalMutation({
   args: { userId: v.id("users"), provider: v.string(), ciphertext: v.string(), endpoint: v.optional(v.string()), protocol: v.optional(v.string()), models: v.optional(v.array(v.string())) },
   handler: async (ctx, a) => {
+    const invalid = credentialInputError(a) ?? credentialEndpointError(a.endpoint);
+    if (invalid) throw new ConvexError({ code: "invalid_request", detail: invalid });
+    if (a.ciphertext.length < 40 || a.ciphertext.length > 65536 || !/^[A-Za-z0-9+/]+={0,2}$/.test(a.ciphertext)) throw new ConvexError({ code: "invalid_request", detail: "Invalid encrypted credential." });
+    if (a.endpoint !== undefined) assertSafeUrl(a.endpoint);
     const existing = await ctx.db
       .query("modelCreds")
       .withIndex("by_user_provider", (q) => q.eq("userId", a.userId).eq("provider", a.provider))
@@ -105,7 +100,7 @@ export const _connectForUser = internalMutation({
       .first();
     // only overwrite models when this call supplies them — a plain key-refresh must not wipe a saved list
     const modelsPatch = a.models !== undefined ? { models: a.models } : {};
-    if (existing) { await ctx.db.patch(existing._id, { kind: "api_key", ciphertext: a.ciphertext, endpoint: a.endpoint, protocol: a.protocol, ...modelsPatch, updatedAt: Date.now(), status: "ok", cooldownUntil: undefined, backoffLevel: 0, lastErrorCode: undefined, refreshLeaseUntil: undefined }); return; }
+    if (existing) { await ctx.db.patch(existing._id, { ...resetCredentialCheck, kind: "api_key", ciphertext: a.ciphertext, endpoint: a.endpoint, protocol: a.protocol, ...modelsPatch, updatedAt: Math.max(Date.now(), existing.updatedAt + 1), status: "ok", cooldownUntil: undefined, backoffLevel: 0, lastErrorCode: undefined, refreshLeaseUntil: undefined }); return; }
     await ctx.db.insert("modelCreds", { userId: a.userId, provider: a.provider, kind: "api_key", ciphertext: a.ciphertext, endpoint: a.endpoint, protocol: a.protocol, models: a.models, updatedAt: Date.now() });
   },
 });
@@ -117,6 +112,8 @@ export const setProviderModels = mutation({
   args: { provider: v.string(), models: v.array(v.string()) },
   handler: async (ctx, a) => {
     const userId = await requireUser(ctx);
+    const invalid = credentialInputError(a);
+    if (invalid) throw new ConvexError({ code: "invalid_request", detail: invalid });
     const row = await ctx.db
       .query("modelCreds")
       .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", a.provider))
@@ -124,7 +121,7 @@ export const setProviderModels = mutation({
       .first();
     if (!row) throw new ConvexError({ code: "not_connected", detail: `"${a.provider}" isn't connected — add it first.` });
     const models = [...new Set(a.models.map((s) => s.trim()).filter(Boolean))].slice(0, 100);
-    await ctx.db.patch(row._id, { models, updatedAt: Date.now() });
+    await ctx.db.patch(row._id, { models, updatedAt: Math.max(Date.now(), row.updatedAt + 1) });
   },
 });
 

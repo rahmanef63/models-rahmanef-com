@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { useQuery, useAction, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { errData } from "@/features/core";
+import { credentialError } from "../lib/credential-check";
+import { ErrorLine } from "./error-line";
 import { useConfirm } from "@/features/core";
 import { useWorkspace } from "@/features/workspaces";
 
@@ -17,22 +18,21 @@ export function ProviderKeys({ provider }: { provider: string }) {
   const [label, setLabel] = useState("");
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
+  const [err, setErr] = useState<unknown>(null);
+  const [saved, setSaved] = useState(false);
   const { ask, confirmDialog } = useConfirm();
 
   async function onAdd() {
-    if (!key) return;
+    if (busy || !key.trim()) return;
     setBusy(true);
-    setErr("");
+    setErr(null); setSaved(false);
     try {
       await add({ provider, apiKey: key, label: label.trim() || undefined });
-      setKey("");
-      setLabel("");
+      setLabel(""); setSaved(true);
     } catch (e) {
-      const d = errData(e);
-      setErr(typeof d === "string" ? d : d.detail);
+      setErr(credentialError(e, provider));
     } finally {
-      setBusy(false);
+      setKey(""); setBusy(false);
     }
   }
 
@@ -45,23 +45,24 @@ export function ProviderKeys({ provider }: { provider: string }) {
           {keys.map((k) => {
             const cooling = !!k.cooldownUntil && k.cooldownUntil > now;
             const badge = k.status === "dead" ? "danger" : cooling ? "key" : "ok";
-            const text = k.status === "dead" ? "DEAD" : cooling ? "COOLING" : "LIVE";
+            const text = k.status === "dead" ? "DEAD" : cooling ? "COOLING" : "AVAILABLE";
             return (
               <li key={k.credId}>
                 <span className="mono muted" style={{ minWidth: "6rem" }}>{k.label || "key"}</span>
                 <span className={`badge ${badge}`}>{text}</span>
-                <button className="link danger" onClick={() => ask({ title: "Remove key?", message: `Remove "${k.label || "this key"}" from the pool?`, confirmLabel: "Remove", run: () => del({ credId: k.credId }) })}>remove</button>
+                <button className="link danger" onClick={() => ask({ title: "Remove key?", message: `Remove "${k.label || "this key"}" from the pool?`, confirmLabel: "Remove", run: async () => { try { await del({ credId: k.credId }); } catch (e) { setErr(credentialError(e, provider)); } } })}>remove</button>
               </li>
             );
           })}
         </ul>
       )}
       <div className="row pkey-add">
-        <input placeholder="label (optional)" value={label} onChange={(e) => setLabel(e.target.value)} style={{ width: "9rem" }} />
-        <input type="password" placeholder="add another key — sk-…" value={key} onChange={(e) => setKey(e.target.value)} />
-        <button className="btn" disabled={busy || !key} onClick={() => void onAdd()}>{busy ? "…" : "+ key"}</button>
+        <input disabled={busy} placeholder="label (optional)" value={label} onChange={(e) => setLabel(e.target.value)} style={{ width: "9rem" }} />
+        <input disabled={busy} autoComplete="off" aria-label="API key" type="password" placeholder="add another key — sk-…" value={key} onChange={(e) => { setKey(e.target.value); setErr(null); setSaved(false); }} />
+        <button className="btn" disabled={busy || !key.trim()} onClick={() => void onAdd()}>{busy ? "saving…" : "+ key"}</button>
       </div>
-      {err && <p className="mono" style={{ color: "var(--danger)", fontSize: ".82rem", marginTop: ".4rem" }}>{err}</p>}
+      {saved && <p className="muted" role="status">Key saved to the pool — not tested.</p>}
+      {err != null && <ErrorLine e={err} isAdmin={false} />}
       {confirmDialog}
       <SharedKeys provider={provider} />
     </div>
@@ -82,22 +83,21 @@ function SharedKeys({ provider }: { provider: string }) {
   const [label, setLabel] = useState("");
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
+  const [err, setErr] = useState<unknown>(null);
+  const [saved, setSaved] = useState(false);
   const { ask, confirmDialog } = useConfirm();
 
   async function onAdd() {
-    if (!key || !workspaceId) return;
+    if (busy || !key.trim() || !workspaceId) return;
     setBusy(true);
-    setErr("");
+    setErr(null); setSaved(false);
     try {
       await add({ workspaceId: workspaceId as never, provider, apiKey: key, label: label.trim() || undefined });
-      setKey("");
-      setLabel("");
+      setLabel(""); setSaved(true);
     } catch (e) {
-      const d = errData(e);
-      setErr(typeof d === "string" ? d : d.detail);
+      setErr(credentialError(e, provider));
     } finally {
-      setBusy(false);
+      setKey(""); setBusy(false);
     }
   }
 
@@ -112,12 +112,12 @@ function SharedKeys({ provider }: { provider: string }) {
           {keys.map((k) => {
             const cooling = !!k.cooldownUntil && k.cooldownUntil > now;
             const badge = k.status === "dead" ? "danger" : cooling ? "key" : "ok";
-            const text = k.status === "dead" ? "DEAD" : cooling ? "COOLING" : "LIVE";
+            const text = k.status === "dead" ? "DEAD" : cooling ? "COOLING" : "AVAILABLE";
             return (
               <li key={k.credId}>
                 <span className="mono muted" style={{ minWidth: "6rem" }}>{k.label || "shared key"}</span>
                 <span className={`badge ${badge}`}>{text}</span>
-                {isAdmin && <button className="link danger" onClick={() => ask({ title: "Remove shared key?", message: `Remove the shared "${k.label || "key"}"? Members lose failover onto it.`, confirmLabel: "Remove", run: () => del({ credId: k.credId }) })}>remove</button>}
+                {isAdmin && <button className="link danger" onClick={() => ask({ title: "Remove shared key?", message: `Remove the shared "${k.label || "key"}"? Members lose failover onto it.`, confirmLabel: "Remove", run: async () => { try { await del({ credId: k.credId }); } catch (e) { setErr(credentialError(e, provider)); } } })}>remove</button>}
               </li>
             );
           })}
@@ -125,12 +125,13 @@ function SharedKeys({ provider }: { provider: string }) {
       )}
       {isAdmin && (
         <div className="row pkey-add">
-          <input placeholder="label (optional)" value={label} onChange={(e) => setLabel(e.target.value)} style={{ width: "9rem" }} />
-          <input type="password" placeholder="share a key — sk-…" value={key} onChange={(e) => setKey(e.target.value)} />
-          <button className="btn" disabled={busy || !key} onClick={() => void onAdd()}>{busy ? "…" : "+ shared"}</button>
+          <input disabled={busy} placeholder="label (optional)" value={label} onChange={(e) => setLabel(e.target.value)} style={{ width: "9rem" }} />
+          <input disabled={busy} autoComplete="off" aria-label="API key" type="password" placeholder="share a key — sk-…" value={key} onChange={(e) => { setKey(e.target.value); setErr(null); setSaved(false); }} />
+          <button className="btn" disabled={busy || !key.trim()} onClick={() => void onAdd()}>{busy ? "saving…" : "+ shared"}</button>
         </div>
       )}
-      {err && <p className="mono" style={{ color: "var(--danger)", fontSize: ".82rem", marginTop: ".4rem" }}>{err}</p>}
+      {saved && <p className="muted" role="status">Key saved to the pool — not tested.</p>}
+      {err != null && <ErrorLine e={err} isAdmin={false} />}
       {confirmDialog}
     </div>
   );

@@ -8,3 +8,5 @@ export { ErrorLine } from "./components/error-line";
 // provider-domain metadata now owned by the slice (was app/_components/shared) — fixes the leaky barrel.
 export type { Cred, Catalog } from "./lib/provider-meta";
 export { PROVIDER_LABEL, SUPPORTED } from "./lib/provider-meta";
+
+export { catalogMetadata } from "./lib/catalog-meta";

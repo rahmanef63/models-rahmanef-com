@@ -6,6 +6,7 @@
 
 import { getCatalog } from './catalog.js'
 import { PROVIDERS } from './registry.js'
+import { validProvider } from './validation.js'
 
 /**
  * @typedef {object} ResolvedModel
@@ -20,9 +21,12 @@ import { PROVIDERS } from './registry.js'
 
 /** Split on the FIRST '/', so model ids may contain '/' (OpenRouter style). */
 export function parseRef(ref) {
+  if (typeof ref !== 'string') throw new TypeError('model ref must be a string')
   const i = ref.indexOf('/')
   if (i < 1 || i === ref.length - 1) throw new Error(`bad model ref "${ref}", expected "provider/model"`)
-  return { provider: ref.slice(0, i), model: ref.slice(i + 1) }
+  const provider = ref.slice(0, i)
+  if (!validProvider(provider) || !ref.slice(i + 1).trim()) throw new Error('invalid model ref')
+  return { provider, model: ref.slice(i + 1) }
 }
 
 /**
@@ -32,7 +36,7 @@ export function parseRef(ref) {
  */
 export async function resolveModel(ref, { tenantId, store, baseUrl, info = false } = {}) {
   const { provider, model } = parseRef(ref)
-  const conn = PROVIDERS[provider]
+  const conn = Object.hasOwn(PROVIDERS, provider) ? PROVIDERS[provider] : undefined
   if (!conn && !baseUrl) throw new Error(`unknown provider "${provider}" — add it to registry.js or pass opts.baseUrl`)
   if (!store) throw new Error('resolveModel needs a CredentialStore (opts.store)')
 

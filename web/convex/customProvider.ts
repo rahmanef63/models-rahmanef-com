@@ -8,6 +8,7 @@ import { internal } from "./_generated/api";
 import { v, ConvexError } from "convex/values";
 import { requireUser } from "./_shared/auth";
 import { encryptSecret } from "./crypto";
+import { credentialInputError, credentialEndpointError } from "./credentialPolicy";
 import { assertSafeUrl } from "./_shared/ssrf";
 import { OPENAI_COMPAT } from "./chatProviders";
 
@@ -23,9 +24,12 @@ export const connectCustomProvider = action({
     const slug = slugify(a.name);
     if (!slug) throw new ConvexError({ code: "invalid_request", detail: "A name is required (letters/numbers)." });
     if (BUILTIN.has(slug)) throw new ConvexError({ code: "invalid_request", detail: `"${slug}" is a built-in provider — connect it directly, not as a custom provider.` });
-    if (!a.apiKey) throw new ConvexError({ code: "invalid_request", detail: "apiKey required." });
+    const invalid = credentialInputError({ ...a, provider: slug });
+    if (invalid) throw new ConvexError({ code: "invalid_request", detail: invalid });
     const baseURL = a.baseURL.trim();
-    try { assertSafeUrl(baseURL); } catch (e: any) { throw new ConvexError({ code: "invalid_request", detail: `Invalid endpoint: ${e?.data?.detail ?? "bad URL"}` }); }
+    const endpointError = credentialEndpointError(baseURL);
+    if (endpointError) throw new ConvexError({ code: "invalid_request", detail: endpointError });
+    assertSafeUrl(baseURL);
     const protocol = a.protocol === "anthropic" ? "anthropic" : undefined; // only anthropic is a departure from the default
     const models = a.models ? [...new Set(a.models.map((s) => s.trim()).filter(Boolean))].slice(0, 100) : undefined;
     await ctx.runMutation(internal.credentials._connectForUser, { userId, provider: slug, ciphertext: await encryptSecret(a.apiKey), endpoint: baseURL, protocol, models });
