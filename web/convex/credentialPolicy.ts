@@ -46,12 +46,41 @@ export const resetCredentialCheck = {
   lastCheckedAt: undefined, lastCheckedOk: undefined, lastCheckedCode: undefined, lastCheckedDetail: undefined,
 };
 
+function privateIpv4(octets: number[]): boolean {
+  const [a, b] = octets;
+  return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) ||
+    (a === 100 && b >= 64 && b <= 127) || a >= 224;
+}
+
+function privateEndpointHost(hostname: string): boolean {
+  const host = hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.+$/, "");
+  if (host === "localhost" || host.endsWith(".localhost") || host === "localhost.localdomain" ||
+      host.endsWith(".local") || host.endsWith(".internal")) return true;
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(host)) return privateIpv4(host.split(".").map(Number));
+  if (!host.includes(":")) return false;
+  // URL has already validated/normalized IPv6, including dotted IPv4-mapped spellings.
+  const halves = host.split("::");
+  const left = halves[0] ? halves[0].split(":").map((part) => parseInt(part, 16)) : [];
+  const right = halves[1] ? halves[1].split(":").map((part) => parseInt(part, 16)) : [];
+  const words = halves.length === 1 ? left : [...left, ...Array(8 - left.length - right.length).fill(0), ...right];
+  if ((words[0] & 0xfe00) === 0xfc00 || (words[0] & 0xffc0) === 0xfe80 ||
+      (words[0] & 0xffc0) === 0xfec0 || (words[0] & 0xff00) === 0xff00) return true;
+  const mapped = words.slice(0, 5).every((word) => word === 0) && words[5] === 0xffff;
+  const compatible = words.slice(0, 6).every((word) => word === 0);
+  if (mapped || compatible) return privateIpv4([words[6] >>> 8, words[6] & 255, words[7] >>> 8, words[7] & 255]);
+  return false;
+}
+
+// Hostname/literal policy only: no DNS resolution or protection against DNS rebinding.
 export function credentialEndpointError(endpoint?: string): string | null {
   if (endpoint === undefined) return null;
   try {
     if (endpoint.length > 2048) return "Invalid endpoint.";
     const url = new URL(endpoint);
-    if (url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash) return null;
+    if (url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash) {
+      return privateEndpointHost(url.hostname) ? "Endpoint host must be public." : null;
+    }
   } catch { /* malformed URL */ }
   return "Endpoint must be HTTPS without credentials, query, or fragment.";
 }
