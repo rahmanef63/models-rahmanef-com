@@ -8,7 +8,7 @@ import { classifyError } from "./chatErrors.ts";
 import { credentialInputError, publicCredential, safeProviderErrorDetail } from "./credentialPolicy.ts";
 process.env.MODELS_ENC_KEY = btoa("x".repeat(32));
 const canary = "synthetic-secret-that-must-never-be-returned";
-const personal = { _id: "personal", _creationTime: 1, userId: "owner", provider: "openai", ciphertext: canary, lastCheckedCode: "invalid_api_key", lastCheckedDetail: canary };
+const personal = { _id: "personal", _creationTime: 1, userId: "owner", provider: "openai", ciphertext: canary, updatedAt: 1, lastCheckedCode: "invalid_api_key", lastCheckedDetail: canary };
 const shared = { ...personal, _id: "shared", workspaceId: "workspace", provider: "shared-only" };
 let row = personal, role = "member", writes = [], queries = 0;
 const chain = { withIndex() { return this; }, filter() { return this; }, collect: async () => [personal, shared], unique: async () => role ? { role } : null, first: async () => row };
@@ -63,7 +63,7 @@ assert.equal(internalListed.length, 1);
 for (const result of [listed, internalListed, publicCredential(personal)]) assert(!JSON.stringify(result).includes(canary));
 assert.deepEqual(await listConfiguredProviders._handler(ctx(null), {}), []);
 row = personal; writes = [];
-await _recordCheck._handler(ctx(), { userId: "owner", provider: "openai", ok: false, code: "invalid_api_key", detail: canary });
+await _recordCheck._handler(ctx(), { userId: "owner", provider: "openai", credId: personal._id, ciphertext: personal.ciphertext, updatedAt: personal.updatedAt, ok: false, code: "invalid_api_key", detail: canary });
 assert(!JSON.stringify(writes).includes(canary));
 for (const [message, code] of [["401 " + canary, "invalid_api_key"], ["429 " + canary, "rate_limited"], ["402 " + canary, "quota_exceeded"], ["404 " + canary, "not_found"], ["400 " + canary, "invalid_request"], ["503 " + canary, "provider_error"], ["ENOTFOUND " + canary, "unreachable"], [canary, "internal"]]) {
   const result = classifyError(new Error(message));

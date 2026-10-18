@@ -14,6 +14,8 @@ import { callForUser } from "./callForUser";
 import { gatewayTools } from "./chatTools";
 import { modelFor } from "./chatProviders";
 import { classifyError, traceOf, type ChatErrorInfo } from "./chatErrors";
+import { checkPrimaryCredential, type CredentialCheckResult } from "./credentialCheck";
+import { credentialInputError } from "./credentialPolicy";
 
 // `agentId` routes the message through a saved agent's instructions/skills/tools/maxSteps
 // (same resolution runAgent uses for one-shot task runs) instead of plain chat — this is what
@@ -140,27 +142,13 @@ export const runAgent = action({
   },
 });
 
-// Connectivity check for a stored API-key credential — a real 1-token call through the EXACT
-// same path (callForUser) real chat uses, so it can never diverge from what chat actually does.
-// Never throws on a bad key (that's an EXPECTED outcome, not exceptional) — records the result on
-// the credential row so the Providers list can show a health badge instead of only surfacing at
-// chat time. Client picks `model` from the models.dev catalog (cheapest available for `provider`).
+// Test the primary personal API key once, then save only if that exact snapshot still exists.
 export const testCredential = action({
   args: { provider: v.string(), model: v.string() },
-  handler: async (ctx, a): Promise<{ ok: boolean; code?: string; status?: number; detail?: string }> => {
+  handler: async (ctx, a): Promise<CredentialCheckResult> => {
     const userId = await requireUser(ctx);
-    if (!a.model) throw new ConvexError({ code: "invalid_request", detail: "model required" } satisfies ChatErrorInfo);
-    try {
-      await callForUser(ctx, userId, undefined, `${a.provider}/${a.model}`, [{ role: "user", content: "ping" }]); // personal cred test
-      // never let the bookkeeping write itself throw — a hiccup here must not surface as a false
-      // "key is bad" (or an uncaught rejection) when the actual connectivity check succeeded
-      try { await ctx.runMutation(internal.credentials._recordCheck, { userId, provider: a.provider, ok: true }); } catch { /* best-effort */ }
-      return { ok: true };
-    } catch (e: any) {
-      // callForUser already classifies its own failures into ConvexError({code,status,detail,...}) — reuse it
-      const d = e?.data && typeof e.data === "object" ? e.data : classifyError(e, a.provider);
-      try { await ctx.runMutation(internal.credentials._recordCheck, { userId, provider: a.provider, ok: false, code: d.code, detail: d.detail }); } catch { /* best-effort */ }
-      return { ok: false, code: d.code, status: d.status, detail: d.detail };
-    }
+    const invalid = credentialInputError(a);
+    if (invalid || !a.model || a.model.length > 256 || /[\x00-\x1f\x7f]/.test(a.model)) throw new ConvexError({ code: "invalid_request", detail: invalid ?? "Invalid model." });
+    return checkPrimaryCredential(ctx, userId, a);
   },
 });

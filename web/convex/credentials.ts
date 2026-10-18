@@ -7,7 +7,8 @@ import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUser } from "./_shared/auth";
 import { encryptSecret } from "./crypto";
-import { credentialInputError, publicCredential, safeProviderErrorDetail } from "./credentialPolicy";
+import { credentialInputError, credentialEndpointError, publicCredential, resetCredentialCheck, safeProviderErrorDetail } from "./credentialPolicy";
+import { assertSafeUrl } from "./_shared/ssrf";
 
 const mapCred = publicCredential;
 
@@ -53,18 +54,15 @@ export const setCredential = action({
   },
 });
 
-// internal: record the result of a connectivity test (chat.ts testCredential) against this
-// credential — never touches the ciphertext itself.
+// Internal compare-and-set: a check can only stamp the exact personal credential snapshot it tested.
 export const _recordCheck = internalMutation({
-  args: { userId: v.id("users"), provider: v.string(), ok: v.boolean(), code: v.optional(v.string()), detail: v.optional(v.string()) },
+  args: { userId: v.id("users"), provider: v.string(), credId: v.id("modelCreds"), ciphertext: v.string(), updatedAt: v.number(), endpoint: v.optional(v.string()), protocol: v.optional(v.string()), ok: v.boolean(), code: v.optional(v.string()), detail: v.optional(v.string()) },
+  returns: v.boolean(),
   handler: async (ctx, a) => {
-    const row = await ctx.db
-      .query("modelCreds")
-      .withIndex("by_user_provider", (q) => q.eq("userId", a.userId).eq("provider", a.provider))
-      .filter((q) => q.eq(q.field("workspaceId"), undefined))
-      .first(); // personal primary — never .unique: a provider may hold multiple pool keys now
-    if (!row) return; // credential was deleted mid-check — nothing to record
+    const row = await ctx.db.get(a.credId);
+    if (!row || row.userId !== a.userId || row.provider !== a.provider || row.workspaceId !== undefined || row.ciphertext !== a.ciphertext || row.updatedAt !== a.updatedAt || row.endpoint !== a.endpoint || row.protocol !== a.protocol) return false;
     await ctx.db.patch(row._id, { lastCheckedAt: Date.now(), lastCheckedOk: a.ok, lastCheckedCode: a.code, lastCheckedDetail: a.detail === undefined ? undefined : safeProviderErrorDetail(a.code) });
+    return true;
   },
 });
 
@@ -80,7 +78,7 @@ export const store = internalMutation({
       .first(); // .first not .unique: a provider may now hold multiple personal pool keys — upsert the primary
     // a fresh key write un-bricks the row: reset the pool-health verdict so re-pasting a valid key
     // into a cred that pickCredentials had benched (dead/exhausted) brings it back into rotation.
-    if (existing) await ctx.db.patch(existing._id, { kind: a.kind, ciphertext: a.ciphertext, expires: a.expires, updatedAt: Date.now(), refreshLeaseUntil: undefined, status: "ok", cooldownUntil: undefined, backoffLevel: 0, lastErrorCode: undefined });
+    if (existing) await ctx.db.patch(existing._id, { ...resetCredentialCheck, kind: a.kind, ciphertext: a.ciphertext, expires: a.expires, updatedAt: Date.now(), refreshLeaseUntil: undefined, status: "ok", cooldownUntil: undefined, backoffLevel: 0, lastErrorCode: undefined });
     else await ctx.db.insert("modelCreds", { userId: a.userId, provider: a.provider, kind: a.kind, ciphertext: a.ciphertext, expires: a.expires, updatedAt: Date.now() });
   },
 });
@@ -91,6 +89,10 @@ export const store = internalMutation({
 export const _connectForUser = internalMutation({
   args: { userId: v.id("users"), provider: v.string(), ciphertext: v.string(), endpoint: v.optional(v.string()), protocol: v.optional(v.string()), models: v.optional(v.array(v.string())) },
   handler: async (ctx, a) => {
+    const invalid = credentialInputError(a) ?? credentialEndpointError(a.endpoint);
+    if (invalid) throw new ConvexError({ code: "invalid_request", detail: invalid });
+    if (a.ciphertext.length < 40 || a.ciphertext.length > 65536 || !/^[A-Za-z0-9+/]+={0,2}$/.test(a.ciphertext)) throw new ConvexError({ code: "invalid_request", detail: "Invalid encrypted credential." });
+    if (a.endpoint !== undefined) assertSafeUrl(a.endpoint);
     const existing = await ctx.db
       .query("modelCreds")
       .withIndex("by_user_provider", (q) => q.eq("userId", a.userId).eq("provider", a.provider))
@@ -98,7 +100,7 @@ export const _connectForUser = internalMutation({
       .first();
     // only overwrite models when this call supplies them — a plain key-refresh must not wipe a saved list
     const modelsPatch = a.models !== undefined ? { models: a.models } : {};
-    if (existing) { await ctx.db.patch(existing._id, { kind: "api_key", ciphertext: a.ciphertext, endpoint: a.endpoint, protocol: a.protocol, ...modelsPatch, updatedAt: Date.now(), status: "ok", cooldownUntil: undefined, backoffLevel: 0, lastErrorCode: undefined, refreshLeaseUntil: undefined }); return; }
+    if (existing) { await ctx.db.patch(existing._id, { ...resetCredentialCheck, kind: "api_key", ciphertext: a.ciphertext, endpoint: a.endpoint, protocol: a.protocol, ...modelsPatch, updatedAt: Date.now(), status: "ok", cooldownUntil: undefined, backoffLevel: 0, lastErrorCode: undefined, refreshLeaseUntil: undefined }); return; }
     await ctx.db.insert("modelCreds", { userId: a.userId, provider: a.provider, kind: "api_key", ciphertext: a.ciphertext, endpoint: a.endpoint, protocol: a.protocol, models: a.models, updatedAt: Date.now() });
   },
 });

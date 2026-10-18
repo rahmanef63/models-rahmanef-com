@@ -1,8 +1,9 @@
 // Bounds are applied before encryption or writes; error text never includes supplied values.
-export function credentialInputError(a: { provider: string; apiKey?: string; priority?: number; models?: string[] }): string | null {
+export function credentialInputError(a: { provider: string; apiKey?: string; priority?: number; models?: string[]; protocol?: string }): string | null {
   if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(a.provider)) return "Invalid provider slug.";
   if (a.apiKey !== undefined && (!a.apiKey || a.apiKey.length > 16384 || /\s|[\x00-\x1f\x7f]/.test(a.apiKey))) return "Invalid API key.";
   if (a.priority !== undefined && !Number.isFinite(a.priority)) return "Priority must be finite.";
+  if (a.protocol !== undefined && a.protocol !== "openai" && a.protocol !== "anthropic") return "Unsupported protocol.";
   if (a.models && (a.models.length > 100 || a.models.some((m) => m.length > 256 || /[\x00-\x1f\x7f]/.test(m)))) return "Invalid model list.";
   return null;
 }
@@ -38,4 +39,18 @@ export function classifyProviderFailure(raw: string, status?: number, provider?:
     status === 404 ? "not_found" : status === 400 ? "invalid_request" :
     status ? "provider_error" : unreachable ? "unreachable" : "internal";
   return { code, status, detail: safeProviderErrorDetail(code) };
+}
+
+export const resetCredentialCheck = {
+  lastCheckedAt: undefined, lastCheckedOk: undefined, lastCheckedCode: undefined, lastCheckedDetail: undefined,
+};
+
+export function credentialEndpointError(endpoint?: string): string | null {
+  if (endpoint === undefined) return null;
+  try {
+    if (endpoint.length > 2048) return "Invalid endpoint.";
+    const url = new URL(endpoint);
+    if (url.protocol === "https:" && !url.username && !url.password && !url.search && !url.hash) return null;
+  } catch { /* malformed URL */ }
+  return "Endpoint must be HTTPS without credentials, query, or fragment.";
 }

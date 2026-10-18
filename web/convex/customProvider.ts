@@ -8,7 +8,7 @@ import { internal } from "./_generated/api";
 import { v, ConvexError } from "convex/values";
 import { requireUser } from "./_shared/auth";
 import { encryptSecret } from "./crypto";
-import { credentialInputError } from "./credentialPolicy";
+import { credentialInputError, credentialEndpointError } from "./credentialPolicy";
 import { assertSafeUrl } from "./_shared/ssrf";
 import { OPENAI_COMPAT } from "./chatProviders";
 
@@ -26,13 +26,10 @@ export const connectCustomProvider = action({
     if (BUILTIN.has(slug)) throw new ConvexError({ code: "invalid_request", detail: `"${slug}" is a built-in provider — connect it directly, not as a custom provider.` });
     const invalid = credentialInputError({ ...a, provider: slug });
     if (invalid) throw new ConvexError({ code: "invalid_request", detail: invalid });
-    if (a.protocol !== undefined && a.protocol !== "openai" && a.protocol !== "anthropic") throw new ConvexError({ code: "invalid_request", detail: "Unsupported protocol." });
     const baseURL = a.baseURL.trim();
-    if (baseURL.length > 2048) throw new ConvexError({ code: "invalid_request", detail: "Invalid endpoint." });
-    try {
-      const url = assertSafeUrl(baseURL);
-      if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) throw new Error("Invalid endpoint");
-    } catch { throw new ConvexError({ code: "invalid_request", detail: "Endpoint must be HTTPS without credentials, query, or fragment." }); }
+    const endpointError = credentialEndpointError(baseURL);
+    if (endpointError) throw new ConvexError({ code: "invalid_request", detail: endpointError });
+    assertSafeUrl(baseURL);
     const protocol = a.protocol === "anthropic" ? "anthropic" : undefined; // only anthropic is a departure from the default
     const models = a.models ? [...new Set(a.models.map((s) => s.trim()).filter(Boolean))].slice(0, 100) : undefined;
     await ctx.runMutation(internal.credentials._connectForUser, { userId, provider: slug, ciphertext: await encryptSecret(a.apiKey), endpoint: baseURL, protocol, models });
