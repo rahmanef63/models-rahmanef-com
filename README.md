@@ -290,7 +290,7 @@ npm test
 
 The core security regressions run with `npm test` and use only temporary credential files and mocked provider responses. Corrupt or unreadable local credential files now fail closed; writes leave the existing file untouched. Anonymous public catalog reads remain available with `?all`, while `?refresh` requires a valid authenticated tenant.
 
-Provider slugs must be lowercase; mixed-case aliases are rejected before credential selection. Hosted custom-provider writes require HTTPS endpoints without URL credentials, query strings, or fragments. Local/custom endpoints in the reusable library remain explicitly configured by the host.
+Provider slugs must be lowercase; mixed-case aliases are rejected before credential selection. Hosted custom-provider writes require HTTPS endpoints without URL credentials, query strings, or fragments, and reject private, loopback, and link-local literal addresses. Local/custom endpoints in the reusable library remain explicitly configured by the host. Hostname checks do not resolve or pin DNS addresses.
 
 After installing the web dependencies with `cd web && npx pnpm@10 install --frozen-lockfile --ignore-scripts`, run `npm run test:security:convex` from the repository root for synthetic adapter and web credential handler tests. These tests do not connect to Convex or a model provider.
 
