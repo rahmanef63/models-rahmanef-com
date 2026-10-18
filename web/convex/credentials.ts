@@ -7,17 +7,9 @@ import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireUser } from "./_shared/auth";
 import { encryptSecret } from "./crypto";
+import { credentialInputError, publicCredential, safeProviderErrorDetail } from "./credentialPolicy";
 
-// never the ciphertext — last-check fields drive the health badge in the Providers list
-const mapCred = (r: any) => ({
-  provider: r.provider,
-  kind: r.kind ?? "api_key",
-  models: r.models, // manual custom-provider models — feeds the chat picker (undefined for built-ins)
-  lastCheckedAt: r.lastCheckedAt,
-  lastCheckedOk: r.lastCheckedOk,
-  lastCheckedCode: r.lastCheckedCode,
-  lastCheckedDetail: r.lastCheckedDetail,
-});
+const mapCred = publicCredential;
 
 export const listConfiguredProviders = query({
   args: {},
@@ -31,7 +23,7 @@ export const listConfiguredProviders = query({
     // NOT-TESTED the moment a 2nd key is added, while the badge write lands on the old row — they'd
     // never agree. Per-key status lives in the ProviderKeys expander instead.
     const byProvider = new Map<string, { row: any; count: number }>();
-    for (const r of rows) {
+    for (const r of rows.filter((row) => row.workspaceId === undefined)) {
       const cur = byProvider.get(r.provider);
       if (!cur) byProvider.set(r.provider, { row: r, count: 1 });
       else { cur.count++; if (r._creationTime < cur.row._creationTime) cur.row = r; }
@@ -46,7 +38,7 @@ export const providersForUser = internalQuery({
   args: { userId: v.id("users") },
   handler: async (ctx, a) => {
     const rows = await ctx.db.query("modelCreds").withIndex("by_user", (q) => q.eq("userId", a.userId)).collect();
-    return rows.map(mapCred);
+    return rows.filter((row) => row.workspaceId === undefined).map(mapCred);
   },
 });
 
@@ -54,7 +46,8 @@ export const setCredential = action({
   args: { provider: v.string(), apiKey: v.string() },
   handler: async (ctx, a): Promise<void> => {
     const userId = await requireUser(ctx);
-    if (!a.apiKey) throw new ConvexError({ code: "invalid_request", detail: "apiKey required" });
+    const invalid = credentialInputError(a);
+    if (invalid) throw new ConvexError({ code: "invalid_request", detail: invalid });
     const ciphertext = await encryptSecret(a.apiKey);
     await ctx.runMutation(internal.credentials.store, { userId, provider: a.provider, kind: "api_key", ciphertext });
   },
@@ -71,7 +64,7 @@ export const _recordCheck = internalMutation({
       .filter((q) => q.eq(q.field("workspaceId"), undefined))
       .first(); // personal primary — never .unique: a provider may hold multiple pool keys now
     if (!row) return; // credential was deleted mid-check — nothing to record
-    await ctx.db.patch(row._id, { lastCheckedAt: Date.now(), lastCheckedOk: a.ok, lastCheckedCode: a.code, lastCheckedDetail: a.detail });
+    await ctx.db.patch(row._id, { lastCheckedAt: Date.now(), lastCheckedOk: a.ok, lastCheckedCode: a.code, lastCheckedDetail: a.detail === undefined ? undefined : safeProviderErrorDetail(a.code) });
   },
 });
 
@@ -117,6 +110,8 @@ export const setProviderModels = mutation({
   args: { provider: v.string(), models: v.array(v.string()) },
   handler: async (ctx, a) => {
     const userId = await requireUser(ctx);
+    const invalid = credentialInputError(a);
+    if (invalid) throw new ConvexError({ code: "invalid_request", detail: invalid });
     const row = await ctx.db
       .query("modelCreds")
       .withIndex("by_user_provider", (q) => q.eq("userId", userId).eq("provider", a.provider))
