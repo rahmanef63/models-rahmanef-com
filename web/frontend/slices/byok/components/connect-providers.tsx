@@ -1,6 +1,7 @@
 "use client";
 import { CopyField } from "@/features/core";
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
+import { useDeviceLogin } from "./use-device-login";
 import { useAction } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { SUPPORTED, type Catalog } from "../lib/provider-meta";
@@ -25,92 +26,44 @@ export function ConnectProviders({ catalog, isAdmin, setCredential, testCredenti
   const startCopilot = useAction(api.oauthCopilot.startCopilotLogin);
   const pollCopilot = useAction(api.oauthCopilot.pollCopilotLogin);
 
-  const [codexFlow, setCodexFlow] = useState<{ url: string; code: string } | null>(null);
-  const [copilotFlow, setCopilotFlow] = useState<{ url: string; code: string } | null>(null);
+  const codex = useDeviceLogin(startCodex, pollCodex, "OpenAI", onBanner);
+  const copilot = useDeviceLogin(startCopilot, pollCopilot, "GitHub Copilot", onBanner);
+  const codexFlow = codex.flow, copilotFlow = copilot.flow;
   const [claudeFlow, setClaudeFlow] = useState(false);
   const [claudeInput, setClaudeInput] = useState("");
-  const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const copilotTimer = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  // This card only mounts while the Providers tab is active — navigating away unmounts it. Without
-  // this, a device-code poll started here would keep ticking as an orphaned interval in the
-  // background, and returning to the tab would show a fresh "not connecting" button that could
-  // start a SECOND concurrent poll. Cancel on unmount so leaving the tab actually cancels the flow.
-  useEffect(() => () => { if (pollTimer.current) clearInterval(pollTimer.current); if (copilotTimer.current) clearInterval(copilotTimer.current); }, []);
-
-  async function connectCodex() {
-    onBanner("");
-    try {
-      const { verificationUrl, userCode, intervalMs } = await startCodex();
-      setCodexFlow({ url: verificationUrl, code: userCode });
-      pollTimer.current = setInterval(async () => {
-        try {
-          const { status } = await pollCodex();
-          if (status !== "pending") {
-            if (pollTimer.current) clearInterval(pollTimer.current);
-            setCodexFlow(null);
-            onBanner(status === "done" ? "✓ OpenAI connected" : "⚠ login expired — try again");
-          }
-        } catch (e) {
-          if (pollTimer.current) clearInterval(pollTimer.current);
-          setCodexFlow(null);
-          onBanner("⚠ " + (e instanceof Error ? e.message : String(e)));
-        }
-      }, intervalMs);
-    } catch (e) {
-      onBanner("⚠ " + (e instanceof Error ? e.message : String(e)));
-    }
-  }
-
-  async function connectCopilot() {
-    onBanner("");
-    try {
-      const { verificationUrl, userCode, intervalMs } = await startCopilot();
-      setCopilotFlow({ url: verificationUrl, code: userCode });
-      copilotTimer.current = setInterval(async () => {
-        try {
-          const { status } = await pollCopilot();
-          if (status !== "pending") {
-            if (copilotTimer.current) clearInterval(copilotTimer.current);
-            setCopilotFlow(null);
-            onBanner(status === "done" ? "✓ GitHub Copilot connected" : "⚠ login expired — try again");
-          }
-        } catch (e) {
-          if (copilotTimer.current) clearInterval(copilotTimer.current);
-          setCopilotFlow(null);
-          onBanner("⚠ " + (e instanceof Error ? e.message : String(e)));
-        }
-      }, intervalMs);
-    } catch (e) {
-      onBanner("⚠ " + (e instanceof Error ? e.message : String(e)));
-    }
-  }
+  const [busy, setBusy] = useState<string | null>(null);
 
   async function connectOpenRouter() {
-    const { url } = await startOpenRouter();
-    window.location.href = url;
+    if (busy) return;
+    setBusy("openrouter"); onBanner("");
+    try { const { url } = await startOpenRouter(); window.location.href = url; }
+    catch { onBanner("⚠ OpenRouter sign-in could not start. Try again."); }
+    finally { setBusy(null); }
   }
 
   async function connectClaude() {
-    onBanner("");
+    if (busy) return;
+    setBusy("claude"); onBanner("");
     try {
       const { url } = await startClaude();
       window.open(url, "_blank", "noopener");
       setClaudeFlow(true);
-    } catch (e) {
-      onBanner("⚠ " + (e instanceof Error ? e.message : String(e)));
-    }
+    } catch {
+      onBanner("⚠ Sign-in failed. Try again.");
+    } finally { setBusy(null); }
   }
 
   async function submitClaude() {
+    if (busy || !claudeInput.trim()) return;
+    setBusy("claude"); onBanner("");
     try {
       await finishClaude({ pasted: claudeInput });
       setClaudeFlow(false);
       setClaudeInput("");
-      onBanner("✓ Claude connected");
-    } catch (e) {
-      onBanner("⚠ " + (e instanceof Error ? e.message : String(e)));
-    }
+      onBanner("✓ Claude sign-in saved — model access not tested.");
+    } catch {
+      onBanner("⚠ Sign-in failed. Try again.");
+    } finally { setClaudeInput(""); setBusy(null); }
   }
 
   return (
@@ -118,23 +71,24 @@ export function ConnectProviders({ catalog, isAdmin, setCredential, testCredenti
       <h2>Connect a provider</h2>
       <p className="sub">{SUPPORTED} providers supported — sign in over OAuth, or paste a key. Each connection is yours only.</p>
       <div className="connect-grid">
-        <button className="provider-btn" onClick={connectCodex} disabled={!!codexFlow}>
+        <button className="provider-btn" onClick={codex.connect} disabled={codex.busy}>
           <strong>Sign in with OpenAI</strong>
           <span>ChatGPT / Codex · oauth</span>
         </button>
-        <button className="provider-btn" onClick={connectClaude} disabled={claudeFlow}>
+        <button className="provider-btn" onClick={connectClaude} disabled={claudeFlow || !!busy}>
           <strong>Sign in with Claude</strong>
           <span>Pro / Max · oauth</span>
         </button>
-        <button className="provider-btn" onClick={connectOpenRouter}>
+        <button className="provider-btn" onClick={connectOpenRouter} disabled={!!busy}>
           <strong>Connect OpenRouter</strong>
           <span>oauth · hundreds of models</span>
         </button>
-        <button className="provider-btn" onClick={connectCopilot} disabled={!!copilotFlow}>
+        <button className="provider-btn" onClick={copilot.connect} disabled={copilot.busy}>
           <strong>Sign in with GitHub Copilot</strong>
           <span>subscription · oauth</span>
         </button>
       </div>
+      {(codex.busy && !codexFlow || copilot.busy && !copilotFlow || busy) && <p className="muted" role="status">Sign-in request pending…</p>}
       {codexFlow && (
         <div className="device">
           <p><span className="mono muted">01</span> &nbsp;Open <a className="accent" href={codexFlow.url} target="_blank" rel="noreferrer">{codexFlow.url}</a></p>
@@ -142,7 +96,7 @@ export function ConnectProviders({ catalog, isAdmin, setCredential, testCredenti
           <CopyField value={codexFlow.code} label="device code" />
           <div className="row" style={{ alignItems: "center", gap: ".8rem" }}>
             <p className="spin" style={{ margin: 0 }}>◠ waiting for sign-in…</p>
-            <button className="link" onClick={() => setCodexFlow(null)}>cancel</button>
+            <button className="link" onClick={codex.cancel}>stop waiting</button>
           </div>
         </div>
       )}
@@ -153,7 +107,7 @@ export function ConnectProviders({ catalog, isAdmin, setCredential, testCredenti
           <CopyField value={copilotFlow.code} label="device code" />
           <div className="row" style={{ alignItems: "center", gap: ".8rem" }}>
             <p className="spin" style={{ margin: 0 }}>◠ waiting for sign-in…</p>
-            <button className="link" onClick={() => setCopilotFlow(null)}>cancel</button>
+            <button className="link" onClick={copilot.cancel}>stop waiting</button>
           </div>
         </div>
       )}
@@ -162,9 +116,9 @@ export function ConnectProviders({ catalog, isAdmin, setCredential, testCredenti
           <p><span className="mono muted">01</span> &nbsp;A Claude tab opened — approve access.</p>
           <p><span className="mono muted">02</span> &nbsp;Copy the <span className="accent">code#state</span> it shows and paste it here:</p>
           <div className="row" style={{ marginTop: "0.6rem" }}>
-            <input placeholder="code#state" value={claudeInput} onChange={(e) => setClaudeInput(e.target.value)} />
-            <button className="btn accent" disabled={!claudeInput.trim()} onClick={() => void submitClaude()}>Connect</button>
-            <button className="link" onClick={() => { setClaudeFlow(false); setClaudeInput(""); }}>cancel</button>
+            <input placeholder="code#state" disabled={!!busy} type="password" autoComplete="off" aria-label="Claude authorization code" value={claudeInput} onChange={(e) => setClaudeInput(e.target.value)} />
+            <button className="btn accent" disabled={!!busy || !claudeInput.trim()} onClick={() => void submitClaude()}>Connect</button>
+            <button className="link" disabled={!!busy} onClick={() => { setClaudeFlow(false); setClaudeInput(""); }}>cancel</button>
           </div>
         </div>
       )}

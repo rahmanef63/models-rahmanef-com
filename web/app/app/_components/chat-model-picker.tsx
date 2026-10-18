@@ -2,38 +2,20 @@
 import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
-import { PROVIDER_LABEL, type Cred, type Catalog } from "@/features/byok";
+import { catalogMetadata, PROVIDER_LABEL, type Cred, type Catalog } from "@/features/byok";
 
 export const splitModel = (m: string): [string, string] => { const i = m.indexOf("/"); return [m.slice(0, i), m.slice(i + 1)]; };
 export const route = (kind?: string) => (kind === "oauth" ? { label: "OAUTH", cls: "oauth" } : { label: "API KEY", cls: "key" });
 export const kfmt = (n?: number) => (n == null ? "—" : n >= 1000 ? Math.round(n / 1000) + "k" : String(n));
 
-// pull models.dev metadata (context, cost, modalities…) for the inspector. null for oauth models
-// or anything not in the catalog.
-function modelMeta(catalog: Catalog, provider: string, id: string) {
-  const m = (catalog[provider]?.models as Record<string, any> | undefined)?.[id];
-  if (!m) return null;
-  const cells: [string, string][] = [];
-  if (m.limit?.context != null) cells.push(["context", kfmt(m.limit.context) + " tok"]);
-  if (m.limit?.output != null) cells.push(["max out", kfmt(m.limit.output) + " tok"]);
-  if (m.cost?.input != null) cells.push(["in $/M", "$" + m.cost.input]);
-  if (m.cost?.output != null) cells.push(["out $/M", "$" + m.cost.output]);
-  if (m.tool_call != null) cells.push(["tools", m.tool_call ? "yes" : "no"]);
-  if (m.reasoning != null) cells.push(["reasoning", m.reasoning ? "yes" : "no"]);
-  if (Array.isArray(m.modalities?.input) && m.modalities.input.length) cells.push(["input", m.modalities.input.join(" · ")]);
-  if (m.knowledge) cells.push(["knowledge", String(m.knowledge)]);
-  if (m.release_date) cells.push(["released", String(m.release_date)]);
-  return cells;
-}
-
 export function ModelInspector({ catalog, model }: { catalog: Catalog; model: string }) {
   const [provider, id] = splitModel(model);
-  const cells = modelMeta(catalog, provider, id);
+  const cells = catalogMetadata(catalog[provider]?.models?.[id]);
   return (
     <div className="wb-inspector">
       <div className="insp-id mono">{provider}<span className="muted">/</span>{id}</div>
       {!cells || cells.length === 0 ? (
-        <p className="muted mono" style={{ fontSize: ".74rem", margin: 0 }}>No catalog metadata for this model.</p>
+        <p className="muted mono" style={{ fontSize: ".74rem", margin: 0 }}>No models.dev metadata for this model. Pricing and capabilities are unknown.</p>
       ) : (
         <div className="insp-grid">
           {cells.map(([k, val]) => (
@@ -41,6 +23,7 @@ export function ModelInspector({ catalog, model }: { catalog: Catalog; model: st
           ))}
         </div>
       )}
+      {cells.length > 0 && <p className="muted mono" style={{ fontSize: ".72rem", margin: ".5rem 0 0" }}>Source: <a href="https://models.dev" target="_blank" rel="noreferrer">models.dev</a> catalog · prices per million tokens. Account access and current provider pricing are not verified.</p>}
     </div>
   );
 }
